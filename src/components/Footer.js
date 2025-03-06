@@ -5,7 +5,7 @@ import '../styles/Footer.css'; // Certifique-se de adicionar o arquivo CSS para 
 function Footer() {
   return (
     <footer className="footer">
-      <p>Criado por Miguel Kimura Brito</p>
+      <p>Desenvolvido por Miguel Kimura Brito</p>
     </footer>
   );
 }
