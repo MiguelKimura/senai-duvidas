@@ -6,66 +6,84 @@ import Login from './components/Login';
 import Cadastro from './components/Cadastro';
 import TelaAluno from './components/TelaAluno';
 import TelaProfessor from './components/TelaProfessor';
-import Footer from './components/Footer'; // Importe o Footer
+import Footer from './components/Footer';
 
 function App() {
-  const [usuarioLogado, setUsuarioLogado] = useState(null);
+  const [usuarioLogado, setUsuarioLogado] = useState(() => {
+    const userData = localStorage.getItem('usuarioLogado');
+    return userData ? JSON.parse(userData) : null;
+  });
+
+  const [carregando, setCarregando] = useState(true); // Estado para evitar renderização prematura
   const auth = getAuth(app);
   const providerGoogle = new GoogleAuthProvider();
   const providerGithub = new GithubAuthProvider();
 
-  // Função para monitorar o estado de autenticação do usuário
+  // Monitora a autenticação do usuário
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        setUsuarioLogado({
+        const usuario = {
           nome: user.displayName,
-          tipo: 'aluno', // ou 'professor', você pode fazer isso dinâmico com a lógica do seu app
+          tipo: localStorage.getItem('tipoUsuario') || 'aluno',
           email: user.email,
-        });
+        };
+        setUsuarioLogado(usuario);
+        localStorage.setItem('usuarioLogado', JSON.stringify(usuario));
       } else {
         setUsuarioLogado(null);
+        localStorage.removeItem('usuarioLogado');
       }
+      setCarregando(false); // Finaliza o carregamento
     });
 
     return () => unsubscribe();
   }, [auth]);
 
-  // Função para login com Google
+  // Login com Google
   const handleLoginGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, providerGoogle);
       const user = result.user;
-      setUsuarioLogado({
+      const usuario = {
         nome: user.displayName,
-        tipo: 'aluno', // Ajuste com base na lógica do seu app
+        tipo: localStorage.getItem('tipoUsuario') || 'aluno',
         email: user.email,
-      });
+      };
+      setUsuarioLogado(usuario);
+      localStorage.setItem('usuarioLogado', JSON.stringify(usuario));
     } catch (error) {
       console.error('Erro ao fazer login com Google:', error.message);
     }
   };
 
-  // Função para login com GitHub
+  // Login com GitHub
   const handleLoginGithub = async () => {
     try {
       const result = await signInWithPopup(auth, providerGithub);
       const user = result.user;
-      setUsuarioLogado({
+      const usuario = {
         nome: user.displayName,
-        tipo: 'aluno', // Ajuste com base na lógica do seu app
+        tipo: localStorage.getItem('tipoUsuario') || 'aluno',
         email: user.email,
-      });
+      };
+      setUsuarioLogado(usuario);
+      localStorage.setItem('usuarioLogado', JSON.stringify(usuario));
     } catch (error) {
       console.error('Erro ao fazer login com GitHub:', error.message);
     }
   };
 
+  // Exibe carregamento antes de renderizar a interface
+  if (carregando) {
+    return <p>Carregando...</p>;
+  }
+
   return (
     <Router>
       <div className="App">
         <Routes>
-          <Route exact path="/" element={<Login setUsuarioLogado={setUsuarioLogado} handleLoginGoogle={handleLoginGoogle} handleLoginGithub={handleLoginGithub} />} />
+          <Route path="/" element={<Login setUsuarioLogado={setUsuarioLogado} handleLoginGoogle={handleLoginGoogle} handleLoginGithub={handleLoginGithub} />} />
           <Route path="/cadastro" element={<Cadastro setUsuarioLogado={setUsuarioLogado} />} />
           <Route 
             path="/aluno" 
@@ -76,8 +94,6 @@ function App() {
             element={usuarioLogado?.tipo === 'professor' ? <TelaProfessor /> : <Login setUsuarioLogado={setUsuarioLogado} handleLoginGoogle={handleLoginGoogle} handleLoginGithub={handleLoginGithub} />} 
           />
         </Routes>
-
-        {/* Adicionando o Footer aqui para aparecer em todas as páginas */}
         <Footer />
       </div>
     </Router>
