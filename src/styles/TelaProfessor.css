@@ -1,22 +1,37 @@
+/* TelaProfessor.css */
 .tela-professor {
-    padding: 20px;
-    background-color: #f5f5f5;
-    font-family: Arial, sans-serif;
-  }
-  
-  .problemas-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-  }
-  
-  .problema-card {
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  }
-  
-  .problema-card p {
-    margin: 0;
-  }
-  
+  padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  background-color: #f5f5f5;
+  font-family: Arial, sans-serif;
+}
+
+.tela-professor h1 {
+  position: sticky;
+  top: 0; /* Garante que o título fique fixo no topo */
+  background-color: #f5f5f5; /* Cor de fundo para evitar que o título "se perca" quando rolar */
+  padding: 10px 0; /* Ajuste no padding para dar um pouco de espaço ao redor do título */
+  font-size: 24px; /* Ajuste do tamanho da fonte */
+  color: #333;
+  z-index: 1; /* Garante que o título fique sobre outros elementos */
+}
+
+.tela-professor .problemas-list {
+  margin-top: 250px; /* Aumentando o espaço entre o título fixo e os cards */
+  flex-grow: 1; /* Faz a lista de problemas ocupar o restante da tela */
+  overflow-y: auto; /* Habilita rolagem apenas na página */
+}
+
+.tela-professor .problema-card {
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  background-color: #ffffff; /* Adicionando fundo branco para os cards */
+}
+
+.tela-professor .problema-card p {
+  margin: 0;
+}

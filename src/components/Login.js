@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/Login.css';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -11,7 +11,29 @@ const Login = ({ setUsuarioLogado }) => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Função para login com e-mail e senha
+  useEffect(() => {
+    // Verificar se já há um usuário autenticado
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        // O usuário já está logado, então vamos buscar as informações dele
+        const usuarioDocRef = doc(db, 'usuarios', user.uid);
+        const usuarioDocSnap = await getDoc(usuarioDocRef);
+
+        if (usuarioDocSnap.exists()) {
+          const usuario = usuarioDocSnap.data();
+          console.log('Usuário encontrado no Firestore:', usuario);
+          setUsuarioLogado(usuario);
+          navigate(usuario.tipo === 'aluno' ? '/aluno' : '/professor');
+        } else {
+          alert('Usuário não encontrado no banco de dados.');
+        }
+      }
+    });
+
+    // Limpar a inscrição no listener quando o componente for desmontado
+    return () => unsubscribe();
+  }, [setUsuarioLogado, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -87,3 +109,4 @@ const Login = ({ setUsuarioLogado }) => {
 };
 
 export default Login;
+  

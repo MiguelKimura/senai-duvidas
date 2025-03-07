@@ -45,7 +45,7 @@ const handleAuthError = (error) => {
     case "auth/account-exists-with-different-credential":
       return "Este e-mail já está vinculado a outra conta.";
     case "auth/unauthorized-domain":
-      return "O domínio deste site não está autorizado para login. Verifique sua configuração no Firebase.";
+      return "O domínio deste site não está autorizado para login. Verifique as configurações no Firebase.";
     case "auth/cancelled-popup-request":
       return "Outra solicitação de login já está em andamento.";
     case "auth/popup-blocked":
@@ -60,7 +60,7 @@ const handleAuthError = (error) => {
 // Função para login com Google
 const signInWithGoogle = async () => {
   try {
-    await setPersistence(auth, browserLocalPersistence);
+    await setPersistence(auth, browserLocalPersistence); // Garante a persistência
     const result = await signInWithPopup(auth, googleProvider);
     console.log("Usuário logado com Google:", result.user);
     return result.user;
@@ -74,7 +74,7 @@ const signInWithGoogle = async () => {
 // Função para login com GitHub
 const signInWithGithub = async () => {
   try {
-    await setPersistence(auth, browserLocalPersistence);
+    await setPersistence(auth, browserLocalPersistence); // Garante a persistência
     const result = await signInWithPopup(auth, githubProvider);
     console.log("Usuário logado com GitHub:", result.user);
     return result.user;
@@ -89,9 +89,19 @@ const signInWithGithub = async () => {
 onAuthStateChanged(auth, (user) => {
   if (user) {
     console.log("Usuário autenticado:", user);
+    // Você pode verificar aqui a persistência do usuário
   } else {
     console.log("Nenhum usuário autenticado");
   }
 });
+
+// Definir a persistência do usuário na inicialização para garantir que o login seja mantido
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log("Persistência do usuário configurada para 'local'");
+  })
+  .catch((error) => {
+    console.error("Erro ao configurar persistência:", error);
+  });
 
 export { app, auth, db, signInWithGoogle, signInWithGithub };
