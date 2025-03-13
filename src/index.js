@@ -1,9 +1,10 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import ReactDOM from 'react-dom/client';  // Alterado para 'react-dom/client'
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+// Agora cria a raiz usando o 'createRoot' importado de 'react-dom/client'
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
@@ -11,7 +12,7 @@ root.render(
   </React.StrictMode>
 );
 
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
+// Se você deseja medir a performance do seu app, passe uma função
+// para registrar os resultados (por exemplo: reportWebVitals(console.log))
+// ou envie para um endpoint de análise. Saiba mais: https://bit.ly/CRA-vitals
 reportWebVitals();

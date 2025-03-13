@@ -24,8 +24,7 @@ const Cadastro = () => {
     try {
       // Verifica permissão antes de cadastrar como professor
       if (tipo === "professor") {
-        console.log("Verificando permissão para:", email); // Debug
-        const podeCadastrar = await verificarPermissao(email); // Passando o email para a verificação
+        const podeCadastrar = await verificarPermissao(email.trim().toLowerCase()); // Normaliza o e-mail
         if (!podeCadastrar) {
           setErrorMessage("Apenas usuários autorizados podem se cadastrar como professores.");
           setIsLoading(false);
