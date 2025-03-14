@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { db, auth } from '../firebase';
-import { collection, addDoc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot } from 'firebase/firestore';
 import '../styles/TelaAluno.css';
 
 function TelaAluno() {
@@ -10,20 +10,23 @@ function TelaAluno() {
   const [usuarioNome, setUsuarioNome] = useState('');
 
   useEffect(() => {
-    // Obtém o usuário autenticado
     const user = auth.currentUser;
     if (user) {
       setUsuarioNome(user.displayName || "Aluno");
     }
 
-    // Buscar os chamados do Firestore
-    const fetchProblemas = async () => {
-      const querySnapshot = await getDocs(collection(db, "chamados"));
+    // Escuta em tempo real os chamados no Firestore
+    const unsubscribe = onSnapshot(collection(db, "chamados"), (querySnapshot) => {
       const problemasList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setProblemas(problemasList);
-    };
 
-    fetchProblemas();
+      // Ordena os chamados pelo horário, do mais antigo para o mais novo
+      problemasList.sort((a, b) => new Date(a.horario) - new Date(b.horario));
+
+      setProblemas(problemasList);
+    });
+
+    // Cleanup para quando o componente for desmontado
+    return () => unsubscribe();
   }, []);
 
   const openModal = () => setIsModalOpen(true);
@@ -33,7 +36,7 @@ function TelaAluno() {
     if (!descricao) return;
 
     const novaCor = `hsl(${Math.random() * 360}, 70%, 80%)`;
-    const horario = new Date().toLocaleString();
+    const horario = new Date().toISOString(); // Usa ISO 8601 para garantir compatibilidade na ordenação
 
     const novoProblema = {
       nome: usuarioNome,
@@ -43,8 +46,8 @@ function TelaAluno() {
     };
 
     // Salvar no Firestore
-    const docRef = await addDoc(collection(db, "chamados"), novoProblema);
-    setProblemas([...problemas, { id: docRef.id, ...novoProblema }]);
+    await addDoc(collection(db, "chamados"), novoProblema);
+
     closeModal();
   };
 
@@ -64,7 +67,7 @@ function TelaAluno() {
           >
             <p><strong>{problema.nome}</strong></p>
             <p>{problema.descricao}</p>
-            <p><em>{problema.horario}</em></p>
+            <p><em>{new Date(problema.horario).toLocaleString()}</em></p>
           </div>
         ))}
       </div>

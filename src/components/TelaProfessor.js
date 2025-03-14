@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore'; // Importando deleteDoc
+import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore'; // Usando onSnapshot
 import '../styles/TelaProfessor.css';
 
 function TelaProfessor() {
   const [problemas, setProblemas] = useState([]);
 
   useEffect(() => {
-    // Buscar chamados do Firestore
-    const fetchProblemas = async () => {
-      const querySnapshot = await getDocs(collection(db, "chamados"));
+    // Escuta em tempo real os chamados no Firestore
+    const unsubscribe = onSnapshot(collection(db, "chamados"), (querySnapshot) => {
       const problemasList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setProblemas(problemasList);
-    };
+    });
 
-    fetchProblemas();
+    // Cleanup para quando o componente for desmontado
+    return () => unsubscribe();
   }, []);
 
   // Função para excluir um chamado
@@ -22,9 +22,6 @@ function TelaProfessor() {
     try {
       // Excluir o chamado do Firestore
       await deleteDoc(doc(db, "chamados", id));
-      
-      // Atualizar a lista de chamados após a exclusão
-      setProblemas(problemas.filter(problema => problema.id !== id));
       alert('Chamado excluído com sucesso!');
     } catch (error) {
       console.error("Erro ao excluir o chamado:", error);
@@ -45,7 +42,7 @@ function TelaProfessor() {
           >
             <p><strong>{problema.nome}</strong></p>
             <p>{problema.descricao}</p>
-            <p><em>{problema.horario}</em></p>
+            <p><em>{new Date(problema.horario).toLocaleString()}</em></p>
 
             {/* Botão de exclusão */}
             <button onClick={() => handleDelete(problema.id)} className="delete-btn">
