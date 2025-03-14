@@ -34,22 +34,27 @@ function TelaProfessor() {
       <h1>Chamados dos Alunos</h1>
 
       <div className="problemas-list">
-        {problemas.map((problema) => (
-          <div
-            key={problema.id}
-            className="problema-card"
-            style={{ backgroundColor: problema.cor }}
-          >
-            <p><strong>{problema.nome}</strong></p>
-            <p>{problema.descricao}</p>
-            <p><em>{new Date(problema.horario).toLocaleString()}</em></p>
+        {problemas.map((problema) => {
+          // Verifica se 'problema.horario' é um Timestamp do Firebase
+          const dataFormatada = problema.horario ? problema.horario.toDate().toLocaleString() : 'Data inválida';
 
-            {/* Botão de exclusão */}
-            <button onClick={() => handleDelete(problema.id)} className="delete-btn">
-              Excluir
-            </button>
-          </div>
-        ))}
+          return (
+            <div
+              key={problema.id}
+              className="problema-card"
+              style={{ backgroundColor: problema.cor }}
+            >
+              <p><strong>{problema.nome}</strong></p>
+              <p>{problema.descricao}</p>
+              <p><em>{dataFormatada}</em></p>
+
+              {/* Botão de exclusão */}
+              <button onClick={() => handleDelete(problema.id)} className="delete-btn">
+                Excluir
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

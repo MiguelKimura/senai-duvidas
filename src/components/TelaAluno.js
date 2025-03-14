@@ -45,10 +45,14 @@ function TelaAluno() {
       cor: novaCor,
     };
 
-    // Salvar no Firestore
-    await addDoc(collection(db, "chamados"), novoProblema);
-
-    closeModal();
+    try {
+      // Salvar no Firestore
+      await addDoc(collection(db, "chamados"), novoProblema);
+      closeModal(); // Fecha o modal após a submissão
+    } catch (error) {
+      console.error("Erro ao adicionar problema:", error);
+      alert('Erro ao adicionar o problema. Tente novamente mais tarde.');
+    }
   };
 
   return (
