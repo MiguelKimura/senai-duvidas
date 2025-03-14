@@ -1,17 +1,17 @@
-/* TelaAluno.css */
 .tela-aluno {
   padding: 20px;
-  min-height: 100vh;
+  height: 95vh;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  background-color: #f5f5f5; /* Cor de fundo similar à tela do professor */
+  background-color: #f5f5f5;
   font-family: Arial, sans-serif;
+  overflow: hidden;
 }
 
 .tela-aluno h1 {
-  margin-top: 20px; /* Ajuste para uniformizar o espaçamento superior */
-  font-size: 24px; /* Mesmo tamanho de fonte do título na tela do professor */
+  margin-top: 20px;
+  font-size: 24px;
   color: #333;
 }
 
@@ -37,14 +37,17 @@
 }
 
 .tela-aluno .problemas-list {
-  margin-top: 20px; /* Espaço adequado entre o título e os cards */
-  flex-grow: 1; /* Faz a lista de problemas ocupar o restante da tela */
-  overflow-y: auto; /* Habilita rolagem apenas na página */
+  margin-top: 20px;
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-bottom: 80px;
+  height: calc(100vh - 120px);
+  overflow-x: hidden;
 }
 
 .tela-aluno .problema-card {
   padding: 10px;
   margin-bottom: 10px;
   border-radius: 5px;
-  background-color: #ffffff; /* Adicionando fundo branco para os cards */
+  background-color: #ffffff;
 }

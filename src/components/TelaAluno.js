@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { db, auth } from '../firebase';
 import { collection, addDoc, onSnapshot } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';  // Não se esqueça de importar o Timestamp
 import '../styles/TelaAluno.css';
 
 function TelaAluno() {
@@ -17,10 +18,27 @@ function TelaAluno() {
 
     // Escuta em tempo real os chamados no Firestore
     const unsubscribe = onSnapshot(collection(db, "chamados"), (querySnapshot) => {
-      const problemasList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const problemasList = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+
+        // Verifica se o horário é um Timestamp do Firestore
+        let horario = data.horario;
+        if (horario instanceof Timestamp) {
+          // Converte Timestamp para Date
+          horario = horario.toDate();
+        } else if (typeof horario === 'string') {
+          // Se for uma string, tenta convertê-la para Date
+          horario = new Date(horario);
+        } else {
+          // Caso contrário, garante que o valor seja uma data válida
+          horario = new Date();
+        }
+
+        return { id: doc.id, ...data, horario };
+      });
 
       // Ordena os chamados pelo horário, do mais antigo para o mais novo
-      problemasList.sort((a, b) => new Date(a.horario) - new Date(b.horario));
+      problemasList.sort((a, b) => a.horario - b.horario);
 
       setProblemas(problemasList);
     });
@@ -45,14 +63,10 @@ function TelaAluno() {
       cor: novaCor,
     };
 
-    try {
-      // Salvar no Firestore
-      await addDoc(collection(db, "chamados"), novoProblema);
-      closeModal(); // Fecha o modal após a submissão
-    } catch (error) {
-      console.error("Erro ao adicionar problema:", error);
-      alert('Erro ao adicionar o problema. Tente novamente mais tarde.');
-    }
+    // Salvar no Firestore
+    await addDoc(collection(db, "chamados"), novoProblema);
+
+    closeModal();
   };
 
   return (
