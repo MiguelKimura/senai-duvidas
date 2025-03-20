@@ -87,7 +87,7 @@ function App() {
           <Route path="/cadastro" element={<Cadastro setUsuarioLogado={setUsuarioLogado} />} />
           <Route 
             path="/aluno" 
-            element={usuarioLogado?.tipo === 'aluno' ? <TelaAluno /> : <Login setUsuarioLogado={setUsuarioLogado} handleLoginGoogle={handleLoginGoogle} handleLoginGithub={handleLoginGithub} />} 
+            element={usuarioLogado?.tipo === 'aluno' ? <TelaAluno setUsuarioLogado={setUsuarioLogado} /> : <Login setUsuarioLogado={setUsuarioLogado} handleLoginGoogle={handleLoginGoogle} handleLoginGithub={handleLoginGithub} />} 
           />
           <Route 
             path="/professor" 
@@ -101,3 +101,4 @@ function App() {
 }
 
 export default App;
+  

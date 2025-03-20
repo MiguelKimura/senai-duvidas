@@ -9,6 +9,7 @@ import {
   onAuthStateChanged 
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Importando o Firebase Storage
 
 // Configuração do Firebase
 const firebaseConfig = {
@@ -23,9 +24,10 @@ const firebaseConfig = {
 // Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
 
-// Inicializa o Auth e Firestore
+// Inicializa o Auth, Firestore e Storage
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app); // Inicializando o Storage
 
 // Inicializa os provedores de autenticação e adiciona escopos
 const googleProvider = new GoogleAuthProvider();
@@ -85,6 +87,21 @@ const signInWithGithub = async () => {
   }
 };
 
+// Função para fazer upload de imagens para o Firebase Storage
+const uploadImage = async (imageFile) => {
+  const imageRef = ref(storage, `imagens/${imageFile.name}`); // Defina o caminho da imagem
+  try {
+    // Envia a imagem para o Firebase Storage
+    await uploadBytes(imageRef, imageFile);
+    // Obtém a URL pública da imagem após o upload
+    const imageUrl = await getDownloadURL(imageRef);
+    return imageUrl; // Retorna a URL pública
+  } catch (error) {
+    console.error("Erro ao fazer upload da imagem:", error);
+    throw error;
+  }
+};
+
 // Listener para detectar mudanças na autenticação
 onAuthStateChanged(auth, (user) => {
   if (user) {
@@ -104,4 +121,4 @@ setPersistence(auth, browserLocalPersistence)
     console.error("Erro ao configurar persistência:", error);
   });
 
-export { app, auth, db, signInWithGoogle, signInWithGithub };
+export { app, auth, db, storage, signInWithGoogle, signInWithGithub, uploadImage };

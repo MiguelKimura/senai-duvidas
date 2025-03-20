@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { db, auth } from '../firebase';
-import { collection, addDoc, onSnapshot } from 'firebase/firestore';
-import { Timestamp } from 'firebase/firestore';  // Não se esqueça de importar o Timestamp
+import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 import '../styles/TelaAluno.css';
 
 function TelaAluno() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [problemas, setProblemas] = useState([]);
   const [usuarioNome, setUsuarioNome] = useState('');
+  const navigate = useNavigate(); // Hook para navegação
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -16,66 +18,75 @@ function TelaAluno() {
       setUsuarioNome(user.displayName || "Aluno");
     }
 
-    // Escuta em tempo real os chamados no Firestore
     const unsubscribe = onSnapshot(collection(db, "chamados"), (querySnapshot) => {
       const problemasList = querySnapshot.docs.map(doc => {
         const data = doc.data();
-
-        // Verifica se o horário é um Timestamp do Firestore
         let horario = data.horario;
         if (horario instanceof Timestamp) {
-          // Converte Timestamp para Date
           horario = horario.toDate();
         } else if (typeof horario === 'string') {
-          // Se for uma string, tenta convertê-la para Date
           horario = new Date(horario);
         } else {
-          // Caso contrário, garante que o valor seja uma data válida
           horario = new Date();
         }
 
         return { id: doc.id, ...data, horario };
       });
 
-      // Ordena os chamados pelo horário, do mais antigo para o mais novo
-      problemasList.sort((a, b) => a.horario - b.horario);
-
+      problemasList.sort((a, b) => a.horario - b.horario); // Ordenando os problemas pela data
       setProblemas(problemasList);
     });
 
-    // Cleanup para quando o componente for desmontado
-    return () => unsubscribe();
+    return () => unsubscribe(); // Limpar o listener quando o componente for desmontado
   }, []);
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 
-  const addProblema = async (descricao) => {
+  const addProblema = async (descricao, imagem) => {
     if (!descricao) return;
 
+    const user = auth.currentUser;
+    if (!user) return;
+
     const novaCor = `hsl(${Math.random() * 360}, 70%, 80%)`;
-    const horario = new Date().toISOString(); // Usa ISO 8601 para garantir compatibilidade na ordenação
+    const horario = new Date().toISOString();
 
     const novoProblema = {
       nome: usuarioNome,
+      email: user.email,
       descricao,
       horario,
       cor: novaCor,
+      imagem: imagem || null, // Salva a imagem (se houver)
     };
 
-    // Salvar no Firestore
-    await addDoc(collection(db, "chamados"), novoProblema);
+    try {
+      await addDoc(collection(db, "chamados"), novoProblema);
+      closeModal();
+    } catch (error) {
+      console.error("Erro ao adicionar problema:", error);
+    }
+  };
 
-    closeModal();
+  const removerProblema = async (id) => {
+    try {
+      await deleteDoc(doc(db, "chamados", id));
+    } catch (error) {
+      console.error("Erro ao excluir chamado:", error);
+    }
+  };
+
+  // Função para abrir a imagem
+  const visualizarImagem = (imagemUrl) => {
+    window.open(imagemUrl, '_blank');
   };
 
   return (
     <div className="tela-aluno">
       <h1>Bem-vindo, {usuarioNome}!</h1>
-      <p>Aqui estão seus problemas registrados.</p>
-
+      <p>Aqui estão os problemas registrados.</p>
       <button className="add-button" onClick={openModal}>+</button>
-
       <div className="problemas-list">
         {problemas.map((problema) => (
           <div
@@ -83,13 +94,31 @@ function TelaAluno() {
             className="problema-card"
             style={{ backgroundColor: problema.cor }}
           >
-            <p><strong>{problema.nome}</strong></p>
+            <div className="card-header">
+              <p className="user-name"><strong>{problema.nome}</strong></p>
+              {/* Exibir ícone para visualizar a imagem no canto superior direito do card, caso haja imagem */}
+              {problema.imagem && (
+                <div 
+                  className="view-image-icon" 
+                  onClick={() => visualizarImagem(problema.imagem)}
+                  title="Ver imagem"
+                >
+                  👁️
+                </div>
+              )}
+            </div>
+            
             <p>{problema.descricao}</p>
             <p><em>{new Date(problema.horario).toLocaleString()}</em></p>
+            
+            {problema.email === auth.currentUser?.email && (
+              <button className="delete-button" onClick={() => removerProblema(problema.id)}>
+                Excluir
+              </button>
+            )}
           </div>
         ))}
       </div>
-
       {isModalOpen && <Modal onClose={closeModal} onSubmit={addProblema} />}
     </div>
   );
