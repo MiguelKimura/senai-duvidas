@@ -44,8 +44,10 @@ function Modal({ onClose, onSubmit }) {
           <p>Digite o URL da imagem</p>
         </div>
 
+        <div className="buttons-container">
         <button onClick={handleSubmit}>Concluir</button>
-        <button className="close-button" onClick={onClose}>Fechar</button>
+        <button className="close-button" onClick={onClose}>Fechar</button> 
+        </div>
       </div>
     </div>
   );

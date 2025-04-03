@@ -94,9 +94,11 @@ const Login = ({ setUsuarioLogado }) => {
               disabled={loading}
             />
           </div>
-          <button type="submit" disabled={loading}>
-            {loading ? 'Carregando...' : 'Entrar'}
-          </button>
+          <div className="button-container">
+    <button type="submit" disabled={loading}>
+      {loading ? 'Carregando...' : 'Entrar'}
+    </button>
+  </div>
         </form>
 
         <br />

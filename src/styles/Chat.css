@@ -1,0 +1,172 @@
+.chat-container {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;  
+  background-color: #e9e9e9;
+  border-radius: 10px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+  width: 300px;
+  font-family: Arial, sans-serif;
+}
+
+.toggle-chat-btn {
+  width: 50px;
+  height: 50px;
+  background-color: #ff0000;
+  color: white;
+  border-radius: 50%;
+  font-size: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  border: none;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.toggle-chat-btn:hover {
+  background-color: #8f0000;
+}
+
+.chat-box {
+  position: fixed;
+  bottom: 70px;
+  left: 80px;
+  width: 300px;
+  height: 400px;
+  background-color: #fff;
+  border-radius: 20px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  overflow-y: auto;
+  z-index: 999;
+}
+
+.chat-header {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.mensagens-list {
+  margin-bottom: 20px;
+}
+
+.mensagem-card {
+  display: flex;
+  justify-content: flex-start; /* Por padrão, as mensagens serão alinhadas à esquerda */
+  margin-bottom: 15px;
+}
+
+.mensagem-card.received {
+  justify-content: flex-start; /* Mensagens recebidas à esquerda */
+}
+
+.mensagem-card.sent {
+  justify-content: flex-end; /* Mensagens enviadas à direita */
+}
+
+.fas {
+  font-size: 24px;
+}
+
+.fala-box {
+  background-color: #ff0000;
+  color: white;
+  padding: 10px;
+  border-radius: 10px;
+  max-width: 80%;
+  font-size: 0.8em;
+  word-wrap: break-word;
+  display: inline-block;
+}
+
+.fala-box.sent {
+  background-color: #007bff; /* Cor para as mensagens enviadas */
+}
+
+.fala-box.received {
+  background-color: #28a745; /* Cor para as mensagens recebidas */
+}
+
+.fala-box strong {
+  color: #fff;
+  font-weight: bold;
+}
+
+.input-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 10px;
+  position: fixed;
+  bottom: 20px;
+  left: 80px;
+  width: 300px;
+  padding: 10px;
+  background-color: #fff;
+  z-index: 1000;
+}
+
+input[type="text"] {
+  width: 80%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.enviar-btn {
+  width: 40px;
+  height: 40px;
+  margin-left: 15px;
+  background-color: #ff0000;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  border: none;
+}
+
+.enviar-btn:hover {
+  background-color: #8f0000;
+}
+
+.enviar-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: white;
+}
+
+button {
+  width: 50px;
+  height: 50px;
+  padding: 10px;
+  background-color: #ff0000;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #8f0000;
+}
+
+.credits {
+  font-size: 12px;
+  text-align: center;
+  color: gray;
+  position: fixed;
+  bottom: 70px; /* Ajustado para que não sobreponha o botão */
+  left: 80px;
+  width: 300px;
+  background-color: #fff;
+  border-radius: 0 0 20px 20px;
+  padding: 5px;
+  z-index: 9999; /* Garante que os créditos fiquem visíveis */
+}

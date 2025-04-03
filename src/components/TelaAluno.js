@@ -5,6 +5,8 @@ import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firesto
 import { Timestamp } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import '../styles/TelaAluno.css';
+import Chat from './Chat';
+
 
 function TelaAluno() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,6 +122,8 @@ function TelaAluno() {
         ))}
       </div>
       {isModalOpen && <Modal onClose={closeModal} onSubmit={addProblema} />}
+
+      <Chat />
     </div>
   );
 }

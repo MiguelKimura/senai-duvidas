@@ -3,6 +3,7 @@ import { db, auth } from '../firebase'; // Importando auth de sua configuração
 import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
 import '../styles/TelaProfessor.css';
+import Chat from './Chat';
 
 function TelaProfessor() {
   const [problemas, setProblemas] = useState([]);
@@ -87,6 +88,7 @@ function TelaProfessor() {
           </div>
         ))}
       </div>
+      <Chat/>
     </div>
   );
 }

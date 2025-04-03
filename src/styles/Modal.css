@@ -16,7 +16,8 @@
   padding: 20px;
   border-radius: 8px;
   max-width: 400px;
-  width: 100%;
+  width: 90%; /* Melhor para telas menores */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 textarea {
@@ -32,34 +33,46 @@ textarea {
   transition: all 0.3s ease;
 }
 
-
 textarea:focus {
   border-color: #ff0000;
-  box-shadow: 0 0 5px rgba(255, 0, 0, 0.3); 
-  outline: none; 
+  box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
+  outline: none;
 }
 
+/* Contêiner para alinhar botões corretamente */
+.buttons-container {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+/* Aplicado a todos os botões para uniformidade */
 button {
-  padding: 10px;
+  padding: 12px;
   border: none;
   background-color: #ff0000;
   color: white;
   border-radius: 8px;
   cursor: pointer;
-  margin-top: 15px;
-  width: 100%;
+  flex: 1; /* Garante que ambos os botões tenham o mesmo tamanho */
+  font-size: 16px;
 }
 
 button:hover {
   background-color: #8f0000;
 }
 
+/* Botão de fechar com cor diferenciada */
 .close-button {
   background-color: #ccc;
-  margin-top: 10px;
-  width: 100%;
+  color: black;
 }
 
+.close-button:hover {
+  background-color: #999;
+}
+
+/* Estilo para entrada de URL */
 .image-url-container {
   margin-bottom: 15px;
 }
@@ -75,7 +88,6 @@ button:hover {
   transition: all 0.3s ease;
 }
 
-/* Aplica a borda vermelha e sombra ao focar no campo de URL */
 .image-url-container input[type="text"]:focus {
   border-color: #ff0000;
   box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);

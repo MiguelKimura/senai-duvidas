@@ -81,6 +81,8 @@
 .tela-professor .problema-card .delete-button {
   margin-top: 10px; 
   align-self: center; 
+  width: 100%;
+  height: auto;
   padding: 8px 15px;
   background-color: #ff0000;
   color: white;

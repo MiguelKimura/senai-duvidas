@@ -94,6 +94,8 @@
 
 .tela-aluno .problema-card .delete-button {
   margin-top: 10px;
+  width: 100%;
+  text-align: center;
   padding: 5px 10px;
   background-color: #ff0000;
   color: white;
