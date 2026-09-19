@@ -27,3 +27,7 @@ senai-duvidas-firebase-adminsdk-fbsvc-1150ffdda1.json
 
 # orquestrador da fila de automação (worktrees e estado local)
 .automation/
+
+# python
+__pycache__/
+*.pyc
