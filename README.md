@@ -1,4 +1,26 @@
-# Getting Started with Create React App
+# Projeto Dúvidas SENAI
+
+Sistema de gestão de dúvidas para alunos e professores do SENAI. O aluno abre um "chamado"
+descrevendo o problema, com anexo de imagem; o professor vê a fila em tempo real e atende na ordem.
+Há também um chat da turma.
+
+## Planejamento (leia primeiro)
+
+| Documento | O que é |
+|---|---|
+| [`docs/CRITERIOS-DE-ACEITE.md`](docs/CRITERIOS-DE-ACEITE.md) | Todos os critérios de aceite do projeto, com ID estável e prioridade |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Caminho da v0.1.0 até a v1.0.0, versão por versão |
+| [`tasks/`](tasks/) | Uma task por versão, cada uma pronta para rodar como sessão one-shot |
+| [`docs/COMO-RODAR-AS-TASKS.md`](docs/COMO-RODAR-AS-TASKS.md) | Como executar as tasks e manter o repositório sincronizado |
+| [`docs/PROTECAO-BRANCHES.md`](docs/PROTECAO-BRANCHES.md) | Estratégia `main`/`dev` e configuração de proteção no GitHub |
+| [`docs/HISTORICO.md`](docs/HISTORICO.md) | Memória do projeto: o que mudou em cada versão e por quê |
+
+> O restante deste arquivo ainda é o texto padrão do Create React App. A task 00
+> (`tasks/00-fundacao-testes.md`) o reescreve com a documentação real do projeto.
+
+---
+
+## Referência do Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
