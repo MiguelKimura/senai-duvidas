@@ -255,12 +255,21 @@ def claude_command(cfg: dict[str, Any], prompt: str) -> list[str]:
 
 def run_claude(cfg: dict[str, Any], wt: Path, task: Path, continuation: bool = False, run_number: int = 1) -> tuple[bool, str]:
     roadmap = cfg["project"]["roadmap_file"]
+    base = cfg["project"]["base_branch"]
     task_rel = os.path.relpath(task, wt)
     continuation_note = ""
     if continuation:
         continuation_note = f"""
-This is continuation execution {run_number} of the same task after the previous Claude session reached its turn limit.
-DO NOT reset, revert, clean, or discard existing work. First inspect `git status` and `git diff` in the current worktree, review what has already been implemented, and continue from the current state. Preserve correct existing changes.
+This is continuation execution {run_number} of the same task. A previous Claude session on this
+same worktree was interrupted before finishing — it may have hit its turn limit, a usage limit,
+or a network failure. Work from that session may already be committed on this branch.
+
+DO NOT reset, revert, clean, or discard existing work. Before anything else:
+  1. Run `git log --oneline origin/{base}..HEAD` to see what has already been committed.
+  2. Run `git status` and `git diff` to see uncommitted work in progress.
+  3. Read the files that were already changed.
+Then continue from that state toward the task's acceptance criteria. Preserve correct existing
+changes and do not redo work that is already done and passing.
 """
     prompt = f"""
 Read the global project rules in @{roadmap}, then read the task requirements in @{task_rel}.
@@ -485,7 +494,13 @@ def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, A
         try:
             ensure_clean(repo, base)
             wt = create_worktree(repo, wt_root, branch, base)
-            ok, claude_log = run_claude(cfg, wt, task, continuation=(continuation_count > 0), run_number=run_number)
+            # Uma execução anterior pode ter sido interrompida (rede, quota, max_turns)
+            # deixando commits na branch. Nesse caso a sessão precisa ser avisada para
+            # continuar, e não recomeçar do zero.
+            retomando = continuation_count > 0 or commits_ahead(wt, base) > 0
+            if retomando and continuation_count == 0:
+                print(f"[resume] A branch {branch} já tem {commits_ahead(wt, base)} commit(s). Continuando o trabalho anterior.")
+            ok, claude_log = run_claude(cfg, wt, task, continuation=retomando, run_number=run_number)
             if not ok:
                 # Session/quota reset is special: keep the worktree alive and wait.
                 if is_transient(claude_log, patterns) and wait_for_quota_retry(cfg, claude_log, safety_margin):
@@ -550,7 +565,13 @@ def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, A
                 "attempt": run_number, "failed_at": int(time.time())
             }
             save_state(repo / cfg["project"]["state_file"], state)
+            # Preserva o worktree: uma task pode representar horas de trabalho e
+            # custo real de API. Apagá-la numa falha joga fora tudo que não foi
+            # commitado. A próxima execução reaproveita o worktree e continua.
+            preserve_worktree = True
             print(f"[failed] {task.name}: {msg}", file=sys.stderr)
+            print(f"[failed] Worktree preservado em {wt}", file=sys.stderr)
+            print("[failed] Rode com --reset-failed para continuar de onde parou.", file=sys.stderr)
             return False
         finally:
             if not preserve_worktree:

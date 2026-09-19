@@ -94,9 +94,29 @@ e mescle. O script detecta o merge em até 30 segundos e segue.
 | `Working tree não está limpo` | Você tem alterações não commitadas na raiz | `git stash` ou commite antes de rodar |
 | `A tarefa terminou sem alterações no Git` | A sessão não produziu nada | Veja o log; normalmente é a task 00 falhando no `npm install` |
 | `Validação falhou` | `lint`, `test:ci` ou `build` vermelho | O gate funcionou. Leia o log, rode `--reset-failed` e tente de novo |
+| `SSL certificate has expired`, `Unable to connect`, `ECONNRESET` | Queda de internet | Tratado como transitório: o script espera (60s, 120s, 240s, 480s) e tenta de novo sozinho, até 4 vezes |
+| Task marcada `failed` depois de muito trabalho | Falha real, não transitória | O worktree é **preservado**. Inspecione-o, e rode `--reset-failed` para continuar de onde parou — a sessão é avisada de que está retomando |
 | `PR #N foi fechado sem merge` | Você fechou o PR | A fila para de propósito. Reabra ou rode `--reset-failed` |
 | Fila parada em `[quota]` | Limite de uso atingido | Deixe rodando: o script dorme até o reset e retoma sozinho |
 | `[resume] Claude atingiu max_turns` | Task grande | Normal. O worktree é preservado e a sessão continua de onde parou |
 
 O estado fica em `.automation/state.json`. Apagar esse arquivo faz a fila recomeçar do zero —
 e ela vai tentar recriar branches que já existem. Prefira `--reset-failed`.
+
+## Retomada depois de uma interrupção
+
+Uma task pode representar bastante tempo e custo real de API. Por isso o worktree **nunca é
+apagado** quando a task falha, e a branch mantém os commits dos ciclos red-green-refactor que já
+passaram.
+
+Ao rodar de novo com `--reset-failed`, o script detecta que a branch já tem commits e avisa a
+sessão de que ela está **continuando**, não recomeçando: ela lê `git log`, `git status` e `git
+diff` antes de agir, e aproveita o que já está pronto.
+
+Para descartar de propósito e começar a task do zero:
+
+```powershell
+git worktree remove --force .automation\worktrees\<branch-com-__>
+git branch -D <branch>
+python .\scripts\claude_queue.py --reset-failed
+```

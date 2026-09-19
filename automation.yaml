@@ -47,6 +47,24 @@ retry:
     - "temporarily unavailable"
     - "weekly limit"
     - "session limit"
+    # Falhas de rede. Sem estas, uma queda de internet no meio de uma task de
+    # 15 minutos a marca como `failed` e joga fora todo o trabalho já feito.
+    - "unable to connect"
+    - "ssl certificate"
+    - "certificate has expired"
+    - "econnreset"
+    - "econnrefused"
+    - "enotfound"
+    - "etimedout"
+    - "socket hang up"
+    - "network error"
+    - "connection error"
+    - "connection reset"
+    - "fetch failed"
+    - "api_error"
+    - "502"
+    - "503"
+    - "504"
 
 reset_detection:
   enabled: true
