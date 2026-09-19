@@ -24,7 +24,7 @@ import {
   __semearColecao,
 } from 'firebase/firestore';
 import TelaProfessor from '../TelaProfessor';
-import { fabricaChamado, renderComProvedores } from '../../test-utils';
+import { corDeFundo, fabricaChamado, renderComProvedores } from '../../test-utils';
 
 const db = getFirestore();
 
@@ -113,7 +113,8 @@ describe('TelaProfessor — lista de chamados (AC-CHAMADO-03)', () => {
 
     renderComProvedores(<TelaProfessor />);
 
-    expect(cardsNaTela()[0]).toHaveStyle({ backgroundColor: 'hsl(120, 70%, 80%)' });
+    // Ver corDeFundo.js: `toHaveStyle` com `hsl()` no jsdom nao prova nada.
+    expect(corDeFundo(cardsNaTela()[0])).toBe('hsl(120, 70%, 80%)');
   });
 
   it('reage em tempo real a um chamado criado enquanto a tela está aberta (AC-CHAMADO-02)', async () => {

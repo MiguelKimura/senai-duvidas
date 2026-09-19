@@ -24,6 +24,7 @@ import {
 } from 'firebase/firestore';
 import TelaAluno from '../TelaAluno';
 import {
+  corDeFundo,
   fabricaChamado,
   fixarRelogio,
   renderComProvedores,
@@ -119,7 +120,9 @@ describe('TelaAluno — lista de chamados (AC-CHAMADO-03)', () => {
 
     renderComProvedores(<TelaAluno />);
 
-    expect(cartoes()[0]).toHaveStyle({ backgroundColor: 'hsl(120, 70%, 80%)' });
+    // `toHaveStyle` passaria aqui mesmo com a cor errada: o jsdom desaba todo
+    // `hsl()` no mesmo cinza. `corDeFundo` le o valor que o componente pediu.
+    expect(corDeFundo(cartoes()[0])).toBe('hsl(120, 70%, 80%)');
   });
 
   it('reage em tempo real a um chamado criado por outra pessoa (AC-CHAMADO-02)', async () => {
