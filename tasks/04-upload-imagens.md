@@ -5,8 +5,8 @@ versao_origem: 0.5.0
 versao_alvo: 0.6.0
 tipo: feat
 escopo_commit: anexos
-branch: feat/upload-de-imagens
-branch_base: dev
+branch: "feat/upload-de-imagens"
+branch_base: "dev"
 depende_de: [00-fundacao-testes, 01-auth-oauth-sessao, 02-tempo-brasilia, 03-salas-pin]
 criterios: [AC-IMG-01, AC-IMG-02, AC-IMG-03, AC-IMG-04, AC-IMG-05, AC-IMG-06, AC-IMG-07, AC-IMG-08, AC-IMG-09, AC-IMG-10, AC-IMG-11, AC-IMG-12, AC-IMG-13, AC-SEC-08, AC-CHAMADO-08]
 modo: oneshot
@@ -168,7 +168,9 @@ explícita do cliente), `docs/ARQUITETURA.md` e
 
 ## Pull Request
 
-Contra `dev`:
+Não abra o PR você mesmo — o orquestrador abre. Escreva o título em
+`.automation/pr-title.txt` e o corpo em `.automation/pr-body.md`, no formato do
+`tasks/_PROTOCOLO.md`. Título:
 
 ```
 feat(anexos): permite anexar imagens do computador por upload, arrastar e colar

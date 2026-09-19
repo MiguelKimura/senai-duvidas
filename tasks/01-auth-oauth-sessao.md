@@ -5,8 +5,8 @@ versao_origem: 0.2.0
 versao_alvo: 0.3.0
 tipo: feat
 escopo_commit: auth
-branch: feat/auth-social-sessao
-branch_base: dev
+branch: "feat/auth-social-sessao"
+branch_base: "dev"
 depende_de: [00-fundacao-testes]
 criterios: [AC-AUTH-01, AC-AUTH-02, AC-AUTH-03, AC-AUTH-04, AC-AUTH-05, AC-AUTH-06, AC-AUTH-07, AC-AUTH-08, AC-AUTH-09, AC-AUTH-10, AC-SESSAO-01, AC-SESSAO-02, AC-SESSAO-03, AC-SESSAO-04, AC-SESSAO-05, AC-SEC-03, AC-SEC-06]
 modo: oneshot
@@ -164,7 +164,9 @@ acima cobertos por teste; nenhum teste da task 00 removido ou pulado; cobertura 
 
 ## Pull Request
 
-Contra `dev`, template do `tasks/_PROTOCOLO.md`:
+Não abra o PR você mesmo — o orquestrador abre. Escreva o título em
+`.automation/pr-title.txt` e o corpo em `.automation/pr-body.md`, no formato do
+`tasks/_PROTOCOLO.md`. Título:
 
 ```
 feat(auth): adiciona login com Google e GitHub, sessão persistente e papel via Firestore

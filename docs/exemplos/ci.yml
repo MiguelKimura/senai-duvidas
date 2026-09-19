@@ -1,0 +1,88 @@
+# Referência de CI para este projeto (Node/React), a ser instalada pela task 00
+# em .github/workflows/ci.yml.
+#
+# Estrutura em dois jobs, e os dois devem ser marcados como "required" na proteção
+# de branch de `main` e `dev` (Settings → Branches). O arquivo não faz isso sozinho:
+# é configuração do repositório, feita uma vez — veja docs/PROTECAO-BRANCHES.md.
+#
+# * rapido  — lint + testes unitários. Roda primeiro, em todo PR. É a rede permanente.
+# * completo — regressão inteira: rules no emulador, build, e (a partir da 1.0.0) e2e.
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rapido:
+    name: lint + testes unitários
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Instalar
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Testes unitários com cobertura
+        run: npm run test:ci
+      - name: Publicar cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: coverage/
+          if-no-files-found: ignore
+
+  completo:
+    name: rules + build
+    runs-on: ubuntu-latest
+    needs: rapido
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      # O Firebase Emulator Suite precisa de Java para Firestore e Storage.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Instalar
+        run: npm ci
+      - name: Testes de Firestore e Storage Rules
+        run: npm run test:rules
+      - name: Build de produção
+        run: npm run build
+
+  commits:
+    name: conventional commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validar mensagens de commit do PR
+        run: |
+          padrao='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|release)(\([a-z0-9 /_-]+\))?!?: .+'
+          falhou=0
+          while read -r sha; do
+            msg=$(git log -1 --pretty=%s "$sha")
+            if ! echo "$msg" | grep -qE "$padrao"; then
+              echo "::error::Commit $sha fora do padrão Conventional Commits: $msg"
+              falhou=1
+            fi
+          done < <(git rev-list origin/${{ github.base_ref }}..HEAD)
+          exit $falhou

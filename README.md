@@ -14,6 +14,7 @@ Há também um chat da turma.
 | [`docs/COMO-RODAR-AS-TASKS.md`](docs/COMO-RODAR-AS-TASKS.md) | Como executar as tasks e manter o repositório sincronizado |
 | [`docs/PROTECAO-BRANCHES.md`](docs/PROTECAO-BRANCHES.md) | Estratégia `main`/`dev` e configuração de proteção no GitHub |
 | [`docs/HISTORICO.md`](docs/HISTORICO.md) | Memória do projeto: o que mudou em cada versão e por quê |
+| [`docs/AUTOMACAO.md`](docs/AUTOMACAO.md) | Fila automatizada: pré-requisitos, comandos e solução de problemas |
 
 > O restante deste arquivo ainda é o texto padrão do Create React App. A task 00
 > (`tasks/00-fundacao-testes.md`) o reescreve com a documentação real do projeto.

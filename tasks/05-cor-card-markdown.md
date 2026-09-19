@@ -5,8 +5,8 @@ versao_origem: 0.6.0
 versao_alvo: 0.7.0
 tipo: feat
 escopo_commit: chamados
-branch: feat/opcoes-avancadas-do-card
-branch_base: dev
+branch: "feat/opcoes-avancadas-do-card"
+branch_base: "dev"
 depende_de: [00-fundacao-testes, 03-salas-pin, 04-upload-imagens]
 criterios: [AC-COR-01, AC-COR-02, AC-COR-03, AC-COR-04, AC-COR-05, AC-COR-06, AC-COR-07, AC-COR-08, AC-COR-09, AC-COR-10, AC-SEC-04]
 modo: oneshot
@@ -140,7 +140,9 @@ Escreva testes de XSS com a lista completa de vetores:
 
 ## Pull Request
 
-Contra `dev`:
+Não abra o PR você mesmo — o orquestrador abre. Escreva o título em
+`.automation/pr-title.txt` e o corpo em `.automation/pr-body.md`, no formato do
+`tasks/_PROTOCOLO.md`. Título:
 
 ```
 feat(chamados): adiciona painel oculto de opções avançadas com cor do card e markdown

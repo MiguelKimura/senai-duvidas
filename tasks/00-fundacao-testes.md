@@ -5,8 +5,8 @@ versao_origem: 0.1.0
 versao_alvo: 0.2.0
 tipo: chore
 escopo_commit: infra
-branch: chore/fundacao-testes
-branch_base: dev
+branch: "chore/fundacao-testes"
+branch_base: "dev"
 depende_de: []
 bloqueia: [01, 02, 03, 04, 05, 06, 07, 08, 09]
 criterios: [AC-TEST-01, AC-TEST-03, AC-TEST-04, AC-TEST-05, AC-TEST-07, AC-TEST-08, AC-TEST-09, AC-CI-01, AC-CI-02, AC-CI-03, AC-CI-04, AC-CI-05, AC-CI-06, AC-CI-09, AC-CI-10, AC-DOC-01, AC-DOC-06, AC-ANIM-09, AC-AUTH-10]
@@ -115,7 +115,9 @@ Cada um desses vira também um teste de regressão permanente dos ACs marcados *
   apontando a task que vai resolver.
 
 ### 5. CI no GitHub Actions
-`.github/workflows/ci.yml`, disparado em `push` e `pull_request` para `main` e `dev`:
+Existe uma referência pronta em `docs/exemplos/ci.yml` — adote-a como base em
+`.github/workflows/ci.yml`, ajustando o que for necessário. Disparado em `push` e
+`pull_request` para `main` e `dev`:
 
 ```
 jobs: lint -> test:ci -> test:rules (com emulador) -> build
@@ -190,7 +192,9 @@ teste. Siga esta ordem:
 
 ## Pull Request
 
-Abra contra `dev`, seguindo o template do `tasks/_PROTOCOLO.md`. Resumo:
+Não abra o PR você mesmo — o orquestrador abre. Escreva o título em
+`.automation/pr-title.txt` e o corpo em `.automation/pr-body.md`, no formato do
+`tasks/_PROTOCOLO.md`. Título:
 
 ```
 chore(infra): estabelece harness de testes, emuladores e pipeline de CI

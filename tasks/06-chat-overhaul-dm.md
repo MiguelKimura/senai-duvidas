@@ -5,8 +5,8 @@ versao_origem: 0.7.0
 versao_alvo: 0.8.0
 tipo: feat
 escopo_commit: chat
-branch: feat/chat-com-dm
-branch_base: dev
+branch: "feat/chat-com-dm"
+branch_base: "dev"
 depende_de: [00-fundacao-testes, 01-auth-oauth-sessao, 02-tempo-brasilia, 03-salas-pin, 05-cor-card-markdown]
 criterios: [AC-CHAT-01, AC-CHAT-02, AC-CHAT-03, AC-CHAT-04, AC-CHAT-05, AC-CHAT-06, AC-CHAT-07, AC-CHAT-08, AC-CHAT-09, AC-CHAT-10, AC-CHAT-11, AC-CHAT-12, AC-CHAT-13, AC-DM-01, AC-DM-02, AC-DM-03, AC-DM-04, AC-DM-05, AC-DM-06]
 modo: oneshot
@@ -203,7 +203,9 @@ pedagógico de por que autorização mora no servidor), `docs/ARQUITETURA.md` e
 
 ## Pull Request
 
-Contra `dev`:
+Não abra o PR você mesmo — o orquestrador abre. Escreva o título em
+`.automation/pr-title.txt` e o corpo em `.automation/pr-body.md`, no formato do
+`tasks/_PROTOCOLO.md`. Título:
 
 ```
 feat(chat): reescreve o chat com horários, cores estáveis, paginação e mensagens diretas

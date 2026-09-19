@@ -5,8 +5,8 @@ versao_origem: 0.10.0
 versao_alvo: 1.0.0
 tipo: release
 escopo_commit: release
-branch: chore/release-1.0.0
-branch_base: dev
+branch: "chore/release-1.0.0"
+branch_base: "dev"
 depende_de: [00, 01, 02, 03, 04, 05, 06, 07, 08]
 criterios: [AC-TEST-02, AC-TEST-06, AC-TEST-08, AC-TEST-10, AC-PERF-01, AC-PERF-02, AC-PERF-03, AC-PERF-04, AC-PERF-05, AC-PERF-06, AC-SEC-01, AC-SEC-02, AC-SEC-03, AC-SEC-04, AC-SEC-05, AC-SEC-06, AC-SEC-07, AC-SEC-08, AC-DOC-01, AC-DOC-02, AC-DOC-03, AC-DOC-04, AC-DOC-05, AC-DOC-06, AC-DOC-07, AC-CI-07, AC-CI-08, AC-CI-09, AC-CI-10]
 modo: oneshot
@@ -169,7 +169,9 @@ declare-o no PR. A decisão de lançar assim mesmo é do dono do produto, não s
 
 ## Pull Request
 
-Abra contra `dev`. Depois de aprovado, o merge de `dev` em `main` é o release.
+Não abra o PR você mesmo — o orquestrador abre. Escreva o título em
+`.automation/pr-title.txt` e o corpo em `.automation/pr-body.md`, no formato do
+`tasks/_PROTOCOLO.md`. Depois de mesclado em `dev`, o merge de `dev` em `main` é o release. Título:
 
 ```
 release: versão 1.0.0 — primeira versão estável do sistema de dúvidas do SENAI

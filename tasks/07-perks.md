@@ -5,8 +5,8 @@ versao_origem: 0.8.0
 versao_alvo: 0.9.0
 tipo: feat
 escopo_commit: perks
-branch: feat/perks-do-professor
-branch_base: dev
+branch: "feat/perks-do-professor"
+branch_base: "dev"
 depende_de: [00-fundacao-testes, 01-auth-oauth-sessao, 02-tempo-brasilia, 03-salas-pin, 06-chat-overhaul-dm]
 criterios: [AC-PERK-01, AC-PERK-02, AC-PERK-03, AC-PERK-04, AC-PERK-05, AC-PERK-06, AC-PERK-07, AC-PERK-08, AC-PERK-09, AC-PERK-10, AC-CHAMADO-03, AC-SEC-03]
 modo: oneshot
@@ -183,7 +183,9 @@ conceder perks) e `docs/adr/0010-modelo-de-perks-e-ordenacao-da-fila.md`.
 
 ## Pull Request
 
-Contra `dev`:
+Não abra o PR você mesmo — o orquestrador abre. Escreva o título em
+`.automation/pr-title.txt` e o corpo em `.automation/pr-body.md`, no formato do
+`tasks/_PROTOCOLO.md`. Título:
 
 ```
 feat(perks): adiciona premiações do professor com prioridade na fila e animação de concessão

@@ -64,16 +64,44 @@ Antes de abrir o PR, comprove as duas com testes reais:
 
 ## 5. Git e Pull Request
 
+Este projeto é executado por um orquestrador (`scripts/claude_queue.py`). A divisão de
+responsabilidades é fixa:
+
+| Quem | Faz o quê |
+|---|---|
+| **Você (a sessão)** | Trabalha na branch já criada, commita **um commit por ciclo red-green-refactor**, e escreve o texto do PR em dois arquivos |
+| **O orquestrador** | Cria o worktree e a branch, roda a validação, faz `git push` e abre o Pull Request |
+
+**Você NÃO deve:** rodar `git push`, criar Pull Request, mesclar nada, trocar de branch ou
+rodar `git checkout`. Você já começa na branch correta, dentro de um worktree dedicado.
+
+**Você DEVE:**
+
 ```
-git checkout dev && git pull origin dev
-git checkout -b <tipo>/<escopo-curto>
-# ... ciclos red-green-refactor com commits ...
+# ... ciclo 1: teste vermelho -> commit -> código -> commit -> refactor -> commit ...
+git add <arquivos do ciclo> && git commit -m "test(escopo): ..."
+git add <arquivos do ciclo> && git commit -m "feat(escopo): ..."
+git add <arquivos do ciclo> && git commit -m "refactor(escopo): ..."
+# ... e assim por diante, ciclo a ciclo ...
+
 npm run lint && npm run test:ci && npm run test:rules && npm run build
-git push -u origin <tipo>/<escopo-curto>
-# abrir PR contra dev
 ```
 
-Nunca faça push direto em `main` nem em `dev`. O PR é sempre contra **`dev`**.
+O histórico de commits **é uma entrega**: é por ele que a revisão confirma que houve TDD de
+verdade. Um único commit gigante no fim reprova a task.
+
+### Antes de terminar, escreva os dois arquivos do PR
+
+- **`.automation/pr-title.txt`** — uma linha só, no formato Conventional Commits.
+  Exemplo: `feat(salas): adiciona salas do professor com entrada por PIN`
+- **`.automation/pr-body.md`** — o corpo completo do PR, no formato abaixo.
+
+O orquestrador lê esses dois arquivos e abre o PR com exatamente esse conteúdo. `.automation/`
+está no `.gitignore`, então eles não entram no commit — são um canal lateral entre você e o
+orquestrador.
+
+Se você não escrever os arquivos, o PR sai com um texto genérico e a task é considerada
+incompleta.
 
 ### Formato da mensagem de commit
 

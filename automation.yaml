@@ -1,0 +1,79 @@
+# Fila de automação do Projeto Dúvidas SENAI.
+# Rode a partir da raiz do repositório: python scripts/claude_queue.py
+
+project:
+  base_branch: dev
+  # Regras globais que toda sessão lê antes da própria task.
+  roadmap_file: "tasks/_PROTOCOLO.md"
+  task_glob: "tasks/[0-9][0-9]-*.md"
+  worktree_root: ".automation/worktrees"
+  state_file: ".automation/state.json"
+  start_task: 0
+  end_task: 9
+
+claude:
+  command: "claude"
+  model: "claude-opus-5"
+  max_turns: 150
+  max_continuations: 12
+  dangerously_skip_permissions: true
+  extra_args: []
+
+git:
+  pr_base: "dev"
+
+# Rodam dentro do worktree, depois que a sessão termina e antes de abrir o PR.
+# Se qualquer uma falhar, a task inteira é marcada como failed e a fila para.
+# A task 00 é quem cria os scripts `lint` e `test:ci`; antes dela eles não existem,
+# mas a validação só roda DEPOIS da implementação, então na hora já estarão lá.
+validation:
+  commands:
+    - "npm install --no-audit --no-fund"
+    - "npm run lint"
+    - "npm run test:ci"
+    - "npm run build"
+
+retry:
+  max_attempts: 4
+  initial_delay_seconds: 60
+  max_delay_seconds: 1800
+  multiplier: 2
+  transient_patterns:
+    - "429"
+    - "rate limit"
+    - "rate_limit"
+    - "usage limit"
+    - "overloaded"
+    - "temporarily unavailable"
+    - "weekly limit"
+    - "session limit"
+
+reset_detection:
+  enabled: true
+  safety_margin_seconds: 5
+
+pr:
+  draft: true
+  title_prefix: "[auto]"
+  labels: []
+  reviewers: []
+  # Usado apenas se a sessão não escrever .automation/pr-body.md
+  body_template: |
+    ## Resumo
+    Implementação automatizada da tarefa `{task}`.
+
+    ## Validação
+    {validation}
+
+    ## Execução
+    Branch: `{branch}`
+    Commit: `{commit}`
+
+merge_gate:
+  require_merge_before_next_task: true
+  poll_seconds: 30
+  timeout_seconds: 86400
+
+quota_watch:
+  session_poll_seconds: 300
+  weekly_poll_seconds: 900

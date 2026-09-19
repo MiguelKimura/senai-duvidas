@@ -1,0 +1,102 @@
+# Automação da fila de tasks
+
+O orquestrador (`scripts/claude_queue.py`) roda as tasks de `tasks/` em ordem, uma de cada vez,
+cada uma em um **worktree git isolado**, e para em cada Pull Request esperando o seu merge.
+
+## O que muda em relação à versão do AgroApp
+
+O script que você já usa foi adaptado em quatro pontos. Se preferir manter um script único para os
+dois projetos, os patches são compatíveis com o AgroApp — nada foi removido, só acrescentado.
+
+| # | O que mudava | Por que |
+|---|---|---|
+| 1 | `create_pr` exigia que a sessão deixasse tudo **não commitado**, senão `RuntimeError: A tarefa terminou sem alterações no Git` | Neste projeto o red-green-refactor exige um commit por ciclo. O script agora aceita trabalho já commitado (conta commits à frente de `origin/dev`) e só cria um commit de fechamento se sobrar algo no working tree |
+| 2 | Título e corpo do PR vinham de um template genérico | A sessão escreve `.automation/pr-title.txt` e `.automation/pr-body.md` com o resumo em Conventional Commits, a tabela de critérios de aceite e as provas de compatibilidade. O script usa esse conteúdo, e anexa o log de validação num `<details>` |
+| 3 | O prompt não dizia quem faz push nem quem abre o PR | Agora diz explicitamente: a sessão commita, o orquestrador empurra e abre |
+| 4 | `wait_for_merge` recebia um worktree que podia já ter sido removido | Cai para a raiz do repositório, que serve igual para o `gh` |
+
+O `.gitignore` ganhou `.automation/`, para que os worktrees, o `state.json` e os dois arquivos de
+PR nunca entrem em commit.
+
+## Configuração (`automation.yaml`)
+
+| Campo | Valor | Por quê |
+|---|---|---|
+| `base_branch` / `pr_base` | `dev` | Toda branch sai de `dev` e todo PR volta para `dev` |
+| `roadmap_file` | `tasks/_PROTOCOLO.md` | É o arquivo de regras globais que toda sessão lê antes da própria task |
+| `task_glob` | `tasks/[0-9][0-9]-*.md` | Pega 00 a 09; ignora `_PROTOCOLO.md` e `README.md` |
+| `start_task` / `end_task` | `0` / `9` | A fila inteira, da fundação ao release 1.0.0 |
+| `max_turns` | `150` | As tasks aqui são grandes; com `max_continuations: 12` dá bastante folga |
+| `validation.commands` | `npm install`, `lint`, `test:ci`, `build` | O gate antes de abrir o PR. Se qualquer um falhar, a task é marcada como `failed` e a fila para |
+| `merge_gate` | `require_merge_before_next_task: true` | **Essencial aqui.** As tasks têm dependência estrita e várias tocam os mesmos arquivos |
+
+`npm run test:rules` **não** está na validação de propósito: ele precisa do Firebase Emulator Suite
+e de Java, o que é lento e frágil como gate local. Ele roda no CI (`docs/exemplos/ci.yml`) e dentro
+da própria sessão, que é instruída a rodá-lo.
+
+## Pré-requisitos na sua máquina
+
+| Ferramenta | Verificar | Se faltar |
+|---|---|---|
+| Node 20+ | `node -v` | https://nodejs.org |
+| Python 3.11+ | `python --version` | https://python.org |
+| PyYAML | `python -c "import yaml"` | `python -m pip install pyyaml` |
+| Claude Code | `claude --version` | `npm install -g @anthropic-ai/claude-code` |
+| GitHub CLI | `gh auth status` | https://cli.github.com, depois `gh auth login` |
+| Git com identidade | `git config user.email` | `git config --global user.email "..."` e `user.name` |
+
+O `gh` precisa estar **autenticado** — é ele que abre os PRs. O `git config` precisa estar
+preenchido, senão o commit de fechamento falha.
+
+## Comandos
+
+```powershell
+# a fila inteira, das tasks 00 a 09
+python .\scripts\claude_queue.py
+
+# ou, pelo atalho
+.\run-queue.ps1
+
+# só a próxima task pendente, e para
+python .\scripts\claude_queue.py --once
+
+# ver o plano sem executar nada (confirme antes da primeira rodada)
+python .\scripts\claude_queue.py --dry-run
+
+# um intervalo específico
+python .\scripts\claude_queue.py --from-task 3 --to-task 5
+
+# limpar tasks marcadas como failed e tentar de novo
+python .\scripts\claude_queue.py --reset-failed
+```
+
+## O ciclo de cada task
+
+```
+1. ensure_clean          working tree limpo + git fetch origin dev
+2. create_worktree       .automation/worktrees/<branch>  a partir de origin/dev
+3. run_claude            a sessão lê _PROTOCOLO.md + a task, implementa em ciclos RGR,
+                         commita cada ciclo e escreve .automation/pr-body.md
+4. validate              npm install, lint, test:ci, build
+5. create_pr             push da branch + gh pr create (draft) com o texto da sessão
+6. wait_for_merge        para e espera VOCÊ mesclar o PR no GitHub
+7. remove_worktree       limpa e vai para a próxima task
+```
+
+A fila para no passo 6. Revise o PR — leia a tabela de critérios de aceite e a de compatibilidade —
+e mescle. O script detecta o merge em até 30 segundos e segue.
+
+## Se algo der errado
+
+| Sintoma | Causa provável | O que fazer |
+|---|---|---|
+| `A task XX não define 'branch:' no frontmatter` | O valor de `branch:` está sem aspas | Já corrigido nos dez arquivos; se editar um, mantenha as aspas |
+| `Working tree não está limpo` | Você tem alterações não commitadas na raiz | `git stash` ou commite antes de rodar |
+| `A tarefa terminou sem alterações no Git` | A sessão não produziu nada | Veja o log; normalmente é a task 00 falhando no `npm install` |
+| `Validação falhou` | `lint`, `test:ci` ou `build` vermelho | O gate funcionou. Leia o log, rode `--reset-failed` e tente de novo |
+| `PR #N foi fechado sem merge` | Você fechou o PR | A fila para de propósito. Reabra ou rode `--reset-failed` |
+| Fila parada em `[quota]` | Limite de uso atingido | Deixe rodando: o script dorme até o reset e retoma sozinho |
+| `[resume] Claude atingiu max_turns` | Task grande | Normal. O worktree é preservado e a sessão continua de onde parou |
+
+O estado fica em `.automation/state.json`. Apagar esse arquivo faz a fila recomeçar do zero —
+e ela vai tentar recriar branches que já existem. Prefira `--reset-failed`.

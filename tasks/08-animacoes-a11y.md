@@ -5,8 +5,8 @@ versao_origem: 0.9.0
 versao_alvo: 0.10.0
 tipo: feat
 escopo_commit: ui
-branch: feat/animacoes-e-acessibilidade
-branch_base: dev
+branch: "feat/animacoes-e-acessibilidade"
+branch_base: "dev"
 depende_de: [00-fundacao-testes, 03-salas-pin, 04-upload-imagens, 05-cor-card-markdown, 06-chat-overhaul-dm, 07-perks]
 criterios: [AC-ANIM-01, AC-ANIM-02, AC-ANIM-03, AC-ANIM-04, AC-ANIM-05, AC-ANIM-06, AC-ANIM-07, AC-ANIM-08, AC-ANIM-09, AC-ANIM-10, AC-CHAMADO-04, AC-CHAMADO-05, AC-CHAMADO-06, AC-CHAMADO-09, AC-CHAMADO-10]
 modo: oneshot
@@ -175,7 +175,9 @@ de acessibilidade em `docs/ARQUITETURA.md` com o que foi auditado e como manter.
 
 ## Pull Request
 
-Contra `dev`:
+Não abra o PR você mesmo — o orquestrador abre. Escreva o título em
+`.automation/pr-title.txt` e o corpo em `.automation/pr-body.md`, no formato do
+`tasks/_PROTOCOLO.md`. Título:
 
 ```
 feat(ui): unifica o sistema de animações, acessibilidade e confirmação de exclusão

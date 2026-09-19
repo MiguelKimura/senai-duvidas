@@ -5,8 +5,8 @@ versao_origem: 0.3.0
 versao_alvo: 0.4.0
 tipo: fix
 escopo_commit: tempo
-branch: fix/horario-servidor-brasilia
-branch_base: dev
+branch: "fix/horario-servidor-brasilia"
+branch_base: "dev"
 depende_de: [00-fundacao-testes, 01-auth-oauth-sessao]
 criterios: [AC-TEMPO-01, AC-TEMPO-02, AC-TEMPO-03, AC-TEMPO-04, AC-TEMPO-05, AC-TEMPO-06, AC-TEMPO-07, AC-TEMPO-08, AC-TEMPO-09, AC-CHAMADO-03]
 modo: oneshot
@@ -150,7 +150,9 @@ Lint, `test:ci`, `test:rules` e `build` verdes; todos os ACs cobertos; suíte ro
 
 ## Pull Request
 
-Contra `dev`:
+Não abra o PR você mesmo — o orquestrador abre. Escreva o título em
+`.automation/pr-title.txt` e o corpo em `.automation/pr-body.md`, no formato do
+`tasks/_PROTOCOLO.md`. Título:
 
 ```
 fix(tempo): usa horário do servidor em vez do relógio do cliente na ordenação dos chamados

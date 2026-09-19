@@ -5,8 +5,8 @@ versao_origem: 0.4.0
 versao_alvo: 0.5.0
 tipo: feat
 escopo_commit: salas
-branch: feat/salas-com-pin
-branch_base: dev
+branch: "feat/salas-com-pin"
+branch_base: "dev"
 depende_de: [00-fundacao-testes, 01-auth-oauth-sessao, 02-tempo-brasilia]
 criterios: [AC-SALA-01, AC-SALA-02, AC-SALA-03, AC-SALA-04, AC-SALA-05, AC-SALA-06, AC-SALA-07, AC-SALA-08, AC-SALA-09, AC-SALA-10, AC-SALA-12, AC-SEC-01, AC-SEC-02, AC-SEC-05, AC-PERF-03, AC-PERF-04, AC-PERF-06]
 modo: oneshot
@@ -188,7 +188,9 @@ duplicar dados; o app funciona tanto com banco migrado quanto com banco legado.
 
 ## Pull Request
 
-Contra `dev`:
+Não abra o PR você mesmo — o orquestrador abre. Escreva o título em
+`.automation/pr-title.txt` e o corpo em `.automation/pr-body.md`, no formato do
+`tasks/_PROTOCOLO.md`. Título:
 
 ```
 feat(salas): adiciona salas do professor com entrada por PIN e escopo de dados por sala
