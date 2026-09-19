@@ -15,6 +15,11 @@ export function AuthProvider({ children }) {
     });
 
     return () => unsubscribe(); // Evita vazamento de memória
+    // TODO(task-01): `auth` falta nas dependências. Incluí-lo aqui recriaria a
+    // inscrição a cada render, porque `getAuth()` é chamado no corpo do
+    // componente. A task 01 unifica os três caminhos de autenticação e resolve
+    // isso de uma vez; mexer agora mudaria comportamento.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Função para logout

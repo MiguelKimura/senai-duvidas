@@ -12,6 +12,7 @@ describe('harness de testes', () => {
   });
 
   it('carrega os matchers do @testing-library/jest-dom', () => {
-    expect(typeof expect(document.body).toBeInTheDocument).toBe('function');
+    // Exercita o matcher de verdade, em vez de so checar que ele existe.
+    expect(document.body).toBeInTheDocument();
   });
 });

@@ -11,7 +11,6 @@
 // task 01 prove que mudou — e para que ninguém o reintroduza depois.
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import {
   __definirUsuarioAtual,
   __definirUsuarioDoPopup,
@@ -29,9 +28,9 @@ function irPara(caminho) {
 
 /** Monta o App e espera o "Carregando..." sair da tela. */
 async function montarApp() {
-  const resultado = render(<App />);
+  const view = render(<App />);
   await waitFor(() => expect(screen.queryByText('Carregando...')).not.toBeInTheDocument());
-  return resultado;
+  return view;
 }
 
 beforeEach(() => {

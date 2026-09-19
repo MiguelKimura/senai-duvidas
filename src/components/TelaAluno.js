@@ -3,7 +3,6 @@ import Modal from './Modal';
 import { db, auth } from '../firebase';
 import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
 import '../styles/TelaAluno.css';
 import Chat from './Chat';
 
@@ -12,7 +11,6 @@ function TelaAluno() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [problemas, setProblemas] = useState([]);
   const [usuarioNome, setUsuarioNome] = useState('');
-  const navigate = useNavigate(); // Hook para navegação
 
   useEffect(() => {
     const user = auth.currentUser;

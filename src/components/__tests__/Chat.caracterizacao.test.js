@@ -232,10 +232,10 @@ describe('Chat — cor por e-mail (AC-COR-05)', () => {
   it('a cor é derivada do e-mail, então é estável entre sessões', async () => {
     __semearColecao('chat', [fabricaMensagem({ id: 'm1', email: 'ana@senai.br' })]);
 
-    const primeiraSessao = renderComProvedores(<Chat />);
+    const { unmount } = renderComProvedores(<Chat />);
     await abrirChat();
     const corNaPrimeiraSessao = corDeFundo(document.querySelector('.fala-box'));
-    primeiraSessao.unmount();
+    unmount();
 
     renderComProvedores(<Chat />);
     await abrirChat();

@@ -33,9 +33,9 @@ describe('renderComProvedores', () => {
   });
 
   it('devolve o resultado do render do testing-library', () => {
-    const resultado = renderComProvedores(<Sonda />);
+    const view = renderComProvedores(<Sonda />);
 
-    expect(typeof resultado.rerender).toBe('function');
-    expect(typeof resultado.unmount).toBe('function');
+    expect(typeof view.rerender).toBe('function');
+    expect(typeof view.unmount).toBe('function');
   });
 });

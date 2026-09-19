@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, auth } from '../firebase'; // Importando auth de sua configuração do Firebase
+import { db } from '../firebase';
 import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
 import '../styles/TelaProfessor.css';
