@@ -21,12 +21,25 @@
     "start": "cross-env PORT=3000 react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:ci": "cross-env CI=true react-scripts test --watchAll=false --coverage",
+    "test:rules": "firebase emulators:exec --project demo-senai-duvidas --only firestore,storage \"jest --config jest.rules.config.js\"",
+    "emulators": "firebase emulators:start --project demo-senai-duvidas",
+    "lint": "eslint \"src/**/*.{js,jsx}\" \"tests/**/*.js\" --max-warnings=0",
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"tests/**/*.js\"",
     "eject": "react-scripts eject"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
+  "jest": {
+    "testMatch": [
+      "**/src/**/__tests__/**/*.{js,jsx}",
+      "**/src/**/*.{spec,test}.{js,jsx}"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx}",
+      "!src/index.js",
+      "!src/reportWebVitals.js",
+      "!src/setupTests.js",
+      "!src/test-utils/**",
+      "!src/__mocks__/**"
     ]
   },
   "browserslist": {
@@ -42,6 +55,11 @@
     ]
   },
   "devDependencies": {
-    "cross-env": "^7.0.3"
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "firebase-tools": "^13.0.0",
+    "prettier": "^3.4.2"
   }
 }
