@@ -13,6 +13,9 @@
 
 # misc
 .DS_Store
+
+# O .env de cada maquina/ambiente nunca e versionado; o modelo e o .env.example.
+.env
 .env.local
 .env.development.local
 .env.test.local
