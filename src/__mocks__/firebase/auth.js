@@ -9,6 +9,9 @@ let usuarioAtual = null;
 let ouvintes = [];
 let credenciais = new Map();
 let contadorUid = 0;
+// Quem o proximo signInWithPopup devolve. `App.js` constroi os provedores
+// dentro do componente, entao nao da para injetar o usuario pelo provedor.
+let usuarioDoPopup = null;
 
 function notificar() {
   ouvintes.forEach((callback) => callback(usuarioAtual));
@@ -88,7 +91,7 @@ export async function signOut() {
 }
 
 export async function signInWithPopup(_auth, provedor) {
-  const usuario = provedor && provedor.__usuarioDeTeste;
+  const usuario = (provedor && provedor.__usuarioDeTeste) || usuarioDoPopup;
 
   if (!usuario) {
     throw erroDeAuth('auth/popup-closed-by-user', 'Janela fechada antes da autenticação.');
@@ -134,6 +137,15 @@ export function __resetarAuth() {
   ouvintes = [];
   credenciais = new Map();
   contadorUid = 0;
+  usuarioDoPopup = null;
+}
+
+/**
+ * Define quem o proximo `signInWithPopup` devolve, independente do provedor.
+ * Passe `null` para simular a janela fechada pelo usuario.
+ */
+export function __definirUsuarioDoPopup(usuario) {
+  usuarioDoPopup = usuario;
 }
 
 /** Define quem está autenticado e avisa os ouvintes. */
