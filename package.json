@@ -40,7 +40,15 @@
       "!src/setupTests.js",
       "!src/test-utils/**",
       "!src/__mocks__/**"
-    ]
+    ],
+    "coverageThreshold": {
+      "global": {
+        "lines": 80,
+        "branches": 75,
+        "statements": 80,
+        "functions": 80
+      }
+    }
   },
   "browserslist": {
     "production": [
