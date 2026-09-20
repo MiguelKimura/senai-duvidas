@@ -18,6 +18,7 @@ import {
   entrarComGoogle,
   observarAutenticacao,
   sair,
+  __esquecerPersistencia,
 } from '../auth';
 
 const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
@@ -43,6 +44,9 @@ function espiarOrdem() {
 
 beforeEach(() => {
   __resetarAuth();
+  // A persistência é configurada uma vez por sessão do navegador. Cada teste
+  // precisa de uma sessão nova para poder observar essa primeira vez.
+  __esquecerPersistencia();
 });
 
 afterEach(() => {
