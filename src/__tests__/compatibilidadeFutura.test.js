@@ -152,3 +152,82 @@ describe('mensagens de chat com campos que a v0.1.0 não conhece', () => {
     expect(screen.queryByText(/\[object Object\]/)).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// `usuarios/{uid}` — os campos que a task 01 acrescenta.
+//
+// A v0.2.0 gravava `nome`, `email`, `tipo` e `uid`. A task 01 acrescenta
+// `criadoEm` (timestamp do servidor) e `provedor`. O protocolo chama isso de
+// mudança **aditiva**, e exige a prova nos dois sentidos:
+//
+//   futura     — um leitor que não conhece os campos novos continua lendo o
+//                documento novo sem lançar e sem mudar de comportamento;
+//   retroativa — o leitor novo lê o documento velho, sem os campos, e resolve
+//                o papel normalmente.
+//
+// O cenário é o do dia do deploy: a professora fica com a aba aberta desde
+// antes e a turma entra depois, criando documentos no formato novo. Se o leitor
+// antigo quebrasse diante de `criadoEm`, o sintoma seria tela branca em aula.
+// ---------------------------------------------------------------------------
+describe('usuarios com campos que a v0.2.0 não conhece', () => {
+  /**
+   * O leitor da v0.2.0, reproduzido: ele conhecia exatamente estes quatro
+   * campos e decidia a rota pelo `tipo`. Qualquer outra chave era ignorada.
+   */
+  function leitorDaV020(documento) {
+    return {
+      nome: documento.nome,
+      email: documento.email,
+      tipo: documento.tipo,
+      uid: documento.uid,
+      rota: documento.tipo === 'professor' ? '/professor' : '/aluno',
+    };
+  }
+
+  const PERFIL_DA_V020 = {
+    nome: 'Ana Souza',
+    email: 'ana@senai.br',
+    tipo: 'aluno',
+    uid: 'uid-ana',
+  };
+
+  const PERFIL_DA_V030 = {
+    ...PERFIL_DA_V020,
+    criadoEm: { seconds: 1741613100, nanoseconds: 0 },
+    provedor: 'google.com',
+  };
+
+  it('o leitor da v0.2.0 lê o documento novo sem lançar', () => {
+    expect(() => leitorDaV020(PERFIL_DA_V030)).not.toThrow();
+  });
+
+  it('o leitor da v0.2.0 chega exatamente à mesma conclusão de antes', () => {
+    expect(leitorDaV020(PERFIL_DA_V030)).toEqual(leitorDaV020(PERFIL_DA_V020));
+  });
+
+  it('nenhum dos quatro campos da v0.2.0 foi renomeado ou removido', async () => {
+    const { __resetarFirestore: resetar } = require('firebase/firestore');
+    resetar();
+    const { garantirPerfil } = require('../services/perfilUsuario');
+
+    const { perfil } = await garantirPerfil({
+      uid: 'uid-ana',
+      email: 'ana@senai.br',
+      displayName: 'Ana Souza',
+      providerData: [{ providerId: 'google.com' }],
+    });
+
+    expect(Object.keys(perfil)).toEqual(expect.arrayContaining(['nome', 'email', 'tipo', 'uid']));
+  });
+
+  it('o leitor novo lê o documento da v0.2.0, sem criadoEm nem provedor', async () => {
+    const { __resetarFirestore: resetar, __semearColecao: semear } = require('firebase/firestore');
+    resetar();
+    semear('usuarios', [{ id: 'uid-ana', ...PERFIL_DA_V020 }]);
+    const { garantirPerfil } = require('../services/perfilUsuario');
+
+    await expect(
+      garantirPerfil({ uid: 'uid-ana', email: 'ana@senai.br' })
+    ).resolves.toMatchObject({ papel: 'aluno', criado: false });
+  });
+});
