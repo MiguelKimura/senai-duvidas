@@ -8,8 +8,15 @@
 // Este arquivo testa o módulo que passa a decidir tudo que envolve tempo:
 // como se grava (carimbo do servidor), como se lê (formato antigo e novo) e
 // como se ordena (pendente por último, de forma estável).
-import { formatarDataHora, formatarHora, FUSO_BRASILIA, paraData } from '../tempo';
+import {
+  formatarDataHora,
+  formatarHora,
+  formatarRelativo,
+  FUSO_BRASILIA,
+  paraData,
+} from '../tempo';
 import { Timestamp } from 'firebase/firestore';
+import { fixarRelogio, restaurarRelogio } from '../../test-utils';
 
 describe('paraData — leitura dupla dos formatos de horario (AC-TEMPO-08)', () => {
   const INSTANTE = new Date('2026-09-19T17:32:00.000Z');
@@ -117,5 +124,60 @@ describe('formatação de valores sem data legível', () => {
 
   it('formatarHora marca o campo ausente com o mesmo travessão', () => {
     expect(formatarHora('ontem de manhã')).toBe('—');
+  });
+});
+
+// "há 3 minutos" é a informação que o professor usa de relance para saber se
+// a dúvida acabou de chegar. Acima de uma hora ela deixa de ajudar — "há 47
+// minutos" e "há 3 horas" viram a mesma coisa na cabeça de quem lê —, e aí o
+// horário absoluto informa mais.
+describe('formatarRelativo — rótulos de evento recente (AC-TEMPO-04)', () => {
+  const AGORA = new Date('2026-09-19T17:32:00.000Z');
+
+  /** O mesmo instante, `minutos` minutos antes de AGORA. */
+  function minutosAtras(minutos) {
+    return new Date(AGORA.getTime() - minutos * 60000).toISOString();
+  }
+
+  afterEach(() => restaurarRelogio());
+
+  it('diz "há 3 minutos" para três minutos atrás', () => {
+    expect(formatarRelativo(minutosAtras(3), AGORA)).toBe('há 3 minutos');
+  });
+
+  it('usa o singular em um minuto', () => {
+    expect(formatarRelativo(minutosAtras(1), AGORA)).toBe('há 1 minuto');
+  });
+
+  it('diz "agora mesmo" abaixo de um minuto', () => {
+    expect(formatarRelativo(minutosAtras(0.5), AGORA)).toBe('agora mesmo');
+  });
+
+  it('ainda é relativo aos 59 minutos', () => {
+    expect(formatarRelativo(minutosAtras(59), AGORA)).toBe('há 59 minutos');
+  });
+
+  it('cai para data e hora absolutas a partir de uma hora', () => {
+    expect(formatarRelativo(minutosAtras(60), AGORA)).toBe('19/09/2026 13:32');
+  });
+
+  it('usa o absoluto para um chamado de ontem', () => {
+    expect(formatarRelativo('2026-09-18T12:00:00.000Z', AGORA)).toBe('18/09/2026 09:00');
+  });
+
+  // O relógio do aluno pode estar adiantado em relação ao carimbo do servidor.
+  // Nesse caso a conta dá negativa, e "há -2 minutos" seria pior do que inútil.
+  it('não inventa horário no futuro quando o relógio do leitor está atrasado', () => {
+    expect(formatarRelativo(minutosAtras(-2), AGORA)).toBe('agora mesmo');
+  });
+
+  it('anuncia "enviando…" enquanto o servidor não confirmou', () => {
+    expect(formatarRelativo(null, AGORA)).toBe('enviando…');
+  });
+
+  it('lê o relógio quando o chamador não informa o "agora"', () => {
+    fixarRelogio(AGORA);
+
+    expect(formatarRelativo(minutosAtras(5))).toBe('há 5 minutos');
   });
 });
