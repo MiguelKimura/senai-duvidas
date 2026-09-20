@@ -130,3 +130,64 @@ git worktree remove --force .automation\worktrees\<branch-com-__>
 git branch -D <branch>
 python .\scripts\claude_queue.py --reset-failed
 ```
+
+
+---
+
+# Rodando sem terminal
+
+## 1. Registrar a tarefa agendada
+
+```powershell
+.\scripts\instalar-tarefa-agendada.ps1
+```
+
+Registra a fila como Tarefa Agendada do Windows, disparada **ao fazer logon** com 2 minutos de
+folga para a rede subir. O script confere antes se `python`, `git`, `gh`, `claude` e `npm` estão
+no PATH e se o `gh` está autenticado — melhor falhar na instalação do que em silêncio às 3 da
+manhã.
+
+Roda como **você**, não como SYSTEM: a fila precisa das credenciais do `claude` e do `gh`, que são
+por usuário.
+
+| Ação | Comando |
+|---|---|
+| Rodar agora | `Start-ScheduledTask -TaskName 'SenaiDuvidas-Fila'` |
+| Ver situação | `Get-ScheduledTask -TaskName 'SenaiDuvidas-Fila' \| Get-ScheduledTaskInfo` |
+| Acompanhar | `Get-Content .automation\queue.log -Wait -Tail 40` |
+| Parar | `Stop-ScheduledTask -TaskName 'SenaiDuvidas-Fila'` |
+| Remover | `Unregister-ScheduledTask -TaskName 'SenaiDuvidas-Fila' -Confirm:$false` |
+
+## 2. Log e trava
+
+Tudo que vai para o terminal vai também para `.automation/queue.log`, com marcação de início e
+fim de cada execução. É por ele que você acompanha a fila sem precisar de um terminal aberto.
+
+A fila tem trava em `.automation/queue.lock`: se você iniciar uma segunda enquanto a primeira
+roda, a nova detecta o PID vivo e sai. Travas órfãs (processo morto) são removidas sozinhas.
+
+## 3. O ponto que continua exigindo você: o merge
+
+A fila para em cada Pull Request (`merge_gate.require_merge_before_next_task: true`) e espera
+alguém mesclar. Esse é o único passo que não foi automatizado, e é de propósito: mesclar sem
+revisão significa que **ninguém** olha o código antes de ele entrar em `dev` — nem você, nem outra
+pessoa.
+
+Se você quiser que a fila ande sozinha de ponta a ponta, a forma certa **não** é o script mesclar
+por conta própria, e sim usar o recurso nativo do GitHub, onde a política fica explícita e
+auditável:
+
+1. **Settings → General → Pull Requests → Allow auto-merge** (habilitar).
+2. **Settings → Branches → regra de `dev`**: exigir que os checks `rapido`, `completo` e `commits`
+   passem, e **não** exigir aprovação humana (`Require approvals: 0`).
+3. Em cada PR aberto pela fila, ligar o auto-merge uma vez — ou pelo botão "Enable auto-merge" na
+   página do PR, ou com `gh pr merge <n> --auto --merge`.
+
+Assim o GitHub mescla sozinho quando o CI fecha verde, e se o CI reprovar o PR simplesmente fica
+aberto. A decisão de dispensar revisão humana passa a estar registrada na configuração do
+repositório, em vez de escondida dentro de um script.
+
+**O que você perde:** o CI vira o único revisor. Ele cobre lint, testes unitários, rules, build e
+padrão de commits — mas não cobre "esta feature ficou boa?" nem "este modelo de dados vai
+escalar?". As tasks 03 (salas) e 06 (chat/DM) mudam o modelo de dados e as regras de segurança;
+essas duas valem uma olhada humana antes do merge, mesmo que o resto ande sozinho.

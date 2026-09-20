@@ -592,6 +592,36 @@ def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, A
             preserve_worktree = False
 
 
+def processo_vivo(pid: int) -> bool:
+    if sys.platform == "win32":
+        r = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        return str(pid) in (r.stdout or "")
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def adquirir_trava(caminho: Path) -> bool:
+    """Impede duas filas simultâneas — elas brigariam por worktrees e pelo estado."""
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    if caminho.exists():
+        try:
+            pid_antigo = int(caminho.read_text(encoding="utf-8").strip())
+        except (ValueError, OSError):
+            pid_antigo = -1
+        if pid_antigo > 0 and processo_vivo(pid_antigo):
+            print(f"[trava] Já existe uma fila rodando (PID {pid_antigo}). Saindo.")
+            return False
+        print(f"[trava] Trava órfã do PID {pid_antigo} removida.")
+    caminho.write_text(str(os.getpid()), encoding="utf-8")
+    return True
+
+
 def main() -> int:
     # Impede UnicodeEncodeError ao imprimir log de ferramenta com acento ou
     # símbolo quando a saída está redirecionada para arquivo no Windows.
@@ -618,6 +648,32 @@ def main() -> int:
     repo = Path.cwd()
     cfg = load_yaml(repo / "automation.yaml")
     state_path = repo / cfg["project"]["state_file"]
+
+    # Tudo que vai para o terminal vai também para .automation/queue.log, para que
+    # a fila possa rodar sem ninguém olhando e ainda ser auditável depois.
+    log_path = repo / ".automation" / "queue.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    arquivo_log = log_path.open("a", encoding="utf-8", errors="replace")
+
+    class _Tee:
+        def __init__(self, *destinos): self.destinos = destinos
+        def write(self, texto):
+            for d in self.destinos:
+                d.write(texto)
+                d.flush()
+            return len(texto)
+        def flush(self):
+            for d in self.destinos:
+                d.flush()
+
+    sys.stdout = _Tee(sys.stdout, arquivo_log)
+    sys.stderr = _Tee(sys.stderr, arquivo_log)
+    print(f"\n===== fila iniciada em {datetime.now():%d/%m/%Y %H:%M:%S} (PID {os.getpid()}) =====")
+
+    trava = repo / ".automation" / "queue.lock"
+    if not adquirir_trava(trava):
+        return 0
+
     state = load_state(state_path)
 
     if args.reset_failed:
@@ -639,14 +695,18 @@ def main() -> int:
         print(f"Nenhuma task no intervalo {start_id:02d}-{end_id:02d}.")
         return 0
 
-    pular_claude = args.skip_claude
-    for task in sorted(tasks, key=lambda p: task_id_from_file(p)):
-        if not process_task(cfg, repo, task, state, args.dry_run, skip_claude=pular_claude):
-            return 1
-        pular_claude = False  # vale só para a primeira task processada
-        if args.once:
-            break
-    return 0
+    try:
+        pular_claude = args.skip_claude
+        for task in sorted(tasks, key=lambda p: task_id_from_file(p)):
+            if not process_task(cfg, repo, task, state, args.dry_run, skip_claude=pular_claude):
+                return 1
+            pular_claude = False  # vale só para a primeira task processada
+            if args.once:
+                break
+        return 0
+    finally:
+        trava.unlink(missing_ok=True)
+        print(f"===== fila encerrada em {datetime.now():%d/%m/%Y %H:%M:%S} =====\n")
 
 
 if __name__ == "__main__":
