@@ -166,3 +166,38 @@ export function formatarHora(valor) {
 
   return `${hour}:${minute}`;
 }
+
+/** Um minuto e uma hora em milissegundos, para as contas de `formatarRelativo`. */
+const UM_MINUTO = 60 * 1000;
+const UMA_HORA = 60 * UM_MINUTO;
+
+/**
+ * Rótulo relativo para evento recente, absoluto para o resto (AC-TEMPO-04).
+ *
+ * O corte de uma hora não é arbitrário: acima disso o relativo para de
+ * informar. "Há 47 minutos" e "há 3 horas" ocupam a mesma gaveta na cabeça de
+ * quem lê de relance, e o horário absoluto diz mais.
+ *
+ * Diferença negativa vira "agora mesmo" em vez de "há -2 minutos". Desde que o
+ * carimbo passou a vir do servidor e o leitor continua com o relógio da
+ * própria máquina, o documento chegar do "futuro" é o caso comum em
+ * laboratório, não a exceção.
+ *
+ * @param {Timestamp|string|Date|null|undefined} valor valor lido do documento.
+ * @param {Date} [agora] instante de referência; por padrão, o relógio do leitor
+ *   — é leitura de tela, não gravação de dado (ver AC-TEMPO-05).
+ * @returns {string}
+ */
+export function formatarRelativo(valor, agora = new Date()) {
+  const data = paraData(valor);
+  if (!data) return rotuloSemData(valor);
+
+  const decorrido = agora.getTime() - data.getTime();
+
+  if (decorrido >= UMA_HORA) return formatarDataHora(data);
+  if (decorrido < UM_MINUTO) return 'agora mesmo';
+
+  const minutos = Math.floor(decorrido / UM_MINUTO);
+
+  return `há ${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
+}
