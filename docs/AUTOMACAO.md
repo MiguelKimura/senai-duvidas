@@ -136,27 +136,41 @@ python .\scripts\claude_queue.py --reset-failed
 
 # Rodando sem terminal
 
-## 1. Registrar a tarefa agendada
+## 1. Instalar o início automático
 
 ```powershell
-.\scripts\instalar-tarefa-agendada.ps1
+.\scripts\instalar-inicio-automatico.ps1
 ```
 
-Registra a fila como Tarefa Agendada do Windows, disparada **ao fazer logon** com 2 minutos de
-folga para a rede subir. O script confere antes se `python`, `git`, `gh`, `claude` e `npm` estão
-no PATH e se o `gh` está autenticado — melhor falhar na instalação do que em silêncio às 3 da
-manhã.
+Coloca um atalho `.vbs` na pasta **Inicializar** do Windows. A fila sobe ao fazer logon, em
+**janela oculta**, e isso **não exige administrador** — é o modo recomendado.
 
-Roda como **você**, não como SYSTEM: a fila precisa das credenciais do `claude` e do `gh`, que são
-por usuário.
+O `.vbs` existe para rodar oculto: um `.bat` piscaria uma janela preta a cada logon e deixaria
+um console aberto o tempo todo.
+
+Antes de instalar, o script confere se `python`, `git`, `gh`, `claude` e `npm` estão no PATH e se
+o `gh` está autenticado — melhor falhar na instalação do que em silêncio às 3 da manhã.
 
 | Ação | Comando |
 |---|---|
-| Rodar agora | `Start-ScheduledTask -TaskName 'SenaiDuvidas-Fila'` |
-| Ver situação | `Get-ScheduledTask -TaskName 'SenaiDuvidas-Fila' \| Get-ScheduledTaskInfo` |
+| Rodar agora | `wscript.exe "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\SenaiDuvidas-Fila.vbs"` |
 | Acompanhar | `Get-Content .automation\queue.log -Wait -Tail 40` |
-| Parar | `Stop-ScheduledTask -TaskName 'SenaiDuvidas-Fila'` |
-| Remover | `Unregister-ScheduledTask -TaskName 'SenaiDuvidas-Fila' -Confirm:$false` |
+| Parar a fila | `Get-Process python \| Stop-Process` |
+| Remover | `.\scripts\instalar-inicio-automatico.ps1 -Remover` |
+
+### Modo alternativo: Agendador de Tarefas
+
+```powershell
+# PowerShell aberto COMO ADMINISTRADOR
+.\scripts\instalar-inicio-automatico.ps1 -TarefaAgendada
+```
+
+Dá reinício automático em caso de falha e limite de tempo de execução, mas **exige elevação**:
+`Register-ScheduledTask` devolve `Acesso negado (0x80070005)` para usuário comum. O script checa
+se você está elevado e avisa antes de tentar, em vez de falhar no meio.
+
+Roda como **você**, nunca como SYSTEM: a fila precisa das credenciais do `claude` e do `gh`, que
+são por usuário.
 
 ## 2. Log e trava
 

@@ -3,7 +3,9 @@
 * text=auto eol=lf
 
 # Scripts que precisam manter o fim de linha do sistema
-*.ps1 text eol=crlf
+# .ps1 precisa de BOM UTF-8: o Windows PowerShell 5.1 le script sem BOM
+# como ANSI (cp1252) e transforma acento em mojibake.
+*.ps1 text eol=crlf working-tree-encoding=UTF-8
 *.cmd text eol=crlf
 *.bat text eol=crlf
 *.sh  text eol=lf
