@@ -1,0 +1,69 @@
+rules_version = '2';
+
+// Security Rules do Firestore — ESTADO ATUAL, DELIBERADAMENTE INSEGURO.
+//
+// Este arquivo NÃO endurece nada. Ele descreve, por escrito e de forma
+// testável, o que a aplicação da v0.1.0 precisa para funcionar hoje. Apertar as
+// regras aqui quebraria o app em produção antes das tasks que o adaptam — e o
+// app roda em laboratório, com turma em aula.
+//
+// Por que versionar regras frouxas em vez de não versionar nada: sem baseline
+// não há como provar que a task 03 apertou. Cada permissão excessiva abaixo
+// tem um teste em `tests/rules/firestore.rules.test.js` que a demonstra
+// explorada. Quando a task 03 endurecer, esses testes invertem de sinal — de
+// "consegue" para "é negado" — e é essa inversão que comprova a correção.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Chamados: coleção global, sem escopo de sala e sem dono.
+    //
+    // A interface mostra "Excluir" só para o autor, mas isso é decoração de
+    // front-end: nada no servidor confere autoria. Qualquer cliente com a
+    // config do projeto apaga o chamado de qualquer aluno.
+    //
+    // TODO(task-03): endurecer. Escopar por `salaId`, exigir request.auth,
+    // restringir delete ao autor ou ao professor da sala, e validar os campos
+    // na escrita.
+    match /chamados/{chamadoId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // Chat: mesma história, e pior — o comando `!clear` apaga a conversa
+    // inteira da turma, e qualquer aluno pode dispará-lo.
+    //
+    // TODO(task-03): endurecer. Escopar por sala, exigir request.auth e
+    // restringir a exclusão em massa ao professor (AC-CHAT-*, task 06).
+    match /chat/{mensagemId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // Usuários: criado por `Cadastro` logo após o createUserWithEmailAndPassword.
+    //
+    // TODO(task-03): endurecer. Só o próprio uid deveria escrever o próprio
+    // documento, e `tipo` não pode ser escolhido pelo cliente — é ele que
+    // decide quem é professor.
+    match /usuarios/{uid} {
+      allow read, create, update, delete: if true;
+    }
+
+    // Autorizados: a lista que diz quem pode se cadastrar como professor.
+    // `utils/permissoes.js` a lê ANTES de existir sessão, então a leitura
+    // precisa ser pública enquanto o fluxo de cadastro for esse.
+    //
+    // Escrita nunca: esta coleção é mantida à mão no console. Esta é a única
+    // restrição que já vale hoje, e ela precisa continuar valendo.
+    //
+    // TODO(task-03): endurecer a leitura, movendo a checagem de professor para
+    // um custom claim — aí esta coleção deixa de ser lida pelo cliente.
+    match /autorizados/{email} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Nada mais existe no banco. Negar o resto evita que uma coleção nova
+    // nasça aberta por descuido.
+    match /{documento=**} {
+      allow read, write: if false;
+    }
+  }
+}

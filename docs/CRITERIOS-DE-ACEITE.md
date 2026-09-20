@@ -15,6 +15,8 @@
 | **[MVP]** | Obrigatório para a versão 1.0.0 |
 | **[POS]** | Pode escorregar para pós-1.0.0 sem bloquear o release |
 | **[REG]** | Critério de regressão: já existe hoje e não pode quebrar |
+| ✅ | Atendido, com teste que falha sem a implementação — veja "Situação por versão" no fim |
+| 🟡 | Parcialmente atendido: a parte que falta está nomeada em "Situação por versão" |
 
 ---
 
@@ -22,8 +24,8 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-AUTH-01 | O usuário consegue se cadastrar com nome, e-mail e senha, e o cadastro cria um documento em `usuarios/{uid}` com `nome`, `email`, `tipo`, `uid` e `criadoEm`. | [MVP] [REG] |
-| AC-AUTH-02 | O usuário consegue entrar com e-mail e senha e é redirecionado para `/aluno` ou `/professor` conforme o campo `tipo`. | [MVP] [REG] |
+| AC-AUTH-01 🟡 | O usuário consegue se cadastrar com nome, e-mail e senha, e o cadastro cria um documento em `usuarios/{uid}` com `nome`, `email`, `tipo`, `uid` e `criadoEm`. | [MVP] [REG] |
+| AC-AUTH-02 ✅ | O usuário consegue entrar com e-mail e senha e é redirecionado para `/aluno` ou `/professor` conforme o campo `tipo`. | [MVP] [REG] |
 | AC-AUTH-03 | Existe botão **"Entrar com Google"** na tela de login que autentica via Firebase e, no primeiro acesso, cria o documento `usuarios/{uid}` com `tipo: "aluno"`. | [MVP] |
 | AC-AUTH-04 | Existe botão **"Entrar com GitHub"** com o mesmo comportamento do AC-AUTH-03. | [MVP] |
 | AC-AUTH-05 | Se o e-mail do provedor social já existir com outro método, o sistema exibe mensagem em português explicando como vincular a conta — nunca um stack trace ou código bruto do Firebase. | [MVP] |
@@ -31,7 +33,7 @@
 | AC-AUTH-07 | Um usuário não listado em `autorizados/{email}` com `Tipo: "professor"` não consegue se cadastrar nem operar como professor, mesmo alterando `localStorage`, o payload da requisição ou as Firestore Rules pelo cliente. | [MVP] |
 | AC-AUTH-08 | O logout limpa a sessão do Firebase e todo estado local, e redireciona para `/`. Após logout, voltar pelo botão do navegador não expõe dados da sessão anterior. | [MVP] |
 | AC-AUTH-09 | Toda rota protegida (`/aluno`, `/professor`, `/sala/*`) exibe um estado de carregamento enquanto o papel está sendo resolvido, e nunca renderiza a tela de login "piscando" para um usuário já autenticado. | [MVP] |
-| AC-AUTH-10 | Nenhuma credencial, chave de serviço ou segredo fica versionado no repositório; a config do Firebase vem de variáveis `REACT_APP_*` com fallback documentado. | [MVP] |
+| AC-AUTH-10 ✅ | Nenhuma credencial, chave de serviço ou segredo fica versionado no repositório; a config do Firebase vem de variáveis `REACT_APP_*` com fallback documentado. | [MVP] |
 
 ## 2. Sessão Persistente (`SESSAO`)
 
@@ -65,13 +67,13 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-CHAMADO-01 | O aluno abre um chamado com descrição textual obrigatória (1 a 1000 caracteres). | [MVP] [REG] |
-| AC-CHAMADO-02 | Chamados aparecem em tempo real para o professor e para os colegas da mesma sala, sem recarregar a página. | [MVP] [REG] |
-| AC-CHAMADO-03 | A fila é ordenada por horário de envio **crescente** (mais antigo primeiro), respeitando os perks de prioridade (ver `PERK`). | [MVP] [REG] |
-| AC-CHAMADO-04 | O aluno consegue excluir o **próprio** chamado quando a dúvida já foi resolvida, com confirmação antes de excluir. | [MVP] [REG] |
+| AC-CHAMADO-01 🟡 | O aluno abre um chamado com descrição textual obrigatória (1 a 1000 caracteres). | [MVP] [REG] |
+| AC-CHAMADO-02 ✅ | Chamados aparecem em tempo real para o professor e para os colegas da mesma sala, sem recarregar a página. | [MVP] [REG] |
+| AC-CHAMADO-03 ✅ | A fila é ordenada por horário de envio **crescente** (mais antigo primeiro), respeitando os perks de prioridade (ver `PERK`). | [MVP] [REG] |
+| AC-CHAMADO-04 🟡 | O aluno consegue excluir o **próprio** chamado quando a dúvida já foi resolvida, com confirmação antes de excluir. | [MVP] [REG] |
 | AC-CHAMADO-05 | O aluno **não** consegue excluir o chamado de outro aluno — nem pela interface nem por chamada direta ao banco. | [MVP] |
 | AC-CHAMADO-06 | O professor consegue excluir qualquer chamado da sua sala e marcar um chamado como **atendido**. | [MVP] |
-| AC-CHAMADO-07 | O card exibe nome do autor, descrição, horário de envio e indicador visual de anexo quando houver imagem. | [MVP] [REG] |
+| AC-CHAMADO-07 ✅ | O card exibe nome do autor, descrição, horário de envio e indicador visual de anexo quando houver imagem. | [MVP] [REG] |
 | AC-CHAMADO-08 | A exclusão remove também os anexos associados do Storage (sem arquivos órfãos). | [MVP] |
 | AC-CHAMADO-09 | A lista suporta 200 chamados simultâneos na mesma sala sem travamento perceptível (paginação ou virtualização). | [MVP] |
 | AC-CHAMADO-10 | Estado vazio tem mensagem amigável ("Nenhuma dúvida por aqui ainda") em vez de tela em branco. | [MVP] |
@@ -84,7 +86,7 @@
 | AC-COR-02 | Ao clicar na setinha, um painel se expande com animação suave revelando as opções avançadas. | [MVP] |
 | AC-COR-03 | O painel oferece uma **paleta de cores predefinidas** para o card, com contraste de texto garantido (WCAG AA, ≥ 4.5:1). | [MVP] |
 | AC-COR-04 | A cor escolhida é persistida no chamado e usada como fundo do card para todos que o visualizam. | [MVP] |
-| AC-COR-05 | Se o aluno não escolher cor, o sistema mantém o comportamento atual (cor automática) — sem regressão. | [MVP] [REG] |
+| AC-COR-05 ✅ | Se o aluno não escolher cor, o sistema mantém o comportamento atual (cor automática) — sem regressão. | [MVP] [REG] |
 | AC-COR-06 | A setinha é acessível por teclado (`Tab` + `Enter`/`Espaço`), tem `aria-expanded` correto e rótulo audível por leitor de tela. | [MVP] |
 | AC-COR-07 | O painel avançado aceita **markdown básico** na descrição (negrito, itálico, listas, `código`) com renderização sanitizada no card. | [MVP] |
 | AC-COR-08 | O markdown é sanitizado: nenhuma tag `<script>`, `<iframe>`, handler `on*` ou URL `javascript:` chega ao DOM. | [MVP] |
@@ -95,7 +97,7 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-IMG-01 | O aluno continua conseguindo anexar imagem por **link/URL**, como hoje. | [MVP] [REG] |
+| AC-IMG-01 ✅ | O aluno continua conseguindo anexar imagem por **link/URL**, como hoje. | [MVP] [REG] |
 | AC-IMG-02 | O aluno consegue anexar imagem **do próprio computador** por seletor de arquivo. | [MVP] |
 | AC-IMG-03 | O aluno consegue **arrastar e soltar** (drag & drop) uma imagem no modal. | [MVP] |
 | AC-IMG-04 | O aluno consegue **colar (Ctrl+V)** uma captura de tela direto no modal. | [MVP] |
@@ -181,38 +183,38 @@
 | AC-ANIM-06 | Nenhuma animação causa reflow de layout perceptível; usar apenas `transform` e `opacity`. | [MVP] |
 | AC-ANIM-07 | `alert()` e `window.open()` são substituídos por componentes de toast e modal próprios. | [MVP] |
 | AC-ANIM-08 | A interface é utilizável em telas de 1024×768 (padrão dos laboratórios) e em celular (≥ 360px). | [MVP] |
-| AC-ANIM-09 | Existe um arquivo único de tokens de design (cores, espaçamentos, durações) usado por todos os estilos. | [MVP] |
+| AC-ANIM-09 🟡 | Existe um arquivo único de tokens de design (cores, espaçamentos, durações) usado por todos os estilos. | [MVP] |
 | AC-ANIM-10 | Contraste mínimo WCAG AA em todos os textos e navegação completa por teclado em todos os fluxos. | [MVP] |
 
 ## 12. Testes e Qualidade (`TEST`)
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-TEST-01 | `npm test` roda em modo não-interativo (CI) e termina com código de saída 0 quando tudo passa. | [MVP] |
+| AC-TEST-01 ✅ | `npm test` roda em modo não-interativo (CI) e termina com código de saída 0 quando tudo passa. | [MVP] |
 | AC-TEST-02 | Toda feature nova entra com testes escritos **antes** da implementação (ciclo red-green-refactor comprovado no histórico de commits). | [MVP] |
-| AC-TEST-03 | Cobertura mínima global: **80% de linhas** e **75% de branches**, verificada por threshold que quebra o build. | [MVP] |
-| AC-TEST-04 | Existem testes de integração contra o **Firebase Emulator Suite** (Auth + Firestore + Storage), sem tocar o projeto de produção. | [MVP] |
-| AC-TEST-05 | As Firestore Rules e as Storage Rules têm testes dedicados cobrindo permissão concedida **e** negada. | [MVP] |
+| AC-TEST-03 ✅ | Cobertura mínima global: **80% de linhas** e **75% de branches**, verificada por threshold que quebra o build. | [MVP] |
+| AC-TEST-04 ✅ | Existem testes de integração contra o **Firebase Emulator Suite** (Auth + Firestore + Storage), sem tocar o projeto de produção. | [MVP] |
+| AC-TEST-05 ✅ | As Firestore Rules e as Storage Rules têm testes dedicados cobrindo permissão concedida **e** negada. | [MVP] |
 | AC-TEST-06 | Existem testes end-to-end (Playwright) para os fluxos críticos: login, entrar na sala, abrir chamado com imagem, excluir chamado, enviar mensagem e DM. | [MVP] |
-| AC-TEST-07 | Cada nova feature **adiciona** casos à suíte existente; nenhuma task pode deletar ou marcar como `skip` um teste anterior para ficar verde. | [MVP] |
-| AC-TEST-08 | A suíte completa roda em menos de 5 minutos no CI. | [MVP] |
-| AC-TEST-09 | Testes são determinísticos: sem `sleep` arbitrário, sem dependência de relógio real (tempo é mockado). | [MVP] |
+| AC-TEST-07 ✅ | Cada nova feature **adiciona** casos à suíte existente; nenhuma task pode deletar ou marcar como `skip` um teste anterior para ficar verde. | [MVP] |
+| AC-TEST-08 🟡 | A suíte completa roda em menos de 5 minutos no CI. | [MVP] |
+| AC-TEST-09 ✅ | Testes são determinísticos: sem `sleep` arbitrário, sem dependência de relógio real (tempo é mockado). | [MVP] |
 | AC-TEST-10 | Há um teste de regressão explícito para **cada** critério marcado [REG]. | [MVP] |
 
 ## 13. CI/CD e Branches (`CI`)
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-CI-01 | O repositório tem as branches **`main`** (o que os usuários veem, sempre estável) e **`dev`** (integração). | [MVP] |
-| AC-CI-02 | Branches de feature saem de `dev`, no padrão `feat/<escopo>`, `fix/<escopo>` ou `chore/<escopo>`. | [MVP] |
-| AC-CI-03 | Todo PR roda lint, testes unitários, testes de integração e build antes de poder ser mesclado. | [MVP] |
-| AC-CI-04 | `main` e `dev` são protegidas: sem push direto, merge apenas por PR com CI verde. | [MVP] |
-| AC-CI-05 | Commits seguem **Conventional Commits** (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `BREAKING CHANGE:`). | [MVP] |
-| AC-CI-06 | A versão em `package.json` segue **SemVer** e é incrementada de acordo com o tipo das mudanças do PR. | [MVP] |
+| AC-CI-01 ✅ | O repositório tem as branches **`main`** (o que os usuários veem, sempre estável) e **`dev`** (integração). | [MVP] |
+| AC-CI-02 ✅ | Branches de feature saem de `dev`, no padrão `feat/<escopo>`, `fix/<escopo>` ou `chore/<escopo>`. | [MVP] |
+| AC-CI-03 ✅ | Todo PR roda lint, testes unitários, testes de integração e build antes de poder ser mesclado. | [MVP] |
+| AC-CI-04 🟡 | `main` e `dev` são protegidas: sem push direto, merge apenas por PR com CI verde. | [MVP] |
+| AC-CI-05 ✅ | Commits seguem **Conventional Commits** (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `BREAKING CHANGE:`). | [MVP] |
+| AC-CI-06 ✅ | A versão em `package.json` segue **SemVer** e é incrementada de acordo com o tipo das mudanças do PR. | [MVP] |
 | AC-CI-07 | Cada merge em `main` gera uma tag de versão e uma entrada no `CHANGELOG.md`. | [MVP] |
 | AC-CI-08 | O deploy de produção acontece a partir de `main`; `dev` publica em ambiente de homologação. | [MVP] |
-| AC-CI-09 | O `CHANGELOG.md` é gerado a partir dos commits convencionais, não escrito à mão. | [MVP] |
-| AC-CI-10 | O projeto clona, instala e roda com três comandos (`git clone`, `npm install`, `npm start`), documentados no README. | [MVP] |
+| AC-CI-09 ✅ | O `CHANGELOG.md` é gerado a partir dos commits convencionais, não escrito à mão. | [MVP] |
+| AC-CI-10 ✅ | O projeto clona, instala e roda com três comandos (`git clone`, `npm install`, `npm start`), documentados no README. | [MVP] |
 
 ## 14. Segurança e Privacidade (`SEC`)
 
@@ -243,13 +245,13 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-DOC-01 | O `README.md` descreve o projeto real (não o texto padrão do Create React App), com instalação, scripts e arquitetura. | [MVP] |
-| AC-DOC-02 | Existe `docs/HISTORICO.md` narrando a evolução do projeto versão a versão, com as decisões técnicas e seus porquês. | [MVP] |
+| AC-DOC-01 ✅ | O `README.md` descreve o projeto real (não o texto padrão do Create React App), com instalação, scripts e arquitetura. | [MVP] |
+| AC-DOC-02 ✅ | Existe `docs/HISTORICO.md` narrando a evolução do projeto versão a versão, com as decisões técnicas e seus porquês. | [MVP] |
 | AC-DOC-03 | Existe `docs/MANUAL-ALUNO.md` com linguagem simples e capturas de tela. | [MVP] |
 | AC-DOC-04 | Existe `docs/MANUAL-PROFESSOR.md` cobrindo salas, PIN, perks e moderação. | [MVP] |
 | AC-DOC-05 | Existe `docs/ARQUITETURA.md` com o modelo de dados, as coleções do Firestore e os diagramas de fluxo. | [MVP] |
-| AC-DOC-06 | Existe `CONTRIBUTING.md` com o fluxo de branches, o padrão de commits e como rodar os testes. | [MVP] |
-| AC-DOC-07 | Toda decisão arquitetural relevante é registrada como ADR em `docs/adr/`. | [MVP] |
+| AC-DOC-06 ✅ | Existe `CONTRIBUTING.md` com o fluxo de branches, o padrão de commits e como rodar os testes. | [MVP] |
+| AC-DOC-07 ✅ | Toda decisão arquitetural relevante é registrada como ADR em `docs/adr/`. | [MVP] |
 
 ---
 
@@ -265,3 +267,70 @@ Uma task só está concluída quando **todos** os itens abaixo são verdadeiros:
 6. A versão em `package.json` e o `CHANGELOG.md` foram atualizados segundo SemVer.
 7. O PR foi aberto contra `dev` com o resumo no formato de Conventional Commits.
 8. `docs/HISTORICO.md` recebeu a entrada da versão.
+
+---
+
+## Situação por versão
+
+> Esta seção registra **o que foi atendido e o que não foi**, com o teste que prova cada item.
+> Nenhum critério acima é reescrito para caber na implementação: quando a implementação fica
+> aquém, o critério continua como está e a lacuna é descrita aqui.
+
+### v0.2.0 — Fundação de testes e CI
+
+**Atendidos (✅)**
+
+| AC | Prova |
+|---|---|
+| AC-AUTH-02 | `src/components/__tests__/Login.caracterizacao.test.js:71` — credencial válida redireciona por `usuario.tipo`; inválida exibe erro |
+| AC-AUTH-10 | `src/__tests__/firebaseConfig.test.js:75` — config vem de `REACT_APP_*`, cai no fallback e avisa no `console.warn` |
+| AC-CHAMADO-02 | `src/components/__tests__/TelaAluno.caracterizacao.test.js:89` — a fila reage ao `onSnapshot` sem recarregar |
+| AC-CHAMADO-03 | `src/components/__tests__/TelaAluno.caracterizacao.test.js:89` — ordenação por horário crescente |
+| AC-CHAMADO-07 | `src/components/__tests__/TelaAluno.caracterizacao.test.js:103` e `:267` — autor, descrição, horário e indicador de anexo |
+| AC-IMG-01 | `src/components/__tests__/TelaAluno.caracterizacao.test.js:251` — anexo por URL |
+| AC-COR-05 | `src/components/__tests__/TelaAluno.caracterizacao.test.js:219` — cor automática quando o aluno não escolhe |
+| AC-TEST-01 | `npm run test:ci` sai 0 sem watch |
+| AC-TEST-03 | `package.json` › `jest.coverageThreshold`; verificado nos dois sentidos no commit `07ad78b` |
+| AC-TEST-04 | `tests/rules/` contra o emulador; `tests/rules/projetoDeTeste.js` recusa qualquer projectId sem o prefixo `demo-` |
+| AC-TEST-05 | `tests/rules/firestore.rules.test.js` e `tests/rules/storage.rules.test.js` — permissão concedida **e** negada |
+| AC-TEST-07 | Nenhum teste removido ou pulado; não há `.skip` nem `.todo` na suíte |
+| AC-TEST-09 | `src/test-utils/__tests__/relogio.test.js` — relógio determinístico, nenhum `sleep` na suíte |
+| AC-CI-01 | `main` e `dev` existem no remoto |
+| AC-CI-02 | `CONTRIBUTING.md` › "Branches"; esta própria branch é `chore/fundacao-testes`, saída de `dev` |
+| AC-CI-03 | `.github/workflows/ci.yml`; verificado por `src/__tests__/ci.test.js` |
+| AC-CI-05 | Job `commits` do workflow; rodado contra os commits desta branch antes de entrar |
+| AC-CI-06 | `package.json` › `version: 0.2.0` (MINOR) |
+| AC-CI-09 | `scripts/gerarChangelog.js`, testado em `scripts/__tests__/gerarChangelog.test.js` |
+| AC-CI-10 | `README.md` › "Como rodar" |
+| AC-DOC-01 | `README.md` reescrito |
+| AC-DOC-02 | `docs/HISTORICO.md` › v0.2.0 |
+| AC-DOC-06 | `CONTRIBUTING.md` |
+| AC-DOC-07 | `docs/adr/0001` e `docs/adr/0002` |
+
+**Parcialmente atendidos (🟡)**
+
+| AC | O que já vale | O que falta, e onde é resolvido |
+|---|---|---|
+| AC-AUTH-01 | O cadastro grava `nome`, `email`, `tipo` e `uid` — `src/components/__tests__/Cadastro.caracterizacao.test.js:63` | `criadoEm` não é gravado. O teste `:82` marca a lacuna e vai falhar quando a **task 01** a fechar. |
+| AC-CHAMADO-01 | Descrição vazia não cria chamado — `TelaAluno.caracterizacao.test.js:183` | Não há validação de 1 a 1000 caracteres. **Task 05**, junto com o painel avançado do card. |
+| AC-CHAMADO-04 | O botão Excluir só aparece para o autor — `TelaAluno.caracterizacao.test.js:310` | A exclusão não pede confirmação. O teste `:336` documenta a ausência. **Task 08**. |
+| AC-TEST-08 | `timeout-minutes: 5` em todos os jobs do workflow; localmente a suíte unitária roda em ~9s e a de rules em ~5s | A medição no runner do GitHub só existe depois do primeiro PR. O teto está imposto pelo runner, não prometido. |
+| AC-CI-04 | `docs/PROTECAO-BRANCHES.md` traz a configuração exata, e `src/__tests__/ci.test.js` garante que os nomes dos jobs batem com os checks que o documento manda exigir | Proteção de branch é configuração de UI do GitHub: **precisa ser aplicada à mão**, uma vez, por quem administra o repositório. |
+| AC-ANIM-09 | `src/styles/tokens.css` existe, é importado por `src/index.css` e seus valores são provadamente iguais aos do CSS atual — `src/styles/__tests__/tokens.test.js` | Os componentes ainda usam os valores crus em vez de `var(--token)`. Trocar agora seria mudança visual, que a task 00 proíbe. **Task 08**. |
+
+**Explicitamente não atendidos, e por quê**
+
+A task 00 tem uma restrição própria: *refatoração de comportamento é proibida*. As falhas
+conhecidas da v0.1.0 continuam todas no lugar, e cada uma está **fixada em teste de
+caracterização** — um teste que passa descrevendo o comportamento errado, para que a task que o
+corrigir precise invertê-lo de forma explícita.
+
+| AC | Estado fixado em teste | Task que resolve |
+|---|---|---|
+| AC-AUTH-06 | O papel sai do `localStorage` — `src/__tests__/App.caracterizacao.test.js:118` | 02 |
+| AC-AUTH-07 | O cliente escolhe o próprio `tipo` — `tests/rules/firestore.rules.test.js` | 03 |
+| AC-CHAMADO-05 | Qualquer um apaga o chamado de qualquer um — `tests/rules/firestore.rules.test.js` | 03 |
+| AC-SALA-07 / AC-CHAT-10 | `chamados` e `chat` são coleções globais | 03 e 06 |
+| AC-CHAT-08 | `!clear` funciona para qualquer aluno | 06 |
+| AC-TEMPO-01 | `horario` é `new Date()` do cliente | 05 |
+| AC-PERF-03 | `onSnapshot` em coleção inteira, sem `where` nem `limit` | 07 |

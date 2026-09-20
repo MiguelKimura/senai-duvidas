@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// Security Rules do Storage — ESTADO ATUAL, DELIBERADAMENTE INSEGURO.
+//
+// Hoje a interface nem oferece upload de arquivo: o anexo é colado como URL
+// (AC-IMG-01) e `uploadImage` em `src/firebase.js` não tem caminho até a tela.
+// Mesmo assim o helper existe e grava em `imagens/<nome do arquivo>`, sem uid
+// e sem sala — dois alunos que enviem `print.png` se sobrescrevem.
+//
+// TODO(task-04): endurecer junto com o upload de verdade. Caminho com escopo
+// (`salas/{salaId}/{uid}/{arquivo}`), exigir request.auth, limitar tamanho e
+// tipo de conteúdo a imagem.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /imagens/{arquivo} {
+      allow read, write: if true;
+    }
+
+    match /{caminho=**} {
+      allow read, write: if false;
+    }
+  }
+}
