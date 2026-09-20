@@ -111,3 +111,159 @@ describe('primeiro acesso — o documento é criado (AC-AUTH-03, AC-AUTH-04)', (
     expect(await usuariosGravados()).toHaveLength(0);
   });
 });
+
+describe('resolução do papel — as duas fontes precisam concordar (AC-AUTH-06)', () => {
+  const CARLOS = {
+    uid: 'uid-carlos',
+    email: 'carlos@senai.br',
+    displayName: 'Carlos Lima',
+    providerData: [{ providerId: 'password' }],
+  };
+
+  it('é professor quando usuarios/{uid}.tipo e autorizados/{email}.Tipo concordam', async () => {
+    __semearColecao('usuarios', [
+      { id: 'uid-carlos', uid: 'uid-carlos', nome: 'Carlos Lima', email: 'carlos@senai.br', tipo: 'professor' },
+    ]);
+    __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'professor' }]);
+
+    await expect(garantirPerfil(CARLOS)).resolves.toMatchObject({ papel: 'professor' });
+  });
+
+  it('ignora a caixa alta do Tipo gravado em autorizados', async () => {
+    __semearColecao('usuarios', [
+      { id: 'uid-carlos', uid: 'uid-carlos', email: 'carlos@senai.br', tipo: 'professor' },
+    ]);
+    __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'Professor' }]);
+
+    await expect(garantirPerfil(CARLOS)).resolves.toMatchObject({ papel: 'professor' });
+  });
+
+  it('normaliza o e-mail antes de consultar autorizados', async () => {
+    __semearColecao('usuarios', [
+      { id: 'uid-carlos', uid: 'uid-carlos', email: '  Carlos@Senai.BR ', tipo: 'professor' },
+    ]);
+    __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'professor' }]);
+
+    await expect(garantirPerfil(CARLOS)).resolves.toMatchObject({ papel: 'professor' });
+  });
+
+  it('é aluno quando só usuarios diz professor — o cliente escreveu ali sozinho', async () => {
+    // Esta é a escalada vista do lado do papel: as rules da v0.2.0 deixam
+    // qualquer cliente gravar `tipo: "professor"` no próprio documento. A
+    // concordância com `autorizados` é o que desarma isso.
+    __semearColecao('usuarios', [
+      { id: 'uid-ana', uid: 'uid-ana', email: 'ana@senai.br', tipo: 'professor' },
+    ]);
+
+    await expect(garantirPerfil(ANA_DO_GOOGLE)).resolves.toMatchObject({ papel: 'aluno' });
+  });
+
+  it('é aluno quando só autorizados diz professor e o documento ainda diz aluno', async () => {
+    __semearColecao('usuarios', [
+      { id: 'uid-carlos', uid: 'uid-carlos', email: 'carlos@senai.br', tipo: 'aluno' },
+    ]);
+    __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'professor' }]);
+
+    await expect(garantirPerfil(CARLOS)).resolves.toMatchObject({ papel: 'aluno' });
+  });
+
+  it('é aluno quando autorizados traz um Tipo diferente de professor', async () => {
+    __semearColecao('usuarios', [
+      { id: 'uid-carlos', uid: 'uid-carlos', email: 'carlos@senai.br', tipo: 'professor' },
+    ]);
+    __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'monitor' }]);
+
+    await expect(garantirPerfil(CARLOS)).resolves.toMatchObject({ papel: 'aluno' });
+  });
+});
+
+describe('localStorage não decide papel nenhum (AC-AUTH-06, AC-SEC-03)', () => {
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('escrever tipoUsuario=professor no localStorage não promove ninguém', async () => {
+    // O ataque da v0.2.0, inteiro, em uma linha de DevTools.
+    localStorage.setItem('tipoUsuario', 'professor');
+    localStorage.setItem('usuarioLogado', JSON.stringify({ tipo: 'professor' }));
+
+    await expect(garantirPerfil(ANA_DO_GOOGLE)).resolves.toMatchObject({ papel: 'aluno' });
+  });
+
+  it('o documento criado no primeiro acesso também ignora o localStorage', async () => {
+    localStorage.setItem('tipoUsuario', 'professor');
+
+    await garantirPerfil(ANA_DO_GOOGLE);
+
+    const [perfil] = await usuariosGravados();
+    expect(perfil.tipo).toBe('aluno');
+  });
+});
+
+describe('conta legada de professor cujo e-mail saiu de autorizados', () => {
+  const PROFESSORA_LEGADA = {
+    uid: 'uid-marta',
+    email: 'marta@senai.br',
+    displayName: 'Marta Reis',
+    providerData: [{ providerId: 'password' }],
+  };
+
+  beforeEach(() => {
+    // Documento no formato antigo: sem `criadoEm` e sem `provedor`.
+    __semearColecao('usuarios', [
+      { id: 'uid-marta', uid: 'uid-marta', nome: 'Marta Reis', email: 'marta@senai.br', tipo: 'professor' },
+    ]);
+  });
+
+  it('rebaixa para aluno em vez de travar o acesso', async () => {
+    await expect(garantirPerfil(PROFESSORA_LEGADA)).resolves.toMatchObject({ papel: 'aluno' });
+  });
+
+  it('registra o rebaixamento em log, para o administrador reconciliar', async () => {
+    await garantirPerfil(PROFESSORA_LEGADA);
+
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('autorizados'),
+      expect.anything()
+    );
+  });
+
+  it('não regrava nem apaga o documento legado', async () => {
+    await garantirPerfil(PROFESSORA_LEGADA);
+
+    expect(await usuariosGravados()).toEqual([
+      { id: 'uid-marta', uid: 'uid-marta', nome: 'Marta Reis', email: 'marta@senai.br', tipo: 'professor' },
+    ]);
+  });
+
+  it('avisa o chamador do rebaixamento, para a interface poder explicar', async () => {
+    await expect(garantirPerfil(PROFESSORA_LEGADA)).resolves.toMatchObject({
+      rebaixado: true,
+    });
+  });
+});
+
+describe('falha ao ler o Firestore não vira papel (regra 4 do desenho)', () => {
+  it('propaga o erro em vez de assumir aluno', async () => {
+    const firestore = require('firebase/firestore');
+    jest.spyOn(firestore, 'getDoc').mockRejectedValue(new Error('rede caiu'));
+
+    await expect(garantirPerfil(ANA_DO_GOOGLE)).rejects.toThrow('rede caiu');
+  });
+
+  it('propaga também quando é a leitura de autorizados que falha', async () => {
+    const firestore = require('firebase/firestore');
+    __semearColecao('usuarios', [
+      { id: 'uid-ana', uid: 'uid-ana', email: 'ana@senai.br', tipo: 'professor' },
+    ]);
+    const original = firestore.getDoc.bind(firestore);
+    jest.spyOn(firestore, 'getDoc').mockImplementation((referencia) => {
+      if (referencia.__caminho.startsWith('autorizados/')) {
+        return Promise.reject(new Error('rede caiu em autorizados'));
+      }
+      return original(referencia);
+    });
+
+    await expect(garantirPerfil(ANA_DO_GOOGLE)).rejects.toThrow('rede caiu em autorizados');
+  });
+});
