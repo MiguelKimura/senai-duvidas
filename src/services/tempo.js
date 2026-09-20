@@ -94,6 +94,15 @@ const FORMATADOR_DATA_HORA = formatadorEmBrasilia({
 
 const FORMATADOR_HORA = formatadorEmBrasilia({ hour: '2-digit', minute: '2-digit' });
 
+const FORMATADOR_CIVIL = formatadorEmBrasilia({
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
 /**
  * Lê as partes de uma data já convertidas para o fuso de Brasília.
  *
@@ -327,4 +336,83 @@ export function completarHorariosIso(documentos, emailDoAutor) {
         console.warn('[tempo] Não foi possível preencher horarioIso.', erro);
       });
     });
+}
+
+/**
+ * O instante `data`, lido como se o calendário de Brasília fosse o de UTC.
+ *
+ * Serve para fazer contas de calendário — "qual é o dia?", "quando começa o
+ * dia seguinte?" — sem depender do fuso da máquina em nenhum ponto.
+ */
+function civilEmBrasilia(data) {
+  const { day, month, year, hour, minute, second } = partesEmBrasilia(FORMATADOR_CIVIL, data);
+
+  return Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second)
+  );
+}
+
+/** Quanto o fuso de Brasília está deslocado de UTC naquele instante, em ms. */
+function deslocamentoEmBrasilia(data) {
+  return civilEmBrasilia(data) - data.getTime();
+}
+
+/** O dia civil de Brasília, em ms desde a época, zerado na hora. */
+function diaCivilEmBrasilia(data) {
+  const civil = new Date(civilEmBrasilia(data));
+
+  return Date.UTC(civil.getUTCFullYear(), civil.getUTCMonth(), civil.getUTCDate());
+}
+
+/**
+ * A próxima meia-noite de Brasília, devolvida como instante (AC-TEMPO-07).
+ *
+ * O caminho óbvio — somar um dia e aplicar o deslocamento do fuso — erra nas
+ * duas noites de virada do horário de verão, que é justamente onde uma
+ * implementação à mão erraria em silêncio. Por isso são dois candidatos:
+ * o deslocamento de agora e o deslocamento do próprio candidato. Vence o
+ * primeiro instante posterior a `agora` cujo dia civil em Brasília já é outro.
+ *
+ * Isso resolve os dois casos difíceis de uma vez: na noite em que o relógio
+ * atrasa, o candidato ingênuo ainda cai no dia anterior e é descartado; na
+ * noite em que ele adianta, a meia-noite local não existe, e o vencedor é o
+ * instante em que o dia vira — 01:00 local.
+ *
+ * @param {Timestamp|string|Date} [agora] instante de referência.
+ * @returns {Date} a próxima meia-noite de Brasília, em UTC.
+ */
+export function proximaMeiaNoiteBrasilia(agora = new Date()) {
+  const instante = paraData(agora) || new Date();
+  const diaDeHoje = diaCivilEmBrasilia(instante);
+  const meiaNoiteCivil = diaDeHoje + 24 * 3600000;
+
+  const primeiro = meiaNoiteCivil - deslocamentoEmBrasilia(instante);
+  const segundo = meiaNoiteCivil - deslocamentoEmBrasilia(new Date(primeiro));
+
+  const escolhido = [primeiro, segundo]
+    .filter((candidato) => candidato > instante.getTime())
+    .filter((candidato) => diaCivilEmBrasilia(new Date(candidato)) > diaDeHoje)
+    .sort((a, b) => a - b)[0];
+
+  return new Date(escolhido);
+}
+
+/**
+ * Quantos milissegundos faltam para a próxima meia-noite de Brasília.
+ *
+ * É o que vai para o `setTimeout` do reset do chat. Existe para que nenhum
+ * componente precise ler o relógio por conta própria (AC-TEMPO-05).
+ *
+ * @param {Timestamp|string|Date} [agora] instante de referência.
+ * @returns {number} sempre maior que zero.
+ */
+export function msAteProximaMeiaNoiteBrasilia(agora = new Date()) {
+  const instante = paraData(agora) || new Date();
+
+  return proximaMeiaNoiteBrasilia(instante).getTime() - instante.getTime();
 }

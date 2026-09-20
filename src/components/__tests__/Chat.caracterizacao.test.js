@@ -359,9 +359,15 @@ describe('Chat — reset à meia-noite de Brasília (AC-TEMPO-07)', () => {
     __semearColecao('chat', [fabricaMensagem({ id: 'm1', texto: 'conversa da tarde' })]);
     renderComProvedores(<Chat />);
     await abrirChat();
+    expect(jest.getTimerCount()).toBe(1);
 
     relogio.avancar(MS_ATE_A_MEIA_NOITE - 1);
 
+    // A asserção que importa é a do timer, não a da tela: a limpeza é
+    // assíncrona, então olhar só para os balões daria verde mesmo com o timer
+    // já disparado — o `deleteDoc` ainda não teria chegado ao DOM. Um timer
+    // que continua armado é prova de que nada foi disparado.
+    expect(jest.getTimerCount()).toBe(1);
     expect(falasNaTela()).toHaveLength(1);
   });
 

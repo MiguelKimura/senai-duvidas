@@ -7,6 +7,7 @@ import {
   carimboServidor,
   completarHorariosIso,
   criarComparadorPorHorario,
+  msAteProximaMeiaNoiteBrasilia,
 } from '../services/tempo';
 
 
@@ -114,22 +115,20 @@ function Chat() {
     }
   };
 
-  // Resetando o chat à meia-noite
+  // Resetando o chat à meia-noite DE BRASÍLIA (AC-TEMPO-07).
+  //
+  // `setHours(24, 0, 0, 0)` usava a meia-noite da máquina. Numa máquina com o
+  // fuso errado — o caso comum nos laboratórios — a conversa da turma sumia no
+  // meio da aula seguinte, ou sobrevivia um dia a mais.
+  //
+  // O instante de referência ainda é o relógio local, porque um `setTimeout`
+  // não tem outro. O que deixa de depender da máquina é **qual** meia-noite se
+  // espera: o fuso sai de `services/tempo.js`, não da configuração do Windows.
   useEffect(() => {
-    const resetarChatAmeiaNoite = () => {
-      const agora = new Date();
-      const proximaMeiaNoite = new Date();
-      proximaMeiaNoite.setHours(24, 0, 0, 0); // Definindo a próxima meia-noite
+    const temporizador = setTimeout(limparMensagens, msAteProximaMeiaNoiteBrasilia());
 
-      const tempoParaProximaMeiaNoite = proximaMeiaNoite - agora;
-      if (tempoParaProximaMeiaNoite > 0) {
-        setTimeout(() => {
-          limparMensagens(); // Limpa as mensagens à meia-noite
-        }, tempoParaProximaMeiaNoite);
-      }
-    };
-
-    resetarChatAmeiaNoite();
+    // Sem isto o timer sobrevive ao componente e limpa o chat de outra tela.
+    return () => clearTimeout(temporizador);
   }, []);
 
   return (
