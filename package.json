@@ -24,14 +24,16 @@
     "test:ci": "cross-env CI=true react-scripts test --watchAll=false --coverage",
     "test:rules": "firebase emulators:exec --project demo-senai-duvidas --only firestore,storage \"jest --config jest.rules.config.js\"",
     "emulators": "firebase emulators:start --project demo-senai-duvidas",
-    "lint": "eslint \"src/**/*.{js,jsx}\" \"tests/**/*.js\" --max-warnings=0",
-    "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"tests/**/*.js\"",
-    "eject": "react-scripts eject"
+    "lint": "eslint \"src/**/*.{js,jsx}\" \"tests/**/*.js\" \"scripts/**/*.js\" --max-warnings=0",
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"tests/**/*.js\" \"scripts/**/*.js\"",
+    "eject": "react-scripts eject",
+    "changelog": "node scripts/gerarChangelog.js"
   },
   "jest": {
     "testMatch": [
       "**/src/**/__tests__/**/*.{js,jsx}",
-      "**/src/**/*.{spec,test}.{js,jsx}"
+      "**/src/**/*.{spec,test}.{js,jsx}",
+      "**/scripts/__tests__/**/*.js"
     ],
     "collectCoverageFrom": [
       "src/**/*.{js,jsx}",

@@ -37,6 +37,11 @@ module.exports = {
       },
     },
     {
+      // Ferramentas de linha de comando: rodam em Node, fora do bundle.
+      files: ['scripts/**/*.js'],
+      env: { jest: true, node: true, es2021: true },
+    },
+    {
       // Testes de Security Rules: rodam em Node contra o emulador, fora do
       // bundle do React.
       files: ['tests/**/*.js'],
