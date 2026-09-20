@@ -12,4 +12,9 @@ module.exports = {
   setupFiles: ['<rootDir>/tests/rules/setup.js'],
   // O emulador pode demorar na primeira consulta enquanto compila as rules.
   testTimeout: 20000,
+  // Em serie, obrigatoriamente: os arquivos de teste de Firestore dividem o
+  // MESMO emulador e cada um chama `clearFirestore()` entre os testes. Em
+  // paralelo, a limpeza de um apaga o cenario do outro no meio da asserção —
+  // uma falha que aparece e some conforme a ordem de agendamento.
+  maxWorkers: 1,
 };

@@ -1,19 +1,41 @@
 rules_version = '2';
 
-// Security Rules do Storage — ESTADO ATUAL, DELIBERADAMENTE INSEGURO.
+// Security Rules do Storage.
 //
-// Hoje a interface nem oferece upload de arquivo: o anexo é colado como URL
-// (AC-IMG-01) e `uploadImage` em `src/firebase.js` não tem caminho até a tela.
-// Mesmo assim o helper existe e grava em `imagens/<nome do arquivo>`, sem uid
-// e sem sala — dois alunos que enviem `print.png` se sobrescrevem.
+// Hoje a interface ainda não oferece upload de arquivo: o anexo é colado como
+// URL (AC-IMG-01) e `uploadImage` em `src/firebase.js` é chamado por ninguém.
+// O upload de verdade é a task 04.
 //
-// TODO(task-04): endurecer junto com o upload de verdade. Caminho com escopo
-// (`salas/{salaId}/{uid}/{arquivo}`), exigir request.auth, limitar tamanho e
-// tipo de conteúdo a imagem.
+// O que a task 03 faz aqui é abrir o caminho **já escopado por sala** —
+// `salas/{salaId}/chamados/{chamadoId}/{arquivo}`, o mesmo que
+// `services/salas.js#caminhoDoAnexo` monta — e fechá-lo o suficiente para que
+// ele não nasça como buraco: exige sessão, tipo de imagem e tamanho. A
+// checagem de que a pessoa é membro da sala depende de `firestore.exists()` e
+// entra na task 04, junto com o upload que a usa.
 service firebase.storage {
   match /b/{bucket}/o {
+    // Caminho legado, da v0.1.0: sem uid e sem sala, dois alunos que enviem
+    // `print.png` se sobrescrevem.
+    //
+    // TODO(task-04): fechar junto com a migração dos anexos para o caminho
+    // escopado abaixo. Apertar agora quebraria o helper em produção antes de
+    // existir a tela que o substitui.
     match /imagens/{arquivo} {
       allow read, write: if true;
+    }
+
+    // Anexo de chamado, escopado por sala (task 03, para a task 04 usar).
+    match /salas/{salaId}/chamados/{chamadoId}/{arquivo} {
+      // A leitura é pública porque o card exibe a imagem por URL direta, como
+      // já fazia. Trocar por URL assinada é decisão da task 04.
+      allow read: if true;
+
+      // TODO(task-04): exigir também
+      // `firestore.exists(/databases/(default)/documents/salas/$(salaId)/membros/$(request.auth.uid))`,
+      // fechando o upload aos membros da sala (AC-SEC-02).
+      allow write: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
 
     match /{caminho=**} {
