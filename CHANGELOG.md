@@ -9,6 +9,72 @@ Todas as mudanças relevantes deste projeto são registradas aqui, no formato
 > intervalo e os agrupa. Escrever à mão é escrever de memória no fim do trabalho, e o que
 > fica de fora é justamente o que ninguém lembrou.
 
+> node scripts/gerarChangelog.js origin/dev..HEAD --versao 0.3.0 --data 2026-09-20
+
+## [0.3.0] - 2026-09-20
+
+### Adicionado
+
+- **auth:** traduz os erros do Firebase para português sem vazar o código
+- **auth:** cria usuarios/{uid} no primeiro acesso, sempre como aluno
+- **auth:** resolve o papel exigindo usuarios e autorizados de acordo
+- **auth:** isola o Firebase Auth em services/auth.js com persistência local
+- **auth:** implementa o provider único com papel resolvido pelo Firestore
+- **auth:** adiciona RotaProtegida com os quatro estados de acesso
+- **auth:** liga os botões de Google e GitHub e mostra o erro no formulário
+- **auth:** reduz o App a roteamento e apaga as duas autenticações restantes
+- **sessao:** adiciona o botão Sair nas telas do aluno e do professor
+- **auth:** grava criadoEm e provedor no cadastro por e-mail e senha
+- **auth:** liga o cadastro ao tradutor único e tira o alert
+- **auth:** leva a regra do papel para o servidor com ehAutenticado e ehProfessor
+- **auth:** nega a exclusão de usuarios/{uid} pelo cliente
+- **seguranca:** força https fora do localhost e documenta os domínios autorizados
+
+### Alterado
+
+- **auth:** exige mensagem em português para todo erro do Firebase
+- **auth:** exige documento de usuário no primeiro login social
+- **auth:** exige concordância entre usuarios e autorizados para ser professor
+- **auth:** exige persistência local configurada antes de qualquer login
+- **auth:** descreve o provider único que substitui as três autenticações
+- **auth:** exige estado de carregamento explícito na rota protegida
+- **auth:** reescreve a caracterização do login para o desenho da task 01
+- **auth:** inverte a caracterização do App, do contexto órfão e do firebase.js
+- **sessao:** exige botão Sair em toda tela autenticada
+- **auth:** inverte a lacuna do criadoEm registrada pela task 00
+- **auth:** exige tradutor único e nenhum alert também no cadastro
+- **auth:** proíbe e-mail e documento de autorizados no console
+- **auth:** exige dono e autorizacao no servidor para usuarios/{uid}
+- **auth:** exige que ninguém apague usuarios/{uid} pelo cliente
+- **auth:** prova que criadoEm e provedor são campos aditivos
+- **seguranca:** exige redirecionamento para https fora do localhost
+- **seguranca:** exige que index.js chame o guarda antes de montar
+
+### Corrigido
+
+- **auth:** tira e-mail e documento de autorizados do console
+
+### Segurança
+
+- **BREAKING** **auth:** o papel do usuário deixa de ser lido do `localStorage` e passa a vir
+  exclusivamente do Firestore (`usuarios/{uid}.tipo` **e** `autorizados/{email}.Tipo`, que
+  precisam concordar). Quem escrevia `tipoUsuario` no navegador para abrir a tela do professor
+  deixa de conseguir. Nenhum dado precisa ser migrado: a chave antiga é apagada no logout e
+  ignorada na leitura.
+- **auth:** as Firestore Rules de `usuarios/{uid}` deixam de ser `if true`. Só o dono escreve o
+  próprio documento, só vira professor quem está em `autorizados`, a leitura exige sessão e a
+  exclusão pelo cliente é negada.
+- **seguranca:** o app redireciona HTTP para HTTPS fora de `localhost`.
+- **auth:** `verificarPermissao` para de registrar e-mail e documento de `autorizados` no console.
+
+### Problemas conhecidos desta versão
+
+- `chamados` e `chat` continuam como coleções globais e com rules abertas. Endurecê-las agora
+  quebraria o app; é a task 03, que reusa as funções `ehAutenticado()` e `ehProfessor()`
+  introduzidas aqui.
+- A lista de domínios autorizados do Firebase Auth é configuração de console e **precisa ser
+  aplicada à mão** — veja `docs/DOMINIOS-AUTORIZADOS.md`. Por isso o AC-SEC-06 fica 🟡.
+
 ## [0.2.0] - 2026-09-20
 
 ### Adicionado
@@ -81,5 +147,6 @@ as tasks 01 a 09 os mudem de forma consciente e comprovada:
 - a config do Firebase estava fixa no código-fonte (corrigido na 0.2.0)
 - `onSnapshot` sem `where` nem `limit` em coleção inteira (task 07)
 
+[0.3.0]: https://github.com/MiguelKimura/senai-duvidas/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MiguelKimura/senai-duvidas/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MiguelKimura/senai-duvidas/releases/tag/v0.1.0

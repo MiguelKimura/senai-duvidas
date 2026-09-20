@@ -113,7 +113,90 @@ por um professor com a turma esperando.
 
 ## v0.3.0 — Login social e sessão que não expira
 
-*(a preencher pela task 01)*
+**O que existia**
+
+A 0.2.0 entregou a rede de proteção — testes, lint, CI, rules versionadas — e deixou o
+comportamento do app exatamente como estava, de propósito. Entre os comportamentos fixados em
+teste de caracterização estava este, em `src/App.js`:
+
+```js
+tipo: localStorage.getItem('tipoUsuario') || 'aluno'
+```
+
+**O problema que isso causava**
+
+`localStorage` é memória do navegador do próprio usuário. Qualquer aluno abria o DevTools,
+digitava `localStorage.setItem('tipoUsuario','professor')`, recarregava a página e entrava na
+tela do professor — vendo a fila inteira da turma e podendo apagar o chamado de quem quisesse.
+Não havia exploração a desenvolver, nem ferramenta a instalar: era uma linha digitada no
+console, e ela circula entre alunos mais rápido do que qualquer correção.
+
+Havia ainda uma segunda camada do mesmo problema, invisível na tela: as Security Rules de
+`usuarios/{uid}` eram `allow read, create, update, delete: if true`. Mesmo com o front-end
+correto, uma chamada avulsa ao Firestore gravava `tipo: "professor"` no próprio documento.
+
+Em volta disso, três implementações de autenticação concorrentes — `App.js`, um
+`AuthContext.js` que nenhum componente importava, e helpers soltos em `firebase.js` com um
+`onAuthStateChanged` no nível do módulo — mais um quarto listener dentro de `Login.js`. Com
+quatro observadores decidindo rota ao mesmo tempo, não existia um lugar onde consertar, e a
+tela de login **piscava** para quem já estava logado. Os botões de Google e GitHub, por sua
+vez, nem apareciam na interface: `App.js` passava as funções como props, e `Login.js` não as
+recebia. Quem conseguisse autenticar por um provedor social não ganhava documento em
+`usuarios/{uid}` e ficava preso na mensagem "Usuário não encontrado no banco de dados".
+
+**Por que a correção veio antes das features**
+
+O roadmap tinha salas, imagens, chat novo e perks pela frente — tudo mais visível para quem usa
+do que uma linha de `localStorage`. A ordem foi invertida de propósito, por três razões:
+
+1. **O dano é de aula, não de código.** Um aluno na tela do professor apaga o chamado de outro
+   aluno no meio de uma atividade avaliada. Não há como desfazer aquela aula.
+2. **Toda feature futura depende do papel.** Salas precisam saber quem é professor; perks
+   precisam saber quem é professor *daquela sala*. Construir qualquer uma delas sobre um papel
+   falsificável seria construir sobre a mesma falha, multiplicada por quatro telas.
+3. **A correção só fica barata agora.** Mudar a origem do papel obriga a ajustar todo código
+   que o consome. Com quatro telas é uma tarde; com doze, é uma refatoração de risco.
+
+**O que foi decidido**
+
+O papel passa a vir do Firestore, exigindo que **duas** fontes concordem: `usuarios/{uid}.tipo`
+e `autorizados/{email}.Tipo`. `autorizados` é mantida à mão no console do Firebase e tem
+escrita negada pelas rules — é a única das duas que o cliente não consegue forjar. As quatro
+autenticações viraram uma: `src/contexts/AuthContext.jsx`, com as chamadas ao SDK isoladas em
+`src/services/auth.js` e a decisão de papel em `src/services/perfilUsuario.js`. `App.js` ficou
+sendo só roteamento. A mesma regra foi levada para o servidor, em `firestore.rules`, com as
+funções `ehAutenticado()`, `ehDono()` e `ehProfessor()`.
+
+O raciocínio completo, com as alternativas, está em
+`docs/adr/0003-fonte-unica-de-verdade-para-papel-do-usuario.md`.
+
+**O que foi descartado**
+
+- **Custom claims no token do Firebase.** É a solução tecnicamente melhor — o papel viajaria
+  assinado, sem leitura extra. Exige Cloud Functions com plano Blaze, que pede cartão de
+  crédito, e o projeto precisa caber no plano gratuito. Fica registrado como caminho futuro.
+- **Bloquear a professora legada cujo e-mail saiu de `autorizados`.** Seria o mais rígido, e
+  transformaria um erro de cadastro numa aula perdida na porta da sala. Ela entra **como
+  aluna**, com aviso na tela e registro em log para o administrador reconciliar.
+- **Endurecer as rules de `chamados` e `chat` junto.** Derrubaria o app em produção: essas
+  coleções ainda não têm escopo de sala. Ficou para a task 03, que reusa as funções auxiliares
+  criadas aqui.
+- **Apagar `tipo` de `usuarios/{uid}` e usar só `autorizados`.** Quebraria as contas de
+  professor que já existem.
+
+**O que o usuário sente na prática**
+
+- **O aluno** vê dois botões novos na tela de login — "Entrar com Google" e "Entrar com GitHub"
+  — e entra sem criar mais uma senha. No primeiro acesso o perfil é criado sozinho, em vez de
+  "Usuário não encontrado no banco de dados". A tela de login não pisca mais.
+- **Quem já estava logado** continua logado: fechar a aba, dar Ctrl+F5, perder a rede um minuto
+  ou desligar o computador não pedem senha de novo, e ficar a tarde inteira com a aba aberta
+  não desloga mais (`browserLocalPersistence`, com renovação automática de token).
+- **Todo mundo** passa a ver um botão "Sair" em todas as telas autenticadas — o laboratório é
+  máquina compartilhada, e até aqui a única forma de sair era limpar o navegador.
+- **Erro de login** vira frase em português dentro do formulário, no lugar do `alert()` com o
+  código cru do Firebase. E-mail já cadastrado por outro método agora explica o que fazer.
+- **O aluno que tentar o truque do `localStorage`** simplesmente continua na tela do aluno.
 
 ## v0.4.0 — Horário oficial
 

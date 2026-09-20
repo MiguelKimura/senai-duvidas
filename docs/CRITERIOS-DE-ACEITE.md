@@ -24,26 +24,26 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-AUTH-01 🟡 | O usuário consegue se cadastrar com nome, e-mail e senha, e o cadastro cria um documento em `usuarios/{uid}` com `nome`, `email`, `tipo`, `uid` e `criadoEm`. | [MVP] [REG] |
+| AC-AUTH-01 ✅ | O usuário consegue se cadastrar com nome, e-mail e senha, e o cadastro cria um documento em `usuarios/{uid}` com `nome`, `email`, `tipo`, `uid` e `criadoEm`. | [MVP] [REG] |
 | AC-AUTH-02 ✅ | O usuário consegue entrar com e-mail e senha e é redirecionado para `/aluno` ou `/professor` conforme o campo `tipo`. | [MVP] [REG] |
-| AC-AUTH-03 | Existe botão **"Entrar com Google"** na tela de login que autentica via Firebase e, no primeiro acesso, cria o documento `usuarios/{uid}` com `tipo: "aluno"`. | [MVP] |
-| AC-AUTH-04 | Existe botão **"Entrar com GitHub"** com o mesmo comportamento do AC-AUTH-03. | [MVP] |
-| AC-AUTH-05 | Se o e-mail do provedor social já existir com outro método, o sistema exibe mensagem em português explicando como vincular a conta — nunca um stack trace ou código bruto do Firebase. | [MVP] |
-| AC-AUTH-06 | O papel (`aluno`/`professor`) é resolvido **exclusivamente** a partir do Firestore (`usuarios/{uid}.tipo` e `autorizados/{email}.Tipo`). `localStorage` nunca pode determinar papel. | [MVP] |
-| AC-AUTH-07 | Um usuário não listado em `autorizados/{email}` com `Tipo: "professor"` não consegue se cadastrar nem operar como professor, mesmo alterando `localStorage`, o payload da requisição ou as Firestore Rules pelo cliente. | [MVP] |
-| AC-AUTH-08 | O logout limpa a sessão do Firebase e todo estado local, e redireciona para `/`. Após logout, voltar pelo botão do navegador não expõe dados da sessão anterior. | [MVP] |
-| AC-AUTH-09 | Toda rota protegida (`/aluno`, `/professor`, `/sala/*`) exibe um estado de carregamento enquanto o papel está sendo resolvido, e nunca renderiza a tela de login "piscando" para um usuário já autenticado. | [MVP] |
+| AC-AUTH-03 ✅ | Existe botão **"Entrar com Google"** na tela de login que autentica via Firebase e, no primeiro acesso, cria o documento `usuarios/{uid}` com `tipo: "aluno"`. | [MVP] |
+| AC-AUTH-04 ✅ | Existe botão **"Entrar com GitHub"** com o mesmo comportamento do AC-AUTH-03. | [MVP] |
+| AC-AUTH-05 ✅ | Se o e-mail do provedor social já existir com outro método, o sistema exibe mensagem em português explicando como vincular a conta — nunca um stack trace ou código bruto do Firebase. | [MVP] |
+| AC-AUTH-06 ✅ | O papel (`aluno`/`professor`) é resolvido **exclusivamente** a partir do Firestore (`usuarios/{uid}.tipo` e `autorizados/{email}.Tipo`). `localStorage` nunca pode determinar papel. | [MVP] |
+| AC-AUTH-07 ✅ | Um usuário não listado em `autorizados/{email}` com `Tipo: "professor"` não consegue se cadastrar nem operar como professor, mesmo alterando `localStorage`, o payload da requisição ou as Firestore Rules pelo cliente. | [MVP] |
+| AC-AUTH-08 ✅ | O logout limpa a sessão do Firebase e todo estado local, e redireciona para `/`. Após logout, voltar pelo botão do navegador não expõe dados da sessão anterior. | [MVP] |
+| AC-AUTH-09 ✅ | Toda rota protegida (`/aluno`, `/professor`, `/sala/*`) exibe um estado de carregamento enquanto o papel está sendo resolvido, e nunca renderiza a tela de login "piscando" para um usuário já autenticado. | [MVP] |
 | AC-AUTH-10 ✅ | Nenhuma credencial, chave de serviço ou segredo fica versionado no repositório; a config do Firebase vem de variáveis `REACT_APP_*` com fallback documentado. | [MVP] |
 
 ## 2. Sessão Persistente (`SESSAO`)
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-SESSAO-01 | Fechar a aba e reabrir o site mantém o usuário logado, sem nova digitação de senha. | [MVP] |
-| AC-SESSAO-02 | Desligar e religar o computador mantém o usuário logado (persistência `browserLocalPersistence` / IndexedDB). | [MVP] |
-| AC-SESSAO-03 | A sessão sobrevive a um recarregamento forçado (Ctrl+F5) e à perda temporária de rede. | [MVP] |
-| AC-SESSAO-04 | O token é renovado automaticamente; o usuário não é deslogado ao ficar mais de 1 hora com a aba aberta. | [MVP] |
-| AC-SESSAO-05 | Em máquina compartilhada, existe ação explícita de **"Sair"** visível em todas as telas autenticadas. | [MVP] |
+| AC-SESSAO-01 ✅ | Fechar a aba e reabrir o site mantém o usuário logado, sem nova digitação de senha. | [MVP] |
+| AC-SESSAO-02 ✅ | Desligar e religar o computador mantém o usuário logado (persistência `browserLocalPersistence` / IndexedDB). | [MVP] |
+| AC-SESSAO-03 ✅ | A sessão sobrevive a um recarregamento forçado (Ctrl+F5) e à perda temporária de rede. | [MVP] |
+| AC-SESSAO-04 ✅ | O token é renovado automaticamente; o usuário não é deslogado ao ficar mais de 1 hora com a aba aberta. | [MVP] |
+| AC-SESSAO-05 ✅ | Em máquina compartilhada, existe ação explícita de **"Sair"** visível em todas as telas autenticadas. | [MVP] |
 | AC-SESSAO-06 | Se o navegador bloquear armazenamento (modo anônimo restrito), o app degrada para sessão de aba única e avisa o usuário, sem travar. | [POS] |
 
 ## 3. Salas do Professor (`SALA`)
@@ -222,10 +222,10 @@
 |---|---|---|
 | AC-SEC-01 | As Firestore Rules negam tudo por padrão e liberam explicitamente cada caminho. | [MVP] |
 | AC-SEC-02 | Nenhum usuário lê ou escreve dados de sala à qual não pertence, validado por teste de rules. | [MVP] |
-| AC-SEC-03 | Escalada de privilégio de aluno para professor é impossível pelo cliente. | [MVP] |
+| AC-SEC-03 ✅ | Escalada de privilégio de aluno para professor é impossível pelo cliente. | [MVP] |
 | AC-SEC-04 | Todo texto do usuário é escapado ou sanitizado antes de ser renderizado (proteção contra XSS). | [MVP] |
 | AC-SEC-05 | PINs de sala não são expostos a quem não é dono da sala em nenhuma resposta do banco. | [MVP] |
-| AC-SEC-06 | O app roda apenas sob HTTPS; domínios autorizados do Firebase Auth estão restritos aos domínios reais. | [MVP] |
+| AC-SEC-06 🟡 | O app roda apenas sob HTTPS; domínios autorizados do Firebase Auth estão restritos aos domínios reais. | [MVP] |
 | AC-SEC-07 | Dados de menores de idade: nenhum dado pessoal além de nome e e-mail institucional é coletado. | [MVP] |
 | AC-SEC-08 | Uploads são varridos por tipo MIME real (magic bytes), não apenas pela extensão do arquivo. | [MVP] |
 
@@ -334,3 +334,51 @@ corrigir precise invertê-lo de forma explícita.
 | AC-CHAT-08 | `!clear` funciona para qualquer aluno | 06 |
 | AC-TEMPO-01 | `horario` é `new Date()` do cliente | 05 |
 | AC-PERF-03 | `onSnapshot` em coleção inteira, sem `where` nem `limit` | 07 |
+
+---
+
+### v0.3.0 — Login social, sessão persistente e papel vindo do Firestore
+
+**Atendidos (✅)**
+
+| AC | Prova |
+|---|---|
+| AC-AUTH-01 | `src/components/__tests__/Cadastro.caracterizacao.test.js:69` — o cadastro grava `nome`, `email`, `tipo`, `uid` e `criadoEm` (timestamp do servidor). Fecha a lacuna 🟡 da v0.2.0. |
+| AC-AUTH-02 | `src/components/__tests__/Login.caracterizacao.test.js:89` — redireciona por `usuarios/{uid}.tipo`, e `:122` prova que a rota **não** vem do `localStorage` |
+| AC-AUTH-03 | `src/components/__tests__/Login.caracterizacao.test.js:232` — o botão existe, autentica e cria o perfil no primeiro acesso; `src/services/__tests__/auth.test.js:94` — `signInWithPopup` com `GoogleAuthProvider` |
+| AC-AUTH-04 | `src/components/__tests__/Login.caracterizacao.test.js:269` e `src/services/__tests__/auth.test.js:105` — idem para o GitHub |
+| AC-AUTH-05 | `src/utils/__tests__/errosAuth.test.js:32` — `auth/account-exists-with-different-credential` vira explicação de como vincular a conta; `:44` — nenhum código nem texto cru do Firebase chega à tela |
+| AC-AUTH-06 | `src/services/__tests__/perfilUsuario.test.js:115` — as duas fontes precisam concordar; `:180` — `localStorage.setItem('tipoUsuario','professor')` não promove ninguém; `src/contexts/__tests__/AuthContext.test.js:141` — o papel nunca é gravado no `localStorage` |
+| AC-AUTH-07 | `tests/rules/firestore.rules.test.js:200` — o servidor nega gravar `tipo: "professor"` a quem não está em `autorizados`, inclusive forjando o e-mail no payload. Inverte dois testes de caracterização da v0.2.0. |
+| AC-AUTH-08 | `src/contexts/__tests__/AuthContext.test.js:243` — encerra o Firebase e apaga as chaves da v0.2.0; `src/components/__tests__/RotaProtegida.test.js:170` — o histórico é substituído, então "voltar" não reabre a rota protegida |
+| AC-AUTH-09 | `src/components/__tests__/RotaProtegida.test.js:81` — carregamento anunciado a leitor de tela e **nunca** a tela de login para quem já está autenticado; `src/contexts/__tests__/AuthContext.test.js:86` |
+| AC-AUTH-10 | Mantido da v0.2.0 — `src/__tests__/firebaseConfig.test.js:75` |
+| AC-SESSAO-01 | `src/services/__tests__/auth.test.js:56` — `browserLocalPersistence` antes de qualquer login; `src/contexts/__tests__/AuthContext.test.js:167` — a remontagem encontra a sessão sem nova autenticação |
+| AC-SESSAO-02 | `src/services/__tests__/auth.test.js:56` — `browserLocalPersistence` grava no IndexedDB, que sobrevive ao desligamento |
+| AC-SESSAO-03 | `src/contexts/__tests__/AuthContext.test.js:167` — a sessão é lida do armazenamento a cada montagem, que é o que Ctrl+F5 faz; `:152` — queda de rede vira erro com "tentar novamente", sem derrubar a sessão |
+| AC-SESSAO-04 | `src/services/__tests__/auth.test.js:81` — a persistência é configurada uma vez e o SDK renova o token enquanto ela vale |
+| AC-SESSAO-05 | `src/components/__tests__/BotaoSair.test.js:34`; presença em cada tela em `TelaAluno.caracterizacao.test.js:351` e `TelaProfessor.caracterizacao.test.js:252` |
+| AC-SEC-03 | `src/services/__tests__/perfilUsuario.test.js:180` (cliente) e `tests/rules/firestore.rules.test.js:200` (servidor) — as duas metades |
+
+**Parcialmente atendidos (🟡)**
+
+| AC | O que já vale | O que falta, e onde é resolvido |
+|---|---|---|
+| AC-SEC-06 | O app redireciona HTTP para HTTPS fora de `localhost` antes de montar — `src/utils/__tests__/httpsObrigatorio.test.js`; `authDomain` vem de `REACT_APP_*` — `src/__tests__/firebaseConfig.test.js` | A lista de domínios autorizados do Firebase Auth é configuração do console e **precisa ser aplicada à mão**, uma vez. A lista exata, o motivo de cada entrada e como conferir estão em `docs/DOMINIOS-AUTORIZADOS.md`. Não há API de cliente que a leia — mesma situação do AC-CI-04. |
+
+**Continuam não atendidos, de propósito**
+
+| AC | Por quê | Task que resolve |
+|---|---|---|
+| AC-CHAMADO-05 | As rules de `chamados` continuam abertas. Endurecê-las antes do escopo de sala derrubaria o app em produção. As funções `ehAutenticado()` e `ehProfessor()` já ficaram prontas para a task 03 usar. | 03 |
+| AC-SALA-07 / AC-CHAT-10 | `chamados` e `chat` ainda são coleções globais | 03 e 06 |
+| AC-CHAT-08 | `!clear` ainda funciona para qualquer aluno | 06 |
+| AC-TEMPO-01 | `horario` ainda é `new Date()` do cliente | 05 |
+| AC-PERF-03 | `onSnapshot` ainda sem `where` nem `limit` | 07 |
+| AC-SESSAO-06 | Armazenamento bloqueado ainda não degrada com aviso. `limparEstadoLocal` já não lança nesse caso, mas não existe aviso ao usuário. | [POS] |
+
+**Correção de rota na tabela de v0.2.0**
+
+A linha do AC-AUTH-06 em "Explicitamente não atendidos" da v0.2.0 aponta a task **02** como
+responsável. Estava errado: quem corrige a origem do papel é a task **01**, e é o que esta
+versão faz. O critério em si não mudou.
