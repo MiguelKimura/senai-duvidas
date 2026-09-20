@@ -201,3 +201,51 @@ export function formatarRelativo(valor, agora = new Date()) {
 
   return `há ${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
 }
+
+/**
+ * Comparador de dois valores de `horario`, para ordenação crescente.
+ *
+ * Quem ainda não tem horário legível — pendente de carimbo ou documento sem o
+ * campo — vai para o **fim**, e empata com os outros iguais a si. O empate é
+ * deliberado: `Array.prototype.sort` é estável, então a ordem de chegada
+ * desempata e o card de quem acabou de enviar não fica pulando de posição
+ * enquanto o servidor não responde.
+ *
+ * Subtrair `a.horario - b.horario` direto, como as telas faziam, dá `NaN`
+ * quando um dos lados não é número — e um comparador que devolve `NaN` deixa a
+ * ordem indefinida, sem erro nenhum na tela.
+ *
+ * @param {Timestamp|string|Date|null|undefined} a
+ * @param {Timestamp|string|Date|null|undefined} b
+ * @returns {number} negativo, zero ou positivo, como manda `sort`.
+ */
+export function comparar(a, b) {
+  const esquerda = paraData(a);
+  const direita = paraData(b);
+
+  if (esquerda && direita) return esquerda.getTime() - direita.getTime();
+  if (esquerda) return -1;
+  if (direita) return 1;
+
+  return 0;
+}
+
+/**
+ * Comparador de documentos pelo campo `horario`, componível.
+ *
+ * O campo continua se chamando `horario` porque a task 03 vai mover chamados
+ * para dentro de `salas/{salaId}`, e migrar nome de campo e forma de dado no
+ * mesmo release seria migrar duas coisas de uma vez.
+ *
+ * @param {(a: object, b: object) => number} [criterioAnterior] ordenação que
+ *   vem antes, ex.: prioridade decrescente na task 09. Sem ela, só o horário.
+ * @returns {(a: object, b: object) => number} comparador para `sort`.
+ */
+export function criarComparadorPorHorario(criterioAnterior) {
+  return (a, b) => {
+    const anterior = criterioAnterior ? criterioAnterior(a, b) : 0;
+    if (anterior !== 0) return anterior;
+
+    return comparar(a && a.horario, b && b.horario);
+  };
+}
