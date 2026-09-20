@@ -1,14 +1,17 @@
 // Caracterização da tela do aluno — o coração da v0.1.0.
 //
 // Cobre os critérios de regressão AC-CHAMADO-01/02/03/04/07, AC-IMG-01 e
-// AC-COR-05, e registra as três falhas estruturais que as próximas tasks vão
+// AC-COR-05, e registra as falhas estruturais que as próximas tasks vão
 // corrigir:
 //   * o listener é `onSnapshot` na coleção `chamados` INTEIRA, sem `where` nem
 //     `limit` — viola AC-PERF-03 e impede o escopo por sala (task 03);
-//   * `horario` é `new Date().toISOString()` do relógio do aluno — viola
-//     AC-TEMPO-01/02 e é o que a task 02 troca por `serverTimestamp()`;
 //   * o anexo abre por `window.open`, bloqueado em parte dos laboratórios —
 //     AC-IMG-10 troca isso por um lightbox na task 04.
+//
+// A terceira falha registrada aqui pela task 00 — `horario` vindo do relógio do
+// aluno — foi corrigida pela task 02: as asserções que a descreviam foram
+// INVERTIDAS, não apagadas, e hoje exigem o carimbo do servidor
+// (AC-TEMPO-01/02, a partir de `:252`).
 import React from 'react';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
