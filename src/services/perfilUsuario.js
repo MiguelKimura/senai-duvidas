@@ -30,6 +30,55 @@ function provedorDoUsuario(usuario) {
   return (primeiro && primeiro.providerId) || 'desconhecido';
 }
 
+/** E-mail na forma usada como id em `autorizados`: sem espaços, em minúsculas. */
+function normalizarEmail(email) {
+  return typeof email === 'string' ? email.trim().toLowerCase() : '';
+}
+
+/**
+ * A lista `autorizados` é mantida à mão no console do Firebase e é a única
+ * autoridade sobre quem pode ser professor. O documento `usuarios/{uid}`
+ * sozinho não serve: com as rules de hoje o próprio cliente escreve nele.
+ */
+async function estaAutorizadoComoProfessor(email) {
+  const chave = normalizarEmail(email);
+  if (!chave) return false;
+
+  const documento = await getDoc(doc(db, 'autorizados', chave));
+  if (!documento.exists()) return false;
+
+  const tipo = documento.data().Tipo;
+  return typeof tipo === 'string' && tipo.trim().toLowerCase() === PAPEL_PROFESSOR;
+}
+
+/**
+ * Aplica a regra de resolução do papel a um documento que já existe.
+ *
+ * Conta legada: se o documento diz professor mas o e-mail sumiu de
+ * `autorizados`, o acesso continua — rebaixado para aluno e registrado em log.
+ * Travar a entrada de uma professora no meio da aula seria pior do que o
+ * rebaixamento, e o log dá ao administrador o que reconciliar.
+ */
+async function resolverPapelDoPerfil(perfil, usuario) {
+  if (perfil.tipo !== PAPEL_PROFESSOR) {
+    return { papel: PAPEL_ALUNO, rebaixado: false };
+  }
+
+  const email = perfil.email || usuario.email;
+
+  if (await estaAutorizadoComoProfessor(email)) {
+    return { papel: PAPEL_PROFESSOR, rebaixado: false };
+  }
+
+  console.warn(
+    '[auth] Documento diz professor, mas o e-mail não está em autorizados: ' +
+      'acesso rebaixado para aluno.',
+    { uid: usuario.uid }
+  );
+
+  return { papel: PAPEL_ALUNO, rebaixado: true };
+}
+
 /**
  * Lê `usuarios/{uid}` e, se não existir, cria com `tipo: "aluno"`.
  *
@@ -38,7 +87,8 @@ function provedorDoUsuario(usuario) {
  *
  * @param {{uid: string, email?: string, displayName?: string, providerData?: Array<{providerId: string}>}} usuario
  *   usuário do Firebase Auth.
- * @returns {Promise<{perfil: object, papel: Papel, criado: boolean}>}
+ * @returns {Promise<{perfil: object, papel: Papel, criado: boolean, rebaixado: boolean}>}
+ *   `rebaixado` marca a conta legada de professor que perdeu a autorização.
  * @throws {Error} se o usuário não tiver `uid`, ou se o Firestore falhar — o
  *   chamador precisa distinguir "não tem papel" de "não deu para saber".
  */
@@ -51,7 +101,10 @@ export async function garantirPerfil(usuario) {
   const documento = await getDoc(referencia);
 
   if (documento.exists()) {
-    return { perfil: documento.data(), papel: PAPEL_ALUNO, criado: false };
+    const perfilExistente = documento.data();
+    const { papel, rebaixado } = await resolverPapelDoPerfil(perfilExistente, usuario);
+
+    return { perfil: perfilExistente, papel, criado: false, rebaixado };
   }
 
   const perfil = {
@@ -67,5 +120,5 @@ export async function garantirPerfil(usuario) {
 
   await setDoc(referencia, perfil);
 
-  return { perfil, papel: PAPEL_ALUNO, criado: true };
+  return { perfil, papel: PAPEL_ALUNO, criado: true, rebaixado: false };
 }
