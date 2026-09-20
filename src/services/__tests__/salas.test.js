@@ -12,8 +12,11 @@ import {
   Timestamp,
   __confirmarCarimbos,
   __definirRelogioDoServidor,
+  __ouvintesAtivos,
   __recusarEscritaEm,
+  __recusarLeituraEm,
   __resetarFirestore,
+  __semearColecao,
 } from 'firebase/firestore';
 import { ERRO_DE_LIMITE, ERRO_DE_PIN, gerarPin, hashDePin } from '../pin';
 import {
@@ -21,9 +24,16 @@ import {
   COLECAO_DE_SALAS,
   COLECAO_DE_TENTATIVAS,
   ErroDeSala,
+  LIMITE_DE_SALAS,
   TENTATIVAS_DE_PIN_UNICO,
+  arquivarSala,
+  carregarDetalhesDaSala,
   criarSala,
   entrarComPin,
+  observarSalasDoUsuario,
+  regerarPin,
+  removerMembro,
+  removerMembroERegerarPin,
   validarDadosDaSala,
 } from '../salas';
 
@@ -408,5 +418,198 @@ describe('entrarComPin — limite de tentativas (AC-SALA-12)', () => {
     await expect(entrarComPin(pin, ANA)).resolves.toMatchObject({ salaId });
 
     expect(await dadosDe(`${COLECAO_DE_TENTATIVAS}/uid-ana`)).toMatchObject({ tentativas: 1 });
+  });
+});
+
+
+describe('regerarPin — invalida o PIN anterior (AC-SALA-09)', () => {
+  it('devolve um PIN novo, de seis dígitos', async () => {
+    const { salaId, pin } = await criarSala(DADOS, CARLOS);
+
+    const novo = await regerarPin(salaId);
+
+    expect(novo).toMatch(/^[0-9]{6}$/);
+    expect(novo).not.toBe(pin);
+  });
+
+  it('o resumo passa a ser o do PIN novo', async () => {
+    const { salaId } = await criarSala(DADOS, CARLOS);
+
+    const novo = await regerarPin(salaId);
+
+    const segredo = await dadosDe(`${COLECAO_DE_SALAS}/${salaId}/segredo/pin`);
+    expect(segredo.hash).toBe(await hashDePin(novo, segredo.sal));
+  });
+
+  it('o PIN anterior deixa de conferir, que é o que invalida a entrada por ele', async () => {
+    const { salaId, pin } = await criarSala(DADOS, CARLOS);
+
+    await regerarPin(salaId);
+
+    const segredo = await dadosDe(`${COLECAO_DE_SALAS}/${salaId}/segredo/pin`);
+    expect(segredo.hash).not.toBe(await hashDePin(pin, segredo.sal));
+  });
+
+  it('indexa o PIN novo apontando para a mesma sala', async () => {
+    const { salaId } = await criarSala(DADOS, CARLOS);
+
+    const novo = await regerarPin(salaId);
+
+    expect(await dadosDe(`${COLECAO_DO_INDICE}/${novo}`)).toMatchObject({ salaId, ativo: true });
+  });
+
+  it('recarimba pinAtualizadoEm com o horário do servidor', async () => {
+    const { salaId } = await criarSala(DADOS, CARLOS);
+    __confirmarCarimbos();
+
+    __definirRelogioDoServidor('2026-08-01T12:00:00.000Z');
+    await regerarPin(salaId);
+    __confirmarCarimbos();
+
+    const sala = await dadosDe(`${COLECAO_DE_SALAS}/${salaId}`);
+    expect(sala.pinAtualizadoEm.toDate().toISOString()).toBe('2026-08-01T12:00:00.000Z');
+  });
+});
+
+describe('remover aluno — sai da sala e o PIN muda junto (AC-SALA-09)', () => {
+  const ANA = { uid: 'uid-ana', nome: 'Ana Souza', email: 'ana@senai.br' };
+
+  it('apaga o vínculo do aluno com a sala', async () => {
+    const { salaId, pin } = await criarSala(DADOS, CARLOS);
+    await entrarComPin(pin, ANA);
+
+    await removerMembro(salaId, ANA.uid);
+
+    expect(await dadosDe(`${COLECAO_DE_SALAS}/${salaId}/membros/uid-ana`)).toBeUndefined();
+  });
+
+  it('regerar junto é o que impede o aluno removido de entrar de novo com o mesmo PIN', async () => {
+    const { salaId, pin } = await criarSala(DADOS, CARLOS);
+    await entrarComPin(pin, ANA);
+
+    const novo = await removerMembroERegerarPin(salaId, ANA.uid);
+
+    expect(novo).not.toBe(pin);
+    const segredo = await dadosDe(`${COLECAO_DE_SALAS}/${salaId}/segredo/pin`);
+    expect(segredo.hash).not.toBe(await hashDePin(pin, segredo.sal));
+    expect(await dadosDe(`${COLECAO_DE_SALAS}/${salaId}/membros/uid-ana`)).toBeUndefined();
+  });
+});
+
+describe('arquivarSala — o fim do ano letivo (AC-SALA-05, AC-SALA-10)', () => {
+  it('marca a sala como inativa e carimba a data do servidor', async () => {
+    const { salaId } = await criarSala(DADOS, CARLOS);
+
+    __definirRelogioDoServidor('2026-12-15T12:00:00.000Z');
+    await arquivarSala(salaId);
+    __confirmarCarimbos();
+
+    const sala = await dadosDe(`${COLECAO_DE_SALAS}/${salaId}`);
+    expect(sala.ativa).toBe(false);
+    expect(sala.arquivadaEm.toDate().toISOString()).toBe('2026-12-15T12:00:00.000Z');
+  });
+
+  it('não apaga a sala: arquivada é somente-leitura, não sumida', async () => {
+    const { salaId } = await criarSala(DADOS, CARLOS);
+
+    await arquivarSala(salaId);
+
+    expect(await dadosDe(`${COLECAO_DE_SALAS}/${salaId}`)).toMatchObject({ nome: DADOS.nome });
+  });
+});
+
+describe('observarSalasDoUsuario — a lista de cada um (AC-SALA-08, AC-PERF-03/04)', () => {
+  const ANA = { uid: 'uid-ana', nome: 'Ana Souza', email: 'ana@senai.br' };
+
+  it('entrega as salas em que a pessoa entrou', async () => {
+    const { salaId, pin } = await criarSala(DADOS, CARLOS);
+    await entrarComPin(pin, ANA);
+    const recebidas = jest.fn();
+
+    const cancelar = observarSalasDoUsuario('uid-ana', recebidas);
+
+    expect(recebidas).toHaveBeenCalledWith([
+      expect.objectContaining({ salaId, papel: 'aluno' }),
+    ]);
+    cancelar();
+  });
+
+  it('não entrega a sala de outra pessoa', async () => {
+    const { pin } = await criarSala(DADOS, CARLOS);
+    await entrarComPin(pin, ANA);
+    const recebidas = jest.fn();
+
+    const cancelar = observarSalasDoUsuario('uid-bruno', recebidas);
+
+    expect(recebidas).toHaveBeenCalledWith([]);
+    cancelar();
+  });
+
+  it('pagina a consulta em vez de escutar a coleção inteira (AC-PERF-03)', () => {
+    __semearColecao(
+      'usuarios/uid-ana/salas',
+      Array.from({ length: LIMITE_DE_SALAS + 5 }, (_, indice) => ({
+        id: `sala-${indice}`,
+        salaId: `sala-${indice}`,
+        papel: 'aluno',
+      }))
+    );
+    const recebidas = jest.fn();
+
+    const cancelar = observarSalasDoUsuario('uid-ana', recebidas);
+
+    expect(recebidas.mock.calls[0][0]).toHaveLength(LIMITE_DE_SALAS);
+    cancelar();
+  });
+
+  it('cancela a inscrição, sem deixar listener vivo (AC-PERF-04)', () => {
+    const cancelar = observarSalasDoUsuario('uid-ana', jest.fn());
+    expect(__ouvintesAtivos()).toBe(1);
+
+    cancelar();
+
+    expect(__ouvintesAtivos()).toBe(0);
+  });
+});
+
+describe('carregarDetalhesDaSala — o cartão da sala (AC-SALA-08)', () => {
+  const ANA = { uid: 'uid-ana', nome: 'Ana Souza', email: 'ana@senai.br' };
+
+  it('traz os dados da sala junto com o identificador', async () => {
+    const { salaId } = await criarSala(DADOS, CARLOS);
+
+    await expect(carregarDetalhesDaSala(salaId)).resolves.toMatchObject({
+      salaId,
+      nome: DADOS.nome,
+      curso: DADOS.curso,
+      anoLetivo: 2026,
+      ativa: true,
+    });
+  });
+
+  it('conta os membros e os chamados ainda abertos quando pedido', async () => {
+    const { salaId, pin } = await criarSala(DADOS, CARLOS);
+    await entrarComPin(pin, ANA);
+    __semearColecao(`${COLECAO_DE_SALAS}/${salaId}/chamados`, [
+      { id: 'c1', descricao: 'aberto', atendido: false },
+      { id: 'c2', descricao: 'outro aberto', atendido: false },
+      { id: 'c3', descricao: 'resolvido', atendido: true },
+    ]);
+
+    await expect(carregarDetalhesDaSala(salaId, { comContagens: true })).resolves.toMatchObject({
+      totalMembros: 2,
+      chamadosAbertos: 2,
+    });
+  });
+
+  it('devolve null quando o servidor nega a leitura — o aluno já foi removido', async () => {
+    const { salaId } = await criarSala(DADOS, CARLOS);
+    __recusarLeituraEm(`${COLECAO_DE_SALAS}/${salaId}`);
+
+    await expect(carregarDetalhesDaSala(salaId)).resolves.toBeNull();
+  });
+
+  it('devolve null para sala que não existe', async () => {
+    await expect(carregarDetalhesDaSala('sala-que-nunca-existiu')).resolves.toBeNull();
   });
 });
