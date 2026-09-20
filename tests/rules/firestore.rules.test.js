@@ -26,6 +26,24 @@ function como(uid) {
   return ambiente.authenticatedContext(uid).firestore();
 }
 
+/**
+ * Firestore autenticado como `uid` com `email` no token.
+ *
+ * `ehProfessor()` resolve a autorização por `autorizados/{email}`, então o
+ * e-mail precisa estar no token — é ele que o servidor usa, e não um campo do
+ * payload, que o cliente escolheria.
+ */
+function comoUsuarioComEmail(uid, email) {
+  return ambiente.authenticatedContext(uid, { email }).firestore();
+}
+
+/** Grava um documento contornando as rules, para montar o cenário. */
+async function semearComoAdministrador(caminho, dados) {
+  await ambiente.withSecurityRulesDisabled(async (contexto) => {
+    await setDoc(doc(contexto.firestore(), caminho), dados);
+  });
+}
+
 /** Firestore sem nenhuma sessão. */
 function comoVisitante() {
   return ambiente.unauthenticatedContext().firestore();
@@ -149,10 +167,13 @@ describe('usuarios — estado atual', () => {
     );
   });
 
-  // TODO(task-03): endurecer. É a falha de privilégio vista do servidor.
-  it('INSEGURO: o cliente escolhe o próprio tipo, inclusive "professor"', async () => {
-    await assertSucceeds(
-      setDoc(doc(como(ANA), `usuarios/${ANA}`), {
+  // INVERTIDO pela task 01. Este teste nasceu como `assertSucceeds` na task 00,
+  // documentando a escalada de privilégio vista do servidor: o cliente escolhia
+  // o próprio `tipo`. A task 01 fecha exatamente esse buraco (AC-AUTH-07,
+  // AC-SEC-03), então a asserção inverte — e é a inversão que prova a correção.
+  it('o cliente NÃO escolhe mais o próprio tipo', async () => {
+    await assertFails(
+      setDoc(doc(comoUsuarioComEmail(ANA, 'ana@senai.br'), `usuarios/${ANA}`), {
         nome: 'Ana Souza',
         email: 'ana@senai.br',
         tipo: 'professor',
@@ -160,10 +181,139 @@ describe('usuarios — estado atual', () => {
     );
   });
 
-  // TODO(task-03): endurecer. Ninguém deveria escrever no documento alheio.
-  it('INSEGURO: Ana escreve no documento de usuário do Bruno', async () => {
-    await assertSucceeds(
+  // INVERTIDO pela task 01, pelo mesmo motivo: `ehDono()` passou a valer.
+  it('Ana NÃO escreve mais no documento de usuário do Bruno', async () => {
+    await assertFails(
       setDoc(doc(como(ANA), `usuarios/${BRUNO}`), { nome: 'nome trocado' })
+    );
+  });
+});
+
+// O papel do usuário é a única decisão de segurança que este app toma, e até
+// aqui ela só existia no cliente: `utils/permissoes.js` consultava
+// `autorizados` no navegador, e o servidor aceitava qualquer `tipo` que
+// chegasse. Quem abrisse o DevTools se promovia a professor.
+//
+// `ehAutenticado()` e `ehProfessor()` levam a mesma regra para o servidor. A
+// task 03 vai reusá-las em `chamados` e `chat`; aqui elas valem só para
+// `usuarios`, que é onde o papel é gravado.
+describe('usuarios — dono e autorização exigidos pelo servidor (AC-AUTH-07, AC-SEC-03)', () => {
+  const CARLOS = 'uid-carlos';
+
+  beforeEach(async () => {
+    await semearComoAdministrador('autorizados/carlos@senai.br', { Tipo: 'professor' });
+  });
+
+  describe('ehAutenticado()', () => {
+    it('nega a escrita de quem não tem sessão', async () => {
+      await assertFails(
+        setDoc(doc(comoVisitante(), `usuarios/${ANA}`), {
+          nome: 'Ana Souza',
+          email: 'ana@senai.br',
+          tipo: 'aluno',
+        })
+      );
+    });
+
+    it('nega a leitura de quem não tem sessão — a coleção tem e-mail de aluno', async () => {
+      await semearComoAdministrador(`usuarios/${ANA}`, { email: 'ana@senai.br', tipo: 'aluno' });
+
+      await assertFails(getDoc(doc(comoVisitante(), `usuarios/${ANA}`)));
+    });
+
+    it('permite que a pessoa autenticada leia o próprio documento', async () => {
+      await semearComoAdministrador(`usuarios/${ANA}`, { email: 'ana@senai.br', tipo: 'aluno' });
+
+      await assertSucceeds(getDoc(doc(como(ANA), `usuarios/${ANA}`)));
+    });
+  });
+
+  describe('ehProfessor()', () => {
+    it('deixa quem está em autorizados gravar o próprio tipo professor', async () => {
+      await assertSucceeds(
+        setDoc(doc(comoUsuarioComEmail(CARLOS, 'carlos@senai.br'), `usuarios/${CARLOS}`), {
+          nome: 'Carlos Lima',
+          email: 'carlos@senai.br',
+          tipo: 'professor',
+          uid: CARLOS,
+        })
+      );
+    });
+
+    it('ignora a caixa alta do e-mail do token', async () => {
+      await assertSucceeds(
+        setDoc(doc(comoUsuarioComEmail(CARLOS, 'Carlos@Senai.BR'), `usuarios/${CARLOS}`), {
+          nome: 'Carlos Lima',
+          email: 'carlos@senai.br',
+          tipo: 'professor',
+          uid: CARLOS,
+        })
+      );
+    });
+
+    it('nega quem não está em autorizados, mesmo forjando o payload', async () => {
+      await assertFails(
+        setDoc(doc(comoUsuarioComEmail(BRUNO, 'bruno@senai.br'), `usuarios/${BRUNO}`), {
+          nome: 'Bruno Alves',
+          email: 'carlos@senai.br', // e-mail alheio no corpo: o token é que vale
+          tipo: 'professor',
+          uid: BRUNO,
+        })
+      );
+    });
+
+    it('nega quem está em autorizados com Tipo diferente de professor', async () => {
+      await semearComoAdministrador('autorizados/monitor@senai.br', { Tipo: 'monitor' });
+
+      await assertFails(
+        setDoc(doc(comoUsuarioComEmail('uid-monitor', 'monitor@senai.br'), 'usuarios/uid-monitor'), {
+          nome: 'Monitor',
+          email: 'monitor@senai.br',
+          tipo: 'professor',
+        })
+      );
+    });
+
+    it('nega a promoção a professor num update posterior ao cadastro', async () => {
+      await semearComoAdministrador(`usuarios/${ANA}`, {
+        nome: 'Ana Souza',
+        email: 'ana@senai.br',
+        tipo: 'aluno',
+      });
+
+      await assertFails(
+        setDoc(
+          doc(comoUsuarioComEmail(ANA, 'ana@senai.br'), `usuarios/${ANA}`),
+          { tipo: 'professor' },
+          { merge: true }
+        )
+      );
+    });
+  });
+
+  it('o cadastro de aluno continua funcionando, que é o caminho comum', async () => {
+    await assertSucceeds(
+      setDoc(doc(comoUsuarioComEmail(ANA, 'ana@senai.br'), `usuarios/${ANA}`), {
+        nome: 'Ana Souza',
+        email: 'ana@senai.br',
+        tipo: 'aluno',
+        uid: ANA,
+        criadoEm: new Date(),
+        provedor: 'password',
+      })
+    );
+  });
+
+  it('o primeiro login social continua criando o documento como aluno', async () => {
+    await assertSucceeds(
+      setDoc(doc(comoUsuarioComEmail(ANA, 'ana@senai.br'), `usuarios/${ANA}`), {
+        nome: 'Ana Souza',
+        email: 'ana@senai.br',
+        tipo: 'aluno',
+        uid: ANA,
+        criadoEm: new Date(),
+        provedor: 'google.com',
+      })
     );
   });
 });
