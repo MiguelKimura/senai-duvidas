@@ -757,9 +757,18 @@ def main() -> int:
     try:
         pular_claude = args.skip_claude
         for task in sorted(tasks, key=lambda p: task_id_from_file(p)):
+            # Uma task já concluída é pulada sem trabalho nenhum. Ela não pode
+            # consumir o --once nem o --skip-claude, que valem para a próxima
+            # task que de fato for executada.
+            ja_concluida = state["tasks"].get(task.as_posix(), {}).get("status") == "done"
+
             if not process_task(cfg, repo, task, state, args.dry_run, skip_claude=pular_claude):
                 return 1
-            pular_claude = False  # vale só para a primeira task processada
+
+            if ja_concluida:
+                continue
+
+            pular_claude = False
             if args.once:
                 break
         return 0
