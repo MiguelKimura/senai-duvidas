@@ -1,0 +1,29 @@
+/* Botão "Sair" — AC-SESSAO-05.
+   Fixo no canto superior direito das telas autenticadas, sempre no mesmo
+   lugar: numa máquina compartilhada, a saída precisa ser encontrada sem
+   procurar. `fixed` para não depender de nenhum ancestral posicionado, e
+   z-index abaixo do painel do chat (1000) para não cobri-lo. */
+.botao-sair {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 900;
+  padding: 8px 16px;
+  border: 1px solid #c62828;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #c62828;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.botao-sair:hover {
+  background-color: #c62828;
+  color: #ffffff;
+}
+
+.botao-sair:focus-visible {
+  outline: 2px solid #c62828;
+  outline-offset: 2px;
+}
