@@ -193,10 +193,13 @@ describe('criarSala — PIN único entre salas ativas (AC-SALA-02)', () => {
   });
 
   it('desiste depois de muitas colisões, em vez de tentar para sempre', async () => {
-    gerarPin.mockReturnValue('111111');
-    for (let tentativa = 0; tentativa <= TENTATIVAS_DE_PIN_UNICO; tentativa += 1) {
-      __recusarEscritaEm(`${COLECAO_DO_INDICE}/111111`);
-    }
+    const sorteados = Array.from({ length: TENTATIVAS_DE_PIN_UNICO }, (_, indice) =>
+      String(100000 + indice)
+    );
+    sorteados.forEach((pin) => __recusarEscritaEm(`${COLECAO_DO_INDICE}/${pin}`));
+
+    let proximo = 0;
+    gerarPin.mockImplementation(() => sorteados[proximo++] || '999999');
 
     await expect(criarSala(DADOS, CARLOS)).rejects.toThrow(ErroDeSala);
     expect(gerarPin).toHaveBeenCalledTimes(TENTATIVAS_DE_PIN_UNICO);
