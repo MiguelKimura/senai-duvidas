@@ -10,6 +10,8 @@ project:
   state_file: ".automation/state.json"
   start_task: 0
   end_task: 9
+  # Cada worktree instala seu próprio node_modules (centenas de MB).
+  espaco_minimo_gb: 5
 
 claude:
   command: "claude"

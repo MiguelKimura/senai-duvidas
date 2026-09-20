@@ -106,6 +106,34 @@ e mescle. O script detecta o merge em até 30 segundos e segue.
 | `'charmap' codec can't decode byte` | Corrigido. Era o Python lendo a saída UTF-8 do npm/jest como cp1252 no Windows PT-BR | `git pull origin dev` |
 | `[WinError 2] O sistema não pode encontrar o arquivo especificado` | Corrigido. O `subprocess` do Windows usa `CreateProcess`, que só acha `.exe` — não aplica `PATHEXT`, então shims `.cmd` do npm (como o `claude`) não eram encontrados | `git pull origin dev`. O preflight agora nomeia a ferramenta que falta e imprime o PATH |
 | Log com acento quebrado (`nÃ£o`) | O `Get-Content` do PowerShell 5.1 lê UTF-8 como ANSI | Acrescente `-Encoding UTF8` |
+| `ENOSPC: no space left on device` | Cada worktree instala seu próprio `node_modules` — centenas de MB por task | O preflight agora barra a fila abaixo de 5 GB livres (`project.espaco_minimo_gb`). Libere espaço e rode `--reset-failed` |
+
+## Espaço em disco
+
+Cada task roda num worktree próprio, e a validação faz `npm install` nele: some algo entre 300 MB
+e 500 MB por task. O worktree é removido ao fim de cada task bem-sucedida, mas worktrees de tasks
+que falharam são **preservados de propósito** e se acumulam.
+
+Para ver o que está ocupando e limpar:
+
+```powershell
+# tamanho de cada worktree preservado
+Get-ChildItem .automation\worktrees -Directory | ForEach-Object {
+  $mb = (Get-ChildItem $_.FullName -Recurse -File -EA SilentlyContinue |
+         Measure-Object Length -Sum).Sum / 1MB
+  "{0,-40} {1,8:N0} MB" -f $_.Name, $mb
+}
+
+# remover um worktree cuja task já foi concluída (os commits ficam na branch)
+git worktree remove --force .automation\worktrees\<nome>
+
+npm cache clean --force
+```
+
+Um alerta específico para este repositório: ele está dentro do **OneDrive**. O OneDrive sincroniza
+cada `node_modules` — dezenas de milhares de arquivos por worktree — o que consome espaço em
+nuvem, deixa o `npm install` lento e pode travar arquivos durante a instalação. Mover o
+repositório para fora do OneDrive (por exemplo `C:\dev\senai-duvidas`) resolve os três de uma vez.
 | A sessão terminou o trabalho e a falha foi do orquestrador | Não vale pagar outra sessão do zero | `--skip-claude` vai direto para validação e PR |
 | CI reprova `Merge <sha> into <sha>` no job de commits | O `actions/checkout` cria um merge commit sintético no evento `pull_request` | O `git rev-list` do job precisa de `--no-merges`. Corrigido em `docs/exemplos/ci.yml` |
 | `PR #N foi fechado sem merge` | Você fechou o PR | A fila para de propósito. Reabra ou rode `--reset-failed` |

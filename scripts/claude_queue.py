@@ -55,6 +55,24 @@ def resolver_executavel(nome: str) -> list[str]:
     return prefixo
 
 
+def conferir_espaco(repo: Path, minimo_gb: float = 5.0) -> None:
+    """
+    Cada worktree recebe seu próprio `npm install` — centenas de MB. Ficar sem
+    espaço no meio de uma task desperdiça o trabalho já pago da sessão, então
+    vale conferir antes de começar.
+    """
+    uso = shutil.disk_usage(repo)
+    livre_gb = uso.free / (1024 ** 3)
+    print(f"[preflight] disco    -> {livre_gb:.1f} GB livres")
+    if livre_gb < minimo_gb:
+        raise RuntimeError(
+            f"Apenas {livre_gb:.1f} GB livres; o recomendado é pelo menos {minimo_gb:.0f} GB.\n"
+            f"Cada worktree instala seu próprio node_modules. Libere espaço antes de rodar.\n"
+            f"Candidatos a limpeza: 'npm cache clean --force', worktrees antigos em "
+            f".automation/worktrees, e a pasta build/."
+        )
+
+
 def conferir_ferramentas(nomes: list[str]) -> None:
     """Falha cedo e com mensagem clara, em vez de WinError 2 no meio da fila."""
     faltando = []
@@ -112,10 +130,25 @@ def load_state(path: Path) -> dict[str, Any]:
 
 
 def save_state(path: Path, state: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(path)
+    """
+    Grava o estado de forma atômica (tmp + replace), para que uma falha no meio
+    da escrita não deixe um state.json truncado.
+
+    Uma falha aqui NÃO derruba a fila: o estado é conveniência, enquanto a
+    verdade sobre o trabalho feito está nos commits das branches. Disco cheio
+    ao gravar o estado não pode custar uma task inteira.
+    """
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(path)
+    except OSError as exc:
+        print(
+            f"[estado] Não foi possível gravar {path.name}: {exc}\n"
+            f"[estado] A fila continua; o trabalho está nos commits das branches.",
+            file=sys.stderr,
+        )
 
 
 def task_id_from_file(task: Path) -> int | None:
@@ -625,15 +658,18 @@ def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, A
                 print(f"[retry] aguardando {delay}s")
                 time.sleep(delay)
                 continue
+            # PRIMEIRA coisa do tratamento de erro: proteger o trabalho.
+            # Uma task representa horas e custo real de API. Se qualquer passo
+            # daqui para baixo falhar (disco cheio ao gravar o estado, por
+            # exemplo), o finally apagaria o worktree e o trabalho não commitado
+            # junto. Marcar antes garante que isso não aconteça.
+            preserve_worktree = True
+
             state["tasks"][key] = {
                 "status": "failed", "branch": branch, "error": msg[-12000:],
                 "attempt": run_number, "failed_at": int(time.time())
             }
             save_state(repo / cfg["project"]["state_file"], state)
-            # Preserva o worktree: uma task pode representar horas de trabalho e
-            # custo real de API. Apagá-la numa falha joga fora tudo que não foi
-            # commitado. A próxima execução reaproveita o worktree e continua.
-            preserve_worktree = True
             print(f"[failed] {task.name}: {msg}", file=sys.stderr)
             print(f"[failed] Worktree preservado em {wt}", file=sys.stderr)
             print("[failed] Rode com --reset-failed para continuar de onde parou.", file=sys.stderr)
@@ -728,6 +764,7 @@ def main() -> int:
 
     try:
         conferir_ferramentas(["git", "gh", "claude", "npm"])
+        conferir_espaco(repo, float(cfg.get("project", {}).get("espaco_minimo_gb", 5)))
     except RuntimeError as exc:
         print(f"[preflight] {exc}", file=sys.stderr)
         trava.unlink(missing_ok=True)
