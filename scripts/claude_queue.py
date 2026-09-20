@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -21,6 +22,55 @@ except ImportError:
     raise
 
 
+_EXECUTAVEIS: dict[str, list[str]] = {}
+
+
+def resolver_executavel(nome: str) -> list[str]:
+    """
+    Devolve o prefixo de comando para um executável.
+
+    No Windows, CreateProcess (que é o que o subprocess usa) só encontra .exe:
+    ele não aplica PATHEXT. Ferramentas instaladas pelo npm viram shims .cmd,
+    e chamá-las pelo nome puro devolve WinError 2. shutil.which() aplica PATHEXT,
+    e um .cmd/.bat precisa ser executado através do cmd.exe.
+    """
+    if nome in _EXECUTAVEIS:
+        return _EXECUTAVEIS[nome]
+
+    caminho = shutil.which(nome)
+    if not caminho:
+        raise RuntimeError(
+            f"'{nome}' não foi encontrado no PATH deste processo.\n"
+            f"Se funciona no seu terminal mas não aqui, o PATH do processo que "
+            f"iniciou a fila é diferente do PATH do terminal.\n"
+            f"PATH visto pela fila: {os.environ.get('PATH', '(vazio)')}"
+        )
+
+    if sys.platform == "win32" and caminho.lower().endswith((".cmd", ".bat")):
+        prefixo = ["cmd.exe", "/c", caminho]
+    else:
+        prefixo = [caminho]
+
+    _EXECUTAVEIS[nome] = prefixo
+    return prefixo
+
+
+def conferir_ferramentas(nomes: list[str]) -> None:
+    """Falha cedo e com mensagem clara, em vez de WinError 2 no meio da fila."""
+    faltando = []
+    for nome in nomes:
+        try:
+            prefixo = resolver_executavel(nome)
+            print(f"[preflight] {nome:8} -> {prefixo[-1]}")
+        except RuntimeError:
+            faltando.append(nome)
+    if faltando:
+        raise RuntimeError(
+            f"Ferramentas ausentes no PATH: {', '.join(faltando)}.\n"
+            f"PATH visto pela fila: {os.environ.get('PATH', '(vazio)')}"
+        )
+
+
 @dataclass
 class CommandResult:
     code: int
@@ -33,6 +83,8 @@ class CommandResult:
 
 
 def run(cmd: list[str], cwd: Path, timeout: int | None = None) -> CommandResult:
+    if cmd and not os.path.isabs(cmd[0]):
+        cmd = resolver_executavel(cmd[0]) + list(cmd[1:])
     p = subprocess.run(
         cmd,
         cwd=str(cwd),
@@ -673,6 +725,13 @@ def main() -> int:
     trava = repo / ".automation" / "queue.lock"
     if not adquirir_trava(trava):
         return 0
+
+    try:
+        conferir_ferramentas(["git", "gh", "claude", "npm"])
+    except RuntimeError as exc:
+        print(f"[preflight] {exc}", file=sys.stderr)
+        trava.unlink(missing_ok=True)
+        return 1
 
     state = load_state(state_path)
 

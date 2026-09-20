@@ -104,6 +104,8 @@ e mescle. O script detecta o merge em até 30 segundos e segue.
 | `SSL certificate has expired`, `Unable to connect`, `ECONNRESET` | Queda de internet | Tratado como transitório: o script espera (60s, 120s, 240s, 480s) e tenta de novo sozinho, até 4 vezes |
 | Task marcada `failed` depois de muito trabalho | Falha real, não transitória | O worktree é **preservado**. Inspecione-o, e rode `--reset-failed` para continuar de onde parou — a sessão é avisada de que está retomando |
 | `'charmap' codec can't decode byte` | Corrigido. Era o Python lendo a saída UTF-8 do npm/jest como cp1252 no Windows PT-BR | `git pull origin dev` |
+| `[WinError 2] O sistema não pode encontrar o arquivo especificado` | Corrigido. O `subprocess` do Windows usa `CreateProcess`, que só acha `.exe` — não aplica `PATHEXT`, então shims `.cmd` do npm (como o `claude`) não eram encontrados | `git pull origin dev`. O preflight agora nomeia a ferramenta que falta e imprime o PATH |
+| Log com acento quebrado (`nÃ£o`) | O `Get-Content` do PowerShell 5.1 lê UTF-8 como ANSI | Acrescente `-Encoding UTF8` |
 | A sessão terminou o trabalho e a falha foi do orquestrador | Não vale pagar outra sessão do zero | `--skip-claude` vai direto para validação e PR |
 | CI reprova `Merge <sha> into <sha>` no job de commits | O `actions/checkout` cria um merge commit sintético no evento `pull_request` | O `git rev-list` do job precisa de `--no-merges`. Corrigido em `docs/exemplos/ci.yml` |
 | `PR #N foi fechado sem merge` | Você fechou o PR | A fila para de propósito. Reabra ou rode `--reset-failed` |
@@ -154,7 +156,7 @@ o `gh` está autenticado — melhor falhar na instalação do que em silêncio �
 | Ação | Comando |
 |---|---|
 | Rodar agora | `wscript.exe "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\SenaiDuvidas-Fila.vbs"` |
-| Acompanhar | `Get-Content .automation\queue.log -Wait -Tail 40` |
+| Acompanhar | `Get-Content .automation\queue.log -Wait -Tail 40 -Encoding UTF8` |
 | Parar a fila | `Get-Process python \| Stop-Process` |
 | Remover | `.\scripts\instalar-inicio-automatico.ps1 -Remover` |
 
