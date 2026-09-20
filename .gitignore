@@ -34,3 +34,11 @@ senai-duvidas-firebase-adminsdk-fbsvc-1150ffdda1.json
 # python
 __pycache__/
 *.pyc
+
+# logs do Firebase Emulator Suite (gerados a cada `npm run test:rules`)
+firebase-debug.log
+firestore-debug.log
+storage-debug.log
+ui-debug.log
+database-debug.log
+pubsub-debug.log
