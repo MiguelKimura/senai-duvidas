@@ -157,13 +157,26 @@ describe('firebase.js — compatibilidade futura', () => {
     expect(config).toEqual(CONFIG_DA_V010);
   });
 
-  it('continua exportando a mesma superfície pública de antes', () => {
+  it('continua exportando o SDK já inicializado, que é o que o resto importa', () => {
     const { modulo } = carregarFirebase();
 
-    ['app', 'auth', 'db', 'storage', 'signInWithGoogle', 'signInWithGithub', 'uploadImage'].forEach(
-      (exportado) => {
-        expect(modulo[exportado]).toBeDefined();
-      }
-    );
+    ['app', 'auth', 'db', 'storage', 'uploadImage'].forEach((exportado) => {
+      expect(modulo[exportado]).toBeDefined();
+    });
+  });
+
+  it('o login social mudou de endereço, e nada ficou sem dono', () => {
+    // A lista antiga incluía `signInWithGoogle` e `signInWithGithub`. A task 01
+    // os moveu para `services/auth.js`, onde a persistência é garantida antes
+    // do login e o erro não vira `alert()`. A garantia de superfície não foi
+    // afrouxada: continua existindo, apontando para o novo endereço.
+    const { modulo } = carregarFirebase();
+
+    expect(modulo.signInWithGoogle).toBeUndefined();
+    expect(modulo.signInWithGithub).toBeUndefined();
+
+    const servico = require('../services/auth');
+    expect(servico.entrarComGoogle).toBeDefined();
+    expect(servico.entrarComGithub).toBeDefined();
   });
 });

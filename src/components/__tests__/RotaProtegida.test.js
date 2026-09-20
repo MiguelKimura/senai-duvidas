@@ -98,7 +98,7 @@ describe('enquanto o papel não está resolvido (AC-AUTH-09)', () => {
     expect(screen.queryByRole('heading', { name: 'Login' })).not.toBeInTheDocument();
 
     // E, terminado o carregamento, a tela certa aparece sem ter passado pelo login.
-    await waitFor(() => expect(screen.getByText('Tela do aluno')).toBeInTheDocument());
+    expect(await screen.findByText('Tela do aluno')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Login' })).not.toBeInTheDocument();
   });
 
