@@ -23,7 +23,20 @@
 // `hashing.sha256(sal + pin)` e compara com o resumo. O cliente nunca precisa
 // ler o segredo, e é por isso que regerar o PIN invalida o anterior sem que
 // ninguém guarde o número antigo em lugar nenhum (AC-SALA-09).
-import { addDoc, collection, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  onSnapshot,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
 import { db } from '../firebase';
 import { carimboServidor } from './tempo';
 import {
@@ -456,4 +469,166 @@ export async function entrarComPin(pinDigitado, pessoa) {
   }
 
   return { salaId, jaEraMembro: false };
+}
+
+
+// --- gestão da sala ---------------------------------------------------------
+
+/**
+ * Sorteia um PIN novo e invalida o anterior (AC-SALA-09).
+ *
+ * A invalidação não apaga nada: ela acontece porque o resumo gravado passa a
+ * ser o do número novo, e a rule confere o PIN digitado contra esse resumo. O
+ * documento de índice do PIN antigo continua existindo e continua apontando
+ * para a sala — e não serve para entrar, porque o resumo não confere mais.
+ *
+ * Apagar o índice antigo seria o desenho ideal, e ele é impossível de propósito:
+ * localizar aquele documento exigiria conhecer o número antigo, e o sistema
+ * inteiro é construído para que ninguém — nem o servidor — o guarde em claro
+ * (AC-SEC-05).
+ *
+ * @param {string} salaId
+ * @returns {Promise<string>} o PIN novo, que o professor vê uma vez.
+ */
+export function regerarPin(salaId) {
+  return definirPin(salaId);
+}
+
+/**
+ * Tira um aluno da sala (AC-SALA-09).
+ *
+ * O espelho em `usuarios/{uid}/salas` fica: ninguém escreve no documento de
+ * outra pessoa, nem o professor. Ele deixa de levar a lugar nenhum assim que o
+ * vínculo some — a leitura da sala passa a ser negada —, e a lista de salas do
+ * aluno o descarta por isso.
+ *
+ * @param {string} salaId
+ * @param {string} uid
+ */
+export async function removerMembro(salaId, uid) {
+  await deleteDoc(referenciaDoMembro(salaId, uid));
+}
+
+/**
+ * Remove o aluno e regera o PIN na mesma operação (AC-SALA-09).
+ *
+ * As duas coisas andam juntas porque separadas não resolvem: o aluno removido
+ * ainda tem o PIN anotado no caderno, e entraria de novo em dez segundos.
+ *
+ * @param {string} salaId
+ * @param {string} uid
+ * @returns {Promise<string>} o PIN novo, para o professor repassar à turma.
+ */
+export async function removerMembroERegerarPin(salaId, uid) {
+  await removerMembro(salaId, uid);
+
+  return regerarPin(salaId);
+}
+
+/**
+ * Arquiva a sala ao fim do ano letivo (AC-SALA-10).
+ *
+ * Arquivada não é apagada: os chamados e a conversa continuam legíveis para
+ * quem já era membro. O que as rules passam a negar é toda escrita nova e toda
+ * entrada nova.
+ *
+ * @param {string} salaId
+ */
+export async function arquivarSala(salaId) {
+  await updateDoc(referenciaDaSala(salaId), {
+    ativa: false,
+    arquivadaEm: carimboServidor(),
+  });
+}
+
+// --- leitura ----------------------------------------------------------------
+
+/**
+ * Lê o documento da sala, ou `null` quando ele não existe ou é negado.
+ *
+ * Recusa vira `null` de propósito: para a tela, "fui removido da sala" e "a
+ * sala não existe" são a mesma coisa — em nenhum dos dois casos há o que
+ * mostrar, e distinguir os dois não ajudaria ninguém (AC-SEC-02).
+ *
+ * @param {string} salaId
+ * @returns {Promise<object|null>}
+ */
+export async function lerSala(salaId) {
+  try {
+    const documento = await getDoc(referenciaDaSala(salaId));
+
+    return documento.exists() ? { salaId, ...documento.data() } : null;
+  } catch (erro) {
+    if (ehRecusaDoServidor(erro)) return null;
+    throw erro;
+  }
+}
+
+/** Quantas pessoas estão na sala, com teto (AC-SALA-08, AC-PERF-03). */
+export async function contarMembros(salaId) {
+  const consulta = query(colecaoDeMembros(salaId), limit(LIMITE_DE_MEMBROS + 1));
+
+  return (await getDocs(consulta)).size;
+}
+
+/**
+ * Quantos chamados da sala ainda não foram atendidos (AC-SALA-08).
+ *
+ * Conta documentos em vez de manter um contador desnormalizado na sala. O
+ * contador seria mais barato e seria mentira: mantê-lo honesto exigiria que
+ * cada aluno pudesse escrever no documento da sala ao abrir um chamado — e
+ * quem pode somar 1 pode somar 500. Com 40 alunos e teto de 200 chamados, a
+ * conta cabe folgada no plano gratuito (AC-PERF-06).
+ */
+export async function contarChamadosAbertos(salaId) {
+  const consulta = query(
+    colecaoDeChamados(salaId),
+    where('atendido', '==', false),
+    limit(LIMITE_DE_CHAMADOS + 1)
+  );
+
+  return (await getDocs(consulta)).size;
+}
+
+/**
+ * Os dados de uma sala para o cartão da lista (AC-SALA-08).
+ *
+ * @param {string} salaId
+ * @param {{comContagens?: boolean}} [opcoes] contagens custam duas consultas a
+ *   mais, e só o dono da sala precisa delas.
+ * @returns {Promise<object|null>} `null` quando a sala não é alcançável.
+ */
+export async function carregarDetalhesDaSala(salaId, { comContagens = false } = {}) {
+  const sala = await lerSala(salaId);
+  if (!sala) return null;
+  if (!comContagens) return sala;
+
+  const [totalMembros, chamadosAbertos] = await Promise.all([
+    contarMembros(salaId),
+    contarChamadosAbertos(salaId),
+  ]);
+
+  return { ...sala, totalMembros, chamadosAbertos };
+}
+
+/**
+ * Escuta as salas de uma pessoa, pelo espelho (AC-SALA-06, AC-PERF-03).
+ *
+ * O espelho existe para que esta consulta seja possível: a autoridade sobre
+ * quem é membro é `salas/{salaId}/membros/{uid}`, e perguntar "de quais salas
+ * eu sou membro?" a partir dali exigiria varrer as salas de todo mundo.
+ *
+ * @param {string} uid
+ * @param {(salas: Array<object>) => void} aoMudar
+ * @returns {() => void} cancela a inscrição (AC-PERF-04).
+ */
+export function observarSalasDoUsuario(uid, aoMudar) {
+  const consulta = query(
+    collection(db, 'usuarios', uid, COLECAO_DE_SALAS),
+    limit(LIMITE_DE_SALAS)
+  );
+
+  return onSnapshot(consulta, (snapshot) => {
+    aoMudar(snapshot.docs.map((documento) => ({ salaId: documento.id, ...documento.data() })));
+  });
 }
