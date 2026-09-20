@@ -43,6 +43,28 @@ function lerTokens() {
   return tokens;
 }
 
+/**
+ * Resolve `--a: var(--b)` até chegar a um valor concreto.
+ *
+ * Um apelido é a forma idiomática de dizer em CSS "este papel usa aquela cor":
+ * o texto sobre o botão vermelho é branco *porque* é a cor da superfície, não
+ * por coincidência. Dois nomes com o mesmo literal seriam duplicação; um nome
+ * apontando para o outro é intenção declarada — e continua sendo verificado,
+ * porque a resolução abaixo chega no literal e ele é conferido igual.
+ */
+function resolver(valor, tokens, vistos = new Set()) {
+  const apelido = /^var\(\s*(--[a-z0-9-]+)\s*\)$/.exec(valor);
+
+  if (!apelido) return valor;
+
+  const alvo = apelido[1];
+
+  if (vistos.has(alvo)) throw new Error(`Ciclo de apelidos em ${alvo}`);
+  if (!(alvo in tokens)) throw new Error(`Apelido aponta para token inexistente: ${alvo}`);
+
+  return resolver(tokens[alvo], tokens, new Set(vistos).add(alvo));
+}
+
 const cssLegado = normalizar(
   CSS_LEGADOS.map((relativo) => fs.readFileSync(path.join(RAIZ, relativo), 'utf8')).join('\n')
 );
@@ -69,13 +91,14 @@ describe('src/styles/tokens.css', () => {
     expect(Object.keys(tokens).length).toBeGreaterThan(0);
 
     const inventados = Object.entries(tokens)
+      .map(([nome, valor]) => [nome, resolver(valor, tokens)])
       .filter(([, valor]) => !cssLegado.includes(valor))
       .map(([nome, valor]) => `${nome}: ${valor}`);
 
     expect(inventados).toEqual([]);
   });
 
-  it('não repete o mesmo valor em dois nomes diferentes da mesma família', () => {
+  it('não repete o mesmo literal em dois nomes — papéis que coincidem viram apelido', () => {
     const tokens = lerTokens();
     const vistos = new Map();
     const duplicados = [];
@@ -97,6 +120,14 @@ describe('src/styles/tokens.css', () => {
 
     expect(valores).toContain('#ff0000');
     expect(valores).toContain('#8f0000');
+  });
+
+  it('todo apelido aponta para um token que existe, sem ciclo', () => {
+    const tokens = lerTokens();
+
+    for (const [, valor] of Object.entries(tokens)) {
+      expect(() => resolver(valor, tokens)).not.toThrow();
+    }
   });
 });
 

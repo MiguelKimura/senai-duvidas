@@ -1,0 +1,107 @@
+/*
+ * Tokens de design — AC-ANIM-09.
+ *
+ * Fonte única de cores, espaçamentos, raios, sombras e durações. Todo valor
+ * aqui foi **extraído** dos CSS que já existiam na v0.1.0, sem alterar um
+ * único pixel: `src/styles/__tests__/tokens.test.js` falha se algum token
+ * carregar um valor que não aparece literalmente em algum arquivo legado.
+ *
+ * Por que extrair antes de usar: os componentes de hoje repetem `#ff0000` em
+ * seis arquivos. Mudar a identidade visual significa caçar todas as cópias, e
+ * esquecer uma é o normal. Este arquivo transforma essa caçada em uma linha.
+ *
+ * As tasks seguintes trocam os valores crus pelos `var(--token)` arquivo a
+ * arquivo. Enquanto isso não acontece, os dois convivem de propósito:
+ * substituir tudo agora seria refatoração de comportamento visual, que esta
+ * task não autoriza.
+ */
+
+:root {
+  /* ---- Cores da identidade ---------------------------------------------
+   * O vermelho é a marca: botão de ação, botão flutuante de novo chamado,
+   * balão do chat. O escuro é o estado :hover de todos eles.
+   */
+  --cor-primaria: #ff0000;
+  --cor-primaria-hover: #8f0000;
+
+  /* ---- Cores de superfície --------------------------------------------- */
+  /* Branco aparece no CSS legado em três grafias (`white`, `#fff`, `#ffffff`)
+   * que pintam o mesmo pixel. Aqui vira um token só. */
+  --cor-superficie: white;
+  --cor-fundo-pagina: #f4f4f4;
+  --cor-fundo-tela: #f5f5f5;
+  --cor-fundo-caixa: #f9f9f9;
+  --cor-fundo-chat: #e9e9e9;
+
+  /* ---- Cores de texto -------------------------------------------------- */
+  --cor-texto-titulo: #333;
+  --cor-texto-rotulo: #555;
+  /* Apelido, não cópia: o texto sobre o vermelho é branco *porque* é a cor da
+   * superfície. Se a superfície mudar, este acompanha. */
+  --cor-texto-invertido: var(--cor-superficie);
+  --cor-texto-discreto: gray;
+
+  /* ---- Cores de borda -------------------------------------------------- */
+  --cor-borda: #ccc;
+  --cor-borda-campo: #ddd;
+
+  /* ---- Cores de estado -------------------------------------------------
+   * `--cor-erro` é o `color: red` de `.erro` em App.css. Vale registrar que
+   * ela não passa em contraste AA sobre branco — a task 08 (AC-ANIM-10) vai
+   * ter que mexer nisso, e ter o valor num lugar só é o que torna a correção
+   * viável em um commit.
+   */
+  --cor-erro: red;
+  --cor-mensagem-enviada: #007bff;
+  --cor-mensagem-recebida: #28a745;
+
+  /* ---- Espaçamentos ----------------------------------------------------
+   * Escala tirada dos valores realmente usados. Não é uma escala 4/8 teórica:
+   * é a que o código já pratica, incluindo o 12px dos campos de formulário.
+   */
+  --espaco-minimo: 2px;
+  --espaco-1: 5px;
+  --espaco-2: 10px;
+  --espaco-campo: 12px;
+  --espaco-3: 15px;
+  --espaco-4: 20px;
+  --espaco-5: 30px;
+
+  /* ---- Raios de canto --------------------------------------------------- */
+  --raio-1: 5px;
+  --raio-2: 8px;
+  --raio-3: 10px;
+  --raio-4: 20px;
+  --raio-circulo: 50%;
+
+  /* ---- Sombras ---------------------------------------------------------
+   * A "elevada" é a de elementos que flutuam sobre o conteúdo (modal, chat
+   * aberto); a "caixa" é a de superfícies em repouso. A de foco é o halo
+   * vermelho do <textarea> do modal.
+   */
+  --sombra-caixa: 0 4px 10px rgba(0, 0, 0, 0.1);
+  --sombra-elevada: 0 4px 10px rgba(0, 0, 0, 0.2);
+  --sombra-foco: 0 0 5px rgba(255, 0, 0, 0.3);
+
+  /* ---- Movimento -------------------------------------------------------
+   * Hoje existe uma única duração no projeto inteiro: 0,3s, sempre em
+   * `transition`. Ela fica registrada como está. A faixa de 150ms a 300ms
+   * que o AC-ANIM-01 pede, e o respeito a `prefers-reduced-motion` do
+   * AC-ANIM-05, são escopo da task 08 — mudar a duração aqui seria mudar o
+   * comportamento visual, que esta task proíbe.
+   */
+  --duracao-transicao: 0.3s;
+  --aceleracao-padrao: ease;
+
+  /* ---- Tipografia ------------------------------------------------------- */
+  --fonte-base: Arial, sans-serif;
+
+  /* ---- Camadas ---------------------------------------------------------
+   * O z-index do projeto cresceu por tentativa e erro: os créditos do chat
+   * estão em 9999 para vencer o próprio chat. Registrado como está, para que
+   * a task que organizar as camadas veja a bagunça inteira num lugar só.
+   */
+  --camada-conteudo-flutuante: 999;
+  --camada-sobreposicao: 1000;
+  --camada-topo: 9999;
+}
