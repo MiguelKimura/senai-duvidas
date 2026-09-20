@@ -40,7 +40,9 @@ module.exports = {
       // Testes de Security Rules: rodam em Node contra o emulador, fora do
       // bundle do React.
       files: ['tests/**/*.js'],
-      env: { jest: true, node: true },
+      // `es2021` é o que declara `globalThis`, usado pelo polyfill de `fetch`
+      // em `tests/rules/setup.js`.
+      env: { jest: true, node: true, es2021: true },
       rules: {
         'no-undef': 'error',
       },
