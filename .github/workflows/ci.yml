@@ -130,5 +130,5 @@ jobs:
               echo "::error::Commit $sha fora do padrão Conventional Commits: $msg"
               falhou=1
             fi
-          done < <(git rev-list "origin/$GITHUB_BASE_REF..HEAD")
+          done < <(git rev-list --no-merges "origin/$GITHUB_BASE_REF..HEAD")
           exit $falhou
