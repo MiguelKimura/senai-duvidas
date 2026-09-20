@@ -291,6 +291,31 @@ describe('usuarios — dono e autorização exigidos pelo servidor (AC-AUTH-07, 
     });
   });
 
+  // Apagar `usuarios/{uid}` não é uma operação do app: nenhuma tela oferece
+  // isso. Enquanto era livre, bastava uma chamada avulsa para o aluno perder o
+  // perfil — e com ele o papel, o nome e o histórico de cadastro.
+  describe('exclusão', () => {
+    beforeEach(async () => {
+      await semearComoAdministrador(`usuarios/${ANA}`, {
+        nome: 'Ana Souza',
+        email: 'ana@senai.br',
+        tipo: 'aluno',
+      });
+    });
+
+    it('nega que Bruno apague o perfil da Ana', async () => {
+      await assertFails(deleteDoc(doc(como(BRUNO), `usuarios/${ANA}`)));
+    });
+
+    it('nega até que a própria Ana apague o perfil dela', async () => {
+      await assertFails(deleteDoc(doc(como(ANA), `usuarios/${ANA}`)));
+    });
+
+    it('nega quem não tem sessão', async () => {
+      await assertFails(deleteDoc(doc(comoVisitante(), `usuarios/${ANA}`)));
+    });
+  });
+
   it('o cadastro de aluno continua funcionando, que é o caminho comum', async () => {
     await assertSucceeds(
       setDoc(doc(comoUsuarioComEmail(ANA, 'ana@senai.br'), `usuarios/${ANA}`), {
