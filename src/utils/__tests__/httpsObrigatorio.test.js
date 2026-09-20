@@ -75,3 +75,35 @@ describe('garantirHttps — ambientes esquisitos', () => {
     expect(local.replace).not.toHaveBeenCalled();
   });
 });
+
+// Um guarda que ninguém chama não guarda nada. `src/index.js` fica fora da
+// cobertura (é o bootstrap do CRA, sem como renderizar num teste), então a
+// ligação é verificada lendo o arquivo — mesma abordagem de
+// `src/__tests__/ci.test.js`, que confere o workflow, e de
+// `src/styles/__tests__/tokens.test.js`, que confere o CSS.
+describe('a aplicação chama o guarda antes de montar', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const indexJs = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'index.js'),
+    'utf8'
+  );
+
+  it('src/index.js importa garantirHttps', () => {
+    expect(indexJs).toMatch(/import\s*\{\s*garantirHttps\s*\}\s*from\s*'\.\/utils\/httpsObrigatorio'/);
+  });
+
+  it('chama garantirHttps antes do createRoot, e não depois', () => {
+    const chamada = indexJs.indexOf('garantirHttps(');
+    const render = indexJs.indexOf('createRoot');
+
+    expect(chamada).toBeGreaterThan(-1);
+    expect(chamada).toBeLessThan(render);
+  });
+
+  it('não monta a aplicação quando o redirecionamento começou', () => {
+    // A página está sendo trocada: renderizar por cima só faz o usuário ver um
+    // lampejo da tela de login antes de a navegação acontecer.
+    expect(indexJs).toMatch(/if\s*\(\s*!garantirHttps\(/);
+  });
+});
