@@ -4,6 +4,8 @@
 // componente formata data por conta própria e nenhum componente lê o relógio
 // para gravar: quem carimba a escrita é o servidor do Firestore.
 
+import { serverTimestamp, updateDoc } from 'firebase/firestore';
+
 /** @typedef {import('firebase/firestore').Timestamp} Timestamp */
 
 /**
@@ -248,4 +250,81 @@ export function criarComparadorPorHorario(criterioAnterior) {
 
     return comparar(a && a.horario, b && b.horario);
   };
+}
+
+/**
+ * O carimbo de tempo de toda escrita do app (AC-TEMPO-01, AC-TEMPO-09).
+ *
+ * Devolve o sentinela do Firestore, que o **servidor** resolve no momento em
+ * que grava. Nenhum componente chama `new Date()` para gravar dado nenhum.
+ *
+ * O palpite natural seria consultar uma API pública de horário de Brasília.
+ * Seria pior em todos os eixos: dependeria de uma rede além do Firestore, que
+ * cai no meio da aula; custaria latência em cada envio; e, principalmente,
+ * continuaria falsificável, porque quem carimbaria o documento com a resposta
+ * da API ainda seria o cliente. O `serverTimestamp()` é atômico com a escrita,
+ * não depende de rede extra e não custa nada.
+ *
+ * @returns {object} sentinela de `serverTimestamp()` do Firestore.
+ */
+export function carimboServidor() {
+  return serverTimestamp();
+}
+
+/**
+ * Preenche `horarioIso` num documento que já tem `horario` confirmado.
+ *
+ * Campo aditivo de compatibilidade futura: um leitor que não conheça
+ * `Timestamp` — export, ferramenta externa, versão anterior do app — continua
+ * com uma string ISO legível ao lado. **Será removido só na 1.0.0**, depois
+ * que todos os clientes tiverem atualizado.
+ *
+ * Idempotente: não faz nada se o campo já existe, e não faz nada enquanto o
+ * carimbo do servidor não voltou. Nunca toca em `horario`.
+ *
+ * @param {{data: () => object, ref: object}} documento documento do snapshot.
+ * @returns {Promise<boolean>} se houve escrita.
+ */
+export async function completarHorarioIso(documento) {
+  const dados = documento.data();
+  if (!dados || dados.horarioIso) return false;
+
+  const data = paraData(dados.horario);
+  if (!data) return false;
+
+  await updateDoc(documento.ref, { horarioIso: data.toISOString() });
+
+  return true;
+}
+
+/**
+ * Preenche `horarioIso` nos documentos de um snapshot que são de quem está
+ * logado.
+ *
+ * Restringir ao autor é o que impede 40 alunos de gravarem o mesmo campo no
+ * mesmo documento: cada documento tem um dono, e só o cliente dele escreve. De
+ * quebra, os documentos antigos do próprio autor vão sendo migrados sozinhos,
+ * uma vez cada, e `scripts/migrar-horarios.js` cobre os que sobrarem — de quem
+ * não entrar mais no sistema.
+ *
+ * Falha de escrita aqui é irrelevante para a tela: `horario` já está correto e
+ * é ele que a fila usa. Por isso o erro é registrado e engolido, em vez de
+ * derrubar o `onSnapshot`.
+ *
+ * @param {Array<{data: () => object, ref: object}>} documentos
+ * @param {string|null|undefined} emailDoAutor e-mail da sessão.
+ */
+export function completarHorariosIso(documentos, emailDoAutor) {
+  if (!emailDoAutor) return;
+
+  documentos
+    .filter((documento) => {
+      const dados = documento.data();
+      return dados && dados.email === emailDoAutor;
+    })
+    .forEach((documento) => {
+      completarHorarioIso(documento).catch((erro) => {
+        console.warn('[tempo] Não foi possível preencher horarioIso.', erro);
+      });
+    });
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
-import { Timestamp } from 'firebase/firestore';
+import { criarComparadorPorHorario, formatarDataHora } from '../services/tempo';
 import '../styles/TelaProfessor.css';
 import Chat from './Chat';
 import BotaoSair from './BotaoSair';
@@ -11,21 +11,15 @@ function TelaProfessor() {
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "chamados"), (querySnapshot) => {
-      const problemasList = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        let horario = data.horario;
-        if (horario instanceof Timestamp) {
-          horario = horario.toDate();
-        } else if (typeof horario === 'string') {
-          horario = new Date(horario);
-        } else {
-          horario = new Date();
-        }
+      // A fila do professor é a mesma do aluno, e a ordem dela é decidida no
+      // mesmo lugar: `services/tempo.js`. O professor não preenche
+      // `horarioIso` de ninguém — quem faz isso é o cliente do autor.
+      const problemasList = querySnapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data(),
+      }));
 
-        return { id: doc.id, ...data, horario };
-      });
-
-      problemasList.sort((a, b) => a.horario - b.horario);
+      problemasList.sort(criarComparadorPorHorario());
       setProblemas(problemasList);
     });
 
@@ -76,7 +70,7 @@ function TelaProfessor() {
             </div>
 
             <p>{problema.descricao}</p>
-            <p><em>{new Date(problema.horario).toLocaleString()}</em></p>
+            <p><em>{formatarDataHora(problema.horario)}</em></p>
 
             {/* Botão de exclusão posicionado abaixo do conteúdo do card */}
             <div className="delete-button-container">

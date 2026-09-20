@@ -3,6 +3,11 @@ import { db, auth } from '../firebase';
 import { FaArrowRight, FaComments } from 'react-icons/fa'; 
 import '../styles/Chat.css';
 import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, getDocs } from 'firebase/firestore';
+import {
+  carimboServidor,
+  completarHorariosIso,
+  criarComparadorPorHorario,
+} from '../services/tempo';
 
 
 // Função para gerar uma cor única para o usuário com base em um valor único (email)
@@ -40,11 +45,18 @@ function Chat() {
     const q = query(collection(db, 'chat'), orderBy('horario'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const mensagensList = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return { id: doc.id, ...data };
-      });
+      const mensagensList = querySnapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data(),
+      }));
+
+      // O `orderBy` do Firestore ordena por tipo antes de ordenar por valor:
+      // toda string ISO da v0.1.0 cairia depois de todo `Timestamp` novo,
+      // independentemente do instante. A ordem final é decidida aqui.
+      mensagensList.sort(criarComparadorPorHorario());
       setMensagens(mensagensList);
+
+      completarHorariosIso(querySnapshot.docs, auth.currentUser?.email);
     });
 
     return () => unsubscribe();
@@ -76,7 +88,8 @@ function Chat() {
     const novaMensagemData = {
       texto: novaMensagem,
       nome: usuarioNome,
-      horario: new Date(),
+      // AC-TEMPO-01: o horário da mensagem é o do servidor, como o do chamado.
+      horario: carimboServidor(),
       email: user.email
     };
 
