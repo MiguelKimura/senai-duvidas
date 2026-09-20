@@ -384,3 +384,16 @@ describe('fake de Firestore — recusa de escrita', () => {
     });
   });
 });
+
+
+describe('fake de Firestore — recusa repetida', () => {
+  it('recusa quantas vezes forem pedidas, e só', async () => {
+    __recusarEscritaEm('tentativasPin/uid-ana', 2);
+
+    const escrever = () => setDoc(doc(db, 'tentativasPin', 'uid-ana'), { tentativas: 1 });
+
+    await expect(escrever()).rejects.toBeDefined();
+    await expect(escrever()).rejects.toBeDefined();
+    await expect(escrever()).resolves.toBeUndefined();
+  });
+});
