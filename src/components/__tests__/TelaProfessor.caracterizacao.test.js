@@ -15,10 +15,14 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
+  addDoc,
   collection,
   getDocs,
+  serverTimestamp,
   getFirestore,
   Timestamp,
+  __confirmarCarimbos,
+  __definirRelogioDoServidor,
   __ouvintesAtivos,
   __resetarFirestore,
   __semearColecao,
@@ -254,5 +258,80 @@ describe('TelaProfessor — botão Sair (AC-SESSAO-05)', () => {
     renderComProvedores(<TelaProfessor />);
 
     expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
+  });
+});
+
+// Do lado do professor a janela pendente aparece igual: o card do aluno chega
+// na tela dele antes de o servidor carimbar.
+describe('TelaProfessor — horário pendente e exibição em Brasília (AC-TEMPO-03, AC-TEMPO-06)', () => {
+  /** O `<em>` de cada card, na ordem da tela. */
+  function horariosNaTela() {
+    return cardsNaTela().map((card) => card.querySelector('em').textContent);
+  }
+
+  it('mostra "enviando…" no card cujo carimbo o servidor ainda não devolveu', () => {
+    // `horario: null` é exatamente o que o SDK entrega no documento local.
+    __semearColecao('chamados', [fabricaChamado({ id: 'em-voo', horario: null })]);
+
+    renderComProvedores(<TelaProfessor />);
+
+    expect(horariosNaTela()).toEqual(['enviando…']);
+  });
+
+  it('exibe o horário confirmado no fuso de Brasília, não no da máquina', () => {
+    __semearColecao('chamados', [
+      fabricaChamado({
+        id: 'confirmado',
+        horario: Timestamp.fromDate(new Date('2025-03-10T13:45:00.000Z')),
+      }),
+    ]);
+
+    renderComProvedores(<TelaProfessor />);
+
+    expect(horariosNaTela()).toEqual(['10/03/2025 10:45']);
+  });
+
+  it('exibe o chamado antigo, com horario em string ISO, no mesmo formato', () => {
+    __semearColecao('chamados', [
+      fabricaChamado({ id: 'antigo', horario: '2025-03-10T13:45:00.000Z' }),
+    ]);
+
+    renderComProvedores(<TelaProfessor />);
+
+    expect(horariosNaTela()).toEqual(['10/03/2025 10:45']);
+  });
+
+  it('marca com travessão o chamado que nunca teve horário, sem dizer "enviando…"', () => {
+    __semearColecao('chamados', [fabricaChamado({ id: 'sem-horario', horario: undefined })]);
+
+    renderComProvedores(<TelaProfessor />);
+
+    expect(horariosNaTela()).toEqual(['—']);
+  });
+
+  it('o card pendente assume a posição definitiva quando o servidor confirma', async () => {
+    __definirRelogioDoServidor('2025-03-10T09:30:00.000Z');
+    __semearColecao('chamados', [
+      fabricaChamado({
+        id: 'confirmado',
+        nome: 'Chegou depois',
+        horario: Timestamp.fromDate(new Date('2025-03-10T10:00:00.000Z')),
+      }),
+    ]);
+    // Um chamado em voo, que o servidor vai carimbar ANTES do outro.
+    await addDoc(collection(db, 'chamados'), {
+      nome: 'Chegou antes',
+      email: 'ana@senai.br',
+      descricao: 'em voo',
+      horario: serverTimestamp(),
+    });
+
+    renderComProvedores(<TelaProfessor />);
+    // Enquanto pendente, fica no fim — sem pular de posição a cada reemissão.
+    expect(autoresNaTela()).toEqual(['Chegou depois', 'Chegou antes']);
+
+    __confirmarCarimbos();
+
+    await waitFor(() => expect(autoresNaTela()).toEqual(['Chegou antes', 'Chegou depois']));
   });
 });

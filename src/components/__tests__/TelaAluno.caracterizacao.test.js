@@ -480,3 +480,64 @@ describe('TelaAluno — o relógio da máquina não move a fila (AC-TEMPO-02)', 
     );
   });
 });
+
+// A janela entre a escrita e a confirmação do servidor é curta, mas existe e
+// é visível. Preenchê-la com o relógio do cliente seria o pior dos mundos:
+// mostraria um horário errado, e depois o trocaria por outro sem explicação.
+describe('TelaAluno — horário pendente de confirmação (AC-TEMPO-06)', () => {
+  /** O `<em>` de cada card, na ordem da tela. */
+  function horariosNaTela() {
+    return [...cartoes()].map((cartao) => cartao.querySelector('em').textContent);
+  }
+
+  it('mostra "enviando…" no lugar do horário enquanto o servidor não confirma', async () => {
+    renderComProvedores(<TelaAluno />);
+
+    await abrirModalECriar({ descricao: 'O VS Code não abre' });
+
+    await waitFor(() => expect(cartoes()).toHaveLength(1));
+    expect(horariosNaTela()).toEqual(['enviando…']);
+  });
+
+  it('não exibe horário provisório nenhum durante a espera', async () => {
+    fixarRelogio(RELOGIO_ADIANTADO_DO_ALUNO);
+    renderComProvedores(<TelaAluno />);
+
+    await abrirModalECriar({ descricao: 'O VS Code não abre' });
+
+    await waitFor(() => expect(cartoes()).toHaveLength(1));
+    // Nem o relógio da máquina, nem "Invalid Date", nem uma data qualquer.
+    expect(horariosNaTela()[0]).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    expect(horariosNaTela()[0]).not.toMatch(/Invalid/);
+  });
+
+  it('deixa o card pendente no fim da fila, sem passar na frente de ninguém', async () => {
+    __semearColecao('chamados', [
+      fabricaChamado({
+        id: 'confirmado',
+        descricao: 'chamado confirmado',
+        horario: Timestamp.fromDate(new Date('2025-03-10T10:00:00.000Z')),
+      }),
+    ]);
+    renderComProvedores(<TelaAluno />);
+
+    await abrirModalECriar({ descricao: 'chamado em voo' });
+
+    await waitFor(() => expect(cartoes()).toHaveLength(2));
+    expect([...cartoes()].map((cartao) => within(cartao).getByText(/^chamado /).textContent)).toEqual(
+      ['chamado confirmado', 'chamado em voo']
+    );
+  });
+
+  it('troca "enviando…" pelo horário de Brasília quando o servidor confirma', async () => {
+    __definirRelogioDoServidor('2025-03-10T13:45:00.000Z');
+    renderComProvedores(<TelaAluno />);
+
+    await abrirModalECriar({ descricao: 'O VS Code não abre' });
+    await waitFor(() => expect(cartoes()).toHaveLength(1));
+
+    __confirmarCarimbos();
+
+    await waitFor(() => expect(horariosNaTela()).toEqual(['10/03/2025 10:45']));
+  });
+});
