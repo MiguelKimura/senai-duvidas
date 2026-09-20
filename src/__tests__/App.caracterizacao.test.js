@@ -1,14 +1,17 @@
 // Caracterização do App — roteamento e decisão de papel.
 //
-// Este arquivo fixa a falha de segurança central da v0.1.0: **quem decide se
-// você é professor é o seu próprio navegador**. O papel sai de
-// `localStorage.getItem('tipoUsuario')`, um valor que qualquer aluno edita pelo
-// DevTools em dez segundos. O Firebase autentica *quem* é a pessoa; nada
-// autentica *o que* ela pode. A task 01 move essa decisão para um custom claim
-// e para as rules.
+// A task 00 escreveu este arquivo para **fixar** a falha de segurança central
+// da v0.1.0: quem decidia se você era professor era o seu próprio navegador. O
+// papel saía de `localStorage.getItem('tipoUsuario')`, um valor que qualquer
+// aluno edita pelo DevTools em dez segundos.
 //
-// Os testes abaixo não julgam esse comportamento: eles o travam, para que a
-// task 01 prove que mudou — e para que ninguém o reintroduza depois.
+// A task 01 é a que corrige isso, então este é o arquivo que mais muda — e as
+// asserções não foram apagadas, foram **invertidas**. Onde antes se lia "o
+// ataque funciona", lê-se agora "o ataque não sai do lugar", com o cenário do
+// ataque preservado linha por linha. É essa inversão que comprova a correção.
+//
+// O `App` também deixou de ter lógica de autenticação: virou roteamento
+// envolvido pelo `AuthProvider`.
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import {
@@ -16,10 +19,12 @@ import {
   __definirUsuarioDoPopup,
   __resetarAuth,
 } from 'firebase/auth';
-import { __resetarFirestore } from 'firebase/firestore';
+import { __resetarFirestore, __semearColecao } from 'firebase/firestore';
 import App from '../App';
+import { __esquecerPersistencia } from '../services/auth';
 
 const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
+const CARLOS = { uid: 'uid-carlos', email: 'carlos@senai.br', displayName: 'Carlos Lima' };
 
 /** Aponta a URL do navegador para `caminho` antes de montar o App. */
 function irPara(caminho) {
@@ -33,26 +38,36 @@ async function montarApp() {
   return view;
 }
 
+/** Carlos é professor de verdade: as duas fontes do Firestore concordam. */
+function semearProfessorDeVerdade() {
+  __semearColecao('usuarios', [
+    { id: 'uid-carlos', uid: 'uid-carlos', nome: 'Carlos Lima', email: 'carlos@senai.br', tipo: 'professor' },
+  ]);
+  __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'professor' }]);
+}
+
 beforeEach(() => {
   __resetarAuth();
   __resetarFirestore();
+  __esquecerPersistencia();
   localStorage.clear();
   irPara('/');
   jest.spyOn(console, 'error').mockImplementation(() => {});
   jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 afterEach(() => {
   jest.restoreAllMocks();
+  localStorage.clear();
 });
 
 describe('App — carregamento inicial', () => {
-  it('segura a tela atrás de um portão de carregamento até o auth responder', async () => {
-    // O App renderiza `<p>Carregando...</p>` enquanto `onAuthStateChanged` nao
-    // respondeu. Contra o SDK real isso dura uma ida a rede e o usuario ve o
-    // texto; contra o fake em memoria a resposta e sincrona, entao o portao ja
-    // abriu quando `render` retorna. O que da para afirmar — e o que importa —
-    // e que a tela so aparece depois que o auth respondeu.
+  it('segura a tela atrás de um portão de carregamento até o papel ser resolvido', async () => {
+    // Na v0.2.0 o portão esperava só o `onAuthStateChanged` responder, porque o
+    // papel já estava no localStorage. Agora ele espera também a ida ao
+    // Firestore que resolve o papel — é o que impede tratar alguém como aluno
+    // antes de saber (AC-AUTH-09).
     await montarApp();
 
     expect(screen.queryByText('Carregando...')).not.toBeInTheDocument();
@@ -70,80 +85,155 @@ describe('App — carregamento inicial', () => {
 
     expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
   });
+
+  it('o App não faz autenticação nenhuma: só roteamento', () => {
+    // As três implementações concorrentes de auth saíram de cena. A que vivia
+    // aqui — `onAuthStateChanged` + `signInWithPopup` + leitura do localStorage
+    // — foi para o `AuthProvider` e para `services/auth.js`.
+    const fonte = require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'App.js'),
+      'utf8'
+    );
+
+    expect(fonte).not.toMatch(/onAuthStateChanged/);
+    expect(fonte).not.toMatch(/signInWithPopup/);
+    expect(fonte).not.toMatch(/localStorage/);
+  });
 });
 
-describe('App — o papel vem do localStorage (falha que a task 01 corrige)', () => {
-  it('grava o usuário autenticado no localStorage, com o tipo lido do próprio localStorage', async () => {
+describe('App — o papel NÃO vem mais do localStorage (AC-AUTH-06, AC-SEC-03)', () => {
+  it('não grava a sessão no localStorage', async () => {
+    // Era: `expect(JSON.parse(localStorage.getItem('usuarioLogado'))).toEqual({...})`.
+    // Espelhar a sessão no navegador é o que dava ao navegador uma opinião
+    // sobre quem é professor. Agora não há espelho nenhum.
     localStorage.setItem('tipoUsuario', 'aluno');
     __definirUsuarioAtual(ANA);
-
-    await montarApp();
-
-    expect(JSON.parse(localStorage.getItem('usuarioLogado'))).toEqual({
-      nome: 'Ana Souza',
-      tipo: 'aluno',
-      email: 'ana@senai.br',
-    });
-  });
-
-  it('assume "aluno" quando não há tipoUsuario gravado', async () => {
-    __definirUsuarioAtual(ANA);
-
-    await montarApp();
-
-    expect(JSON.parse(localStorage.getItem('usuarioLogado')).tipo).toBe('aluno');
-  });
-
-  it('QUALQUER pessoa vira professor escrevendo no localStorage — sem passar pelo servidor', async () => {
-    // Este é o ataque inteiro: uma linha no console do navegador.
-    localStorage.setItem('tipoUsuario', 'professor');
-    __definirUsuarioAtual(ANA);
-    irPara('/professor');
-
-    await montarApp();
-
-    // Ana é aluna. Mesmo assim, a tela do professor abre.
-    expect(screen.getByRole('heading', { name: 'Chamados dos Alunos' })).toBeInTheDocument();
-  });
-
-  it('limpa a sessão do localStorage quando o usuário desloga', async () => {
-    localStorage.setItem('usuarioLogado', JSON.stringify({ nome: 'Ana', tipo: 'aluno' }));
 
     await montarApp();
 
     expect(localStorage.getItem('usuarioLogado')).toBeNull();
   });
-});
 
-describe('App — proteção de rota por tipo (AC-AUTH-01)', () => {
-  it('/aluno abre a tela do aluno quando o tipo é aluno', async () => {
-    localStorage.setItem('tipoUsuario', 'aluno');
+  it('o papel de quem só existe no Auth é aluno, vindo do documento criado no Firestore', async () => {
     __definirUsuarioAtual(ANA);
     irPara('/aluno');
 
     await montarApp();
 
-    expect(screen.getByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
   });
 
-  it('/aluno cai no Login quando o tipo é professor', async () => {
+  it('NINGUÉM vira professor escrevendo no localStorage — o ataque da v0.1.0', async () => {
+    // Este era o ataque inteiro: uma linha no console do navegador. O cenário
+    // está preservado; o que mudou é o desfecho.
     localStorage.setItem('tipoUsuario', 'professor');
-    __definirUsuarioAtual(ANA);
-    irPara('/aluno');
-
-    await montarApp();
-
-    expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
-  });
-
-  it('/professor cai no Login quando o tipo é aluno', async () => {
-    localStorage.setItem('tipoUsuario', 'aluno');
     __definirUsuarioAtual(ANA);
     irPara('/professor');
 
     await montarApp();
 
+    // Ana é aluna. A tela do professor não abre; ela é mandada para a dela.
+    expect(
+      screen.queryByRole('heading', { name: 'Chamados dos Alunos' })
+    ).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
+  });
+
+  it('nem escrevendo a sessão inteira em usuarioLogado', async () => {
+    localStorage.setItem(
+      'usuarioLogado',
+      JSON.stringify({ nome: 'Ana Souza', tipo: 'professor', email: 'ana@senai.br' })
+    );
+    __definirUsuarioAtual(ANA);
+    irPara('/professor');
+
+    await montarApp();
+
+    expect(
+      screen.queryByRole('heading', { name: 'Chamados dos Alunos' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('nem escrevendo tipo professor direto em usuarios/{uid} pelo cliente', async () => {
+    // As rules da v0.2.0 ainda deixam o cliente gravar o próprio `tipo`. A
+    // segunda fonte (`autorizados`) é o que desarma isso do lado do app; a
+    // task 03 fecha o lado do servidor.
+    __semearColecao('usuarios', [
+      { id: 'uid-ana', uid: 'uid-ana', nome: 'Ana Souza', email: 'ana@senai.br', tipo: 'professor' },
+    ]);
+    __definirUsuarioAtual(ANA);
+    irPara('/professor');
+
+    await montarApp();
+
+    expect(
+      screen.queryByRole('heading', { name: 'Chamados dos Alunos' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('limpa resquícios da sessão antiga quando não há usuário autenticado', async () => {
+    localStorage.setItem('usuarioLogado', JSON.stringify({ nome: 'Ana', tipo: 'aluno' }));
+
+    await montarApp();
+
+    // Nenhuma rota protegida abre com base nesse resquício.
     expect(screen.getByRole('heading', { name: /login/i })).toBeInTheDocument();
+  });
+});
+
+describe('App — proteção de rota por papel (AC-AUTH-09)', () => {
+  it('/aluno abre a tela do aluno para quem é aluno', async () => {
+    __definirUsuarioAtual(ANA);
+    irPara('/aluno');
+
+    await montarApp();
+
+    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
+  });
+
+  it('/professor abre a tela do professor para quem é professor nas duas fontes', async () => {
+    semearProfessorDeVerdade();
+    __definirUsuarioAtual(CARLOS);
+    irPara('/professor');
+
+    await montarApp();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Chamados dos Alunos' })
+    ).toBeInTheDocument();
+  });
+
+  it('/aluno manda o professor para a tela dele, em vez de cair no login', async () => {
+    // Era: caía no Login. Cair no login para quem está autenticado é
+    // exatamente a piscada que o AC-AUTH-09 proíbe.
+    semearProfessorDeVerdade();
+    __definirUsuarioAtual(CARLOS);
+    irPara('/aluno');
+
+    await montarApp();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Chamados dos Alunos' })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /^login$/i })).not.toBeInTheDocument();
+  });
+
+  it('/professor manda o aluno para a tela dele, em vez de cair no login', async () => {
+    __definirUsuarioAtual(ANA);
+    irPara('/professor');
+
+    await montarApp();
+
+    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /^login$/i })).not.toBeInTheDocument();
+  });
+
+  it('/aluno sem sessão nenhuma volta para a raiz, no login', async () => {
+    irPara('/aluno');
+
+    await montarApp();
+
+    expect(await screen.findByRole('heading', { name: /login/i })).toBeInTheDocument();
   });
 
   it('/cadastro abre a tela de cadastro', async () => {
@@ -155,45 +245,70 @@ describe('App — proteção de rota por tipo (AC-AUTH-01)', () => {
   });
 });
 
-describe('App — login social ainda NAO existe na interface (AC-AUTH-02)', () => {
-  // O `App` constroi `providerGoogle`/`providerGithub` e define
-  // `handleLoginGoogle`/`handleLoginGithub`, e passa os dois como props para o
-  // `Login`. O `Login` simplesmente ignora essas props: nao existe botao de
-  // Google nem de GitHub em lugar nenhum da interface.
-  //
-  // Ou seja, o OAuth da v0.1.0 e codigo morto — esboçado e nunca ligado. Isso
-  // importa por dois motivos: e a razao de o AC-AUTH-02 continuar em aberto, e
-  // explica o buraco de cobertura em `App.js`, que nenhum teste de interface
-  // consegue fechar porque nao ha caminho ate la. A task 01 implementa o login
-  // social de verdade; ate la, estes testes impedem que alguem conclua que ele
-  // ja funciona.
+describe('App — login social agora existe na interface (AC-AUTH-03, AC-AUTH-04)', () => {
+  // A task 00 fixou aqui que o OAuth da v0.1.0 era código morto: o `App`
+  // montava os provedores e passava `handleLoginGoogle`/`handleLoginGithub`
+  // como props, e o `Login` ignorava as duas — não havia botão em lugar
+  // nenhum da interface. Era a razão de o AC-AUTH-03 e o AC-AUTH-04
+  // continuarem em aberto. Cada um daqueles testes está abaixo, invertido.
 
-  it('nao existe botao de login com Google na tela de login', async () => {
+  it('existe botão de login com Google na tela de login', async () => {
     await montarApp();
 
-    expect(screen.queryByRole('button', { name: /google/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /google/i })).toBeInTheDocument();
   });
 
-  it('nao existe botao de login com GitHub na tela de login', async () => {
+  it('existe botão de login com GitHub na tela de login', async () => {
     await montarApp();
 
-    expect(screen.queryByRole('button', { name: /github/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /github/i })).toBeInTheDocument();
   });
 
-  it('o unico botao da tela de login e o de entrar por e-mail e senha', async () => {
+  it('a tela de login tem três entradas: e-mail e senha, Google e GitHub', async () => {
     await montarApp();
 
     const botoes = screen.getAllByRole('button');
-    expect(botoes).toHaveLength(1);
+    expect(botoes).toHaveLength(3);
     expect(botoes[0]).toHaveAttribute('type', 'submit');
   });
 
-  it('mesmo com um popup pronto para responder, nada na tela o aciona', async () => {
+  it('com o popup pronto para responder, o clique leva a uma sessão de verdade', async () => {
+    // Era: "nada na tela o aciona; o caminho não existe".
     __definirUsuarioDoPopup(ANA);
+    irPara('/');
 
     await montarApp();
+    screen.getByRole('button', { name: /google/i }).click();
 
-    // Nenhum clique possivel leva a uma sessao: o caminho nao existe.
-    expect(localStorage.getItem('usuarioLogado')).toBeNull();
+    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
+  });
+});
+
+describe('App — sair de ponta a ponta (AC-AUTH-08, AC-SESSAO-05)', () => {
+  it('o botão Sair devolve a pessoa para a raiz, no login', async () => {
+    __definirUsuarioAtual(ANA);
+    irPara('/aluno');
+    await montarApp();
+    await screen.findByRole('heading', { name: /bem-vindo/i });
+
+    screen.getByRole('button', { name: 'Sair' }).click();
+
+    expect(await screen.findByRole('heading', { name: /login/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /bem-vindo/i })).not.toBeInTheDocument();
+  });
+
+  it('depois de sair, voltar pelo histórico não reabre a tela autenticada', async () => {
+    __definirUsuarioAtual(ANA);
+    irPara('/aluno');
+    await montarApp();
+    await screen.findByRole('heading', { name: /bem-vindo/i });
+
+    screen.getByRole('button', { name: 'Sair' }).click();
+    await screen.findByRole('heading', { name: /login/i });
+    window.history.back();
+
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: /bem-vindo/i })).not.toBeInTheDocument()
+    );
   });
 });

@@ -5,6 +5,7 @@ import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firesto
 import { Timestamp } from 'firebase/firestore';
 import '../styles/TelaAluno.css';
 import Chat from './Chat';
+import BotaoSair from './BotaoSair';
 
 
 function TelaAluno() {
@@ -84,6 +85,7 @@ function TelaAluno() {
 
   return (
     <div className="tela-aluno">
+      <BotaoSair />
       <h1>Bem-vindo, {usuarioNome}!</h1>
       <p>Aqui estão os problemas registrados.</p>
       <button className="add-button" onClick={openModal}>+</button>

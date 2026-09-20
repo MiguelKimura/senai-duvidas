@@ -2,11 +2,16 @@
 // cadastro. Ele é executado **no cliente**, então não é uma garantia de
 // segurança — o AC-AUTH-07 exige que a mesma regra exista nas Firestore Rules,
 // o que a task 03 implementa. Aqui fixa-se o que a função faz hoje.
+import * as firestore from 'firebase/firestore';
 import { __resetarFirestore, __semearColecao } from 'firebase/firestore';
 import { verificarPermissao } from '../permissoes';
 
 beforeEach(() => {
   __resetarFirestore();
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe('verificarPermissao', () => {
@@ -47,5 +52,70 @@ describe('verificarPermissao', () => {
   it('nega e-mail vazio sem consultar o banco', async () => {
     await expect(verificarPermissao('')).resolves.toBe(false);
     await expect(verificarPermissao(undefined)).resolves.toBe(false);
+  });
+});
+
+// O console do navegador é lido em projeção, na frente da turma, e fica
+// gravado em qualquer captura de tela de suporte. O e-mail de quem está
+// entrando não pode aparecer lá.
+describe('verificarPermissao — nenhum dado pessoal no console', () => {
+  /** Tudo o que foi escrito no console durante a chamada, como texto. */
+  async function consoleDurante(chamada) {
+    const escrito = [];
+    const registrar = (...argumentos) => escrito.push(JSON.stringify(argumentos));
+
+    jest.spyOn(console, 'log').mockImplementation(registrar);
+    jest.spyOn(console, 'error').mockImplementation(registrar);
+    jest.spyOn(console, 'warn').mockImplementation(registrar);
+
+    await chamada();
+
+    return escrito.join(' ');
+  }
+
+  it('não registra o e-mail consultado quando autoriza', async () => {
+    __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'professor' }]);
+
+    const saida = await consoleDurante(() => verificarPermissao('carlos@senai.br'));
+
+    expect(saida).not.toMatch(/carlos@senai\.br/);
+  });
+
+  it('não registra o e-mail consultado quando nega', async () => {
+    const saida = await consoleDurante(() => verificarPermissao('intruso@senai.br'));
+
+    expect(saida).not.toMatch(/intruso@senai\.br/);
+  });
+
+  it('não despeja o documento de autorizados no console', async () => {
+    __semearColecao('autorizados', [
+      { id: 'carlos@senai.br', Tipo: 'professor', matricula: '2024-0031' },
+    ]);
+
+    const saida = await consoleDurante(() => verificarPermissao('carlos@senai.br'));
+
+    expect(saida).not.toMatch(/2024-0031/);
+  });
+
+  it('continua negando em silêncio quando o e-mail é vazio', async () => {
+    const saida = await consoleDurante(() => verificarPermissao(''));
+
+    expect(saida).toBe('');
+  });
+
+  // A mensagem de erro do Firestore cita o caminho do documento — e o caminho
+  // é `autorizados/{email}`. Registrar o erro cru publica o e-mail.
+  it('nega sem registrar nada quando a leitura do Firestore falha', async () => {
+    jest
+      .spyOn(firestore, 'getDoc')
+      .mockRejectedValue(new Error('Missing permissions on autorizados/carlos@senai.br'));
+
+    let permitido;
+    const saida = await consoleDurante(async () => {
+      permitido = await verificarPermissao('carlos@senai.br');
+    });
+
+    expect(permitido).toBe(false);
+    expect(saida).toBe('');
   });
 });

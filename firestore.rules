@@ -1,19 +1,71 @@
 rules_version = '2';
 
-// Security Rules do Firestore — ESTADO ATUAL, DELIBERADAMENTE INSEGURO.
+// Security Rules do Firestore — ENDURECIMENTO EM ANDAMENTO.
 //
-// Este arquivo NÃO endurece nada. Ele descreve, por escrito e de forma
-// testável, o que a aplicação da v0.1.0 precisa para funcionar hoje. Apertar as
-// regras aqui quebraria o app em produção antes das tasks que o adaptam — e o
-// app roda em laboratório, com turma em aula.
-//
-// Por que versionar regras frouxas em vez de não versionar nada: sem baseline
-// não há como provar que a task 03 apertou. Cada permissão excessiva abaixo
-// tem um teste em `tests/rules/firestore.rules.test.js` que a demonstra
-// explorada. Quando a task 03 endurecer, esses testes invertem de sinal — de
+// A task 00 versionou este arquivo deliberadamente frouxo: um baseline escrito
+// e testável do que a v0.1.0 precisava para funcionar. Sem esse baseline não
+// haveria como provar que uma task apertou alguma coisa. Cada permissão
+// excessiva tem um teste em `tests/rules/firestore.rules.test.js` que a
+// demonstra explorada; quando uma task a fecha, o teste inverte de sinal — de
 // "consegue" para "é negado" — e é essa inversão que comprova a correção.
+//
+// Situação por coleção:
+//
+//   usuarios     ENDURECIDA pela task 01. Era onde a escalada de privilégio
+//                acontecia, então veio primeiro, antes de qualquer feature.
+//   autorizados  Escrita já era negada desde a v0.1.0, e continua.
+//   chamados     Aberta. Task 03 (escopo por sala).
+//   chat         Aberta. Tasks 03 e 06.
+//
+// Apertar `chamados` e `chat` agora quebraria o app em produção antes das
+// tasks que o adaptam — e ele roda em laboratório, com turma em aula.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ----------------------------------------------------------------------
+    // Funções auxiliares (task 01).
+    //
+    // A task 03 vai reusá-las para escopar `chamados` e `chat` por sala. Aqui
+    // elas valem só em `usuarios`, que é onde o papel do usuário é gravado.
+    // ----------------------------------------------------------------------
+
+    /// Existe sessão do Firebase Auth.
+    function ehAutenticado() {
+      return request.auth != null;
+    }
+
+    /// O documento pertence a quem está escrevendo.
+    function ehDono(uid) {
+      return ehAutenticado() && request.auth.uid == uid;
+    }
+
+    /// E-mail do token, normalizado como o id usado em `autorizados`.
+    ///
+    /// Vem do token, nunca do payload: o corpo da requisição é escolhido pelo
+    /// cliente, e o token é assinado pelo Firebase.
+    function emailDoToken() {
+      return ehAutenticado() && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    /// Está em `autorizados/{email}` com `Tipo: "professor"`.
+    ///
+    /// `autorizados` é mantida à mão no console e tem escrita negada abaixo,
+    /// então é a única autoridade que o cliente não consegue forjar.
+    function ehProfessor() {
+      return ehAutenticado()
+        && exists(/databases/$(database)/documents/autorizados/$(emailDoToken()))
+        && get(/databases/$(database)/documents/autorizados/$(emailDoToken()))
+             .data.Tipo.lower() == 'professor';
+    }
+
+    /// A escrita está tentando marcar o documento como professor.
+    function gravaTipoProfessor() {
+      return request.resource.data.keys().hasAny(['tipo'])
+        && request.resource.data.tipo is string
+        && request.resource.data.tipo.lower() == 'professor';
+    }
 
     // Chamados: coleção global, sem escopo de sala e sem dono.
     //
@@ -37,13 +89,27 @@ service cloud.firestore {
       allow read, create, update, delete: if true;
     }
 
-    // Usuários: criado por `Cadastro` logo após o createUserWithEmailAndPassword.
+    // Usuários: criado por `Cadastro` e por `services/perfilUsuario.js` logo
+    // após a autenticação.
     //
-    // TODO(task-03): endurecer. Só o próprio uid deveria escrever o próprio
-    // documento, e `tipo` não pode ser escolhido pelo cliente — é ele que
-    // decide quem é professor.
+    // ENDURECIDO pela task 01. Era `if true`, e era ali que a escalada de
+    // privilégio acontecia: o cliente escolhia o próprio `tipo` e o servidor
+    // aceitava. Agora só o dono escreve o próprio documento, e só vira
+    // professor quem `autorizados` confirma (AC-AUTH-07, AC-SEC-03).
+    //
+    // A leitura exige sessão porque a coleção guarda nome e e-mail de aluno
+    // menor de idade. Os dois únicos leitores do app — `garantirPerfil` e a
+    // resolução de papel — já rodam autenticados.
+    //
+    // TODO(task-03): restringir a leitura ao próprio documento e aos
+    // professores da sala, quando `salas/{id}/membros` existir. Hoje qualquer
+    // pessoa autenticada lê qualquer perfil.
     match /usuarios/{uid} {
-      allow read, create, update, delete: if true;
+      allow read: if ehAutenticado();
+      allow create, update: if ehDono(uid) && (!gravaTipoProfessor() || ehProfessor());
+      // Nenhuma tela apaga perfil. Quando precisar existir, é operação de
+      // administrador pelo console, não do cliente.
+      allow delete: if false;
     }
 
     // Autorizados: a lista que diz quem pode se cadastrar como professor.

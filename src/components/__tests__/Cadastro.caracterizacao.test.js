@@ -1,13 +1,18 @@
 // Caracterização do cadastro — AC-AUTH-01 [REG].
 //
-// Atenção ao que este arquivo NÃO afirma: o AC-AUTH-01 exige que o documento
-// criado em `usuarios/{uid}` tenha `criadoEm`, e a v0.1.0 não grava esse campo.
-// O teste abaixo fixa a forma realmente gravada hoje (nome, email, tipo, uid) e
-// marca a lacuna — quem fechar o AC-AUTH-01 (task 01) vai ver este teste falhar
-// ao acrescentar `criadoEm`, que é exatamente o aviso que se quer dar.
+// Este arquivo nasceu na task 00 registrando uma lacuna: o AC-AUTH-01 exige
+// `criadoEm` no documento de `usuarios/{uid}`, e a v0.2.0 não gravava o campo.
+// A task 01 fecha a lacuna, então as duas asserções que a descreviam foram
+// invertidas de propósito — de "ainda NÃO grava" para "grava, e com o relógio
+// do servidor". Nenhum caso foi removido: o que era aviso virou garantia.
+//
+// `criadoEm` e `provedor` são campos aditivos. Os testes de compatibilidade
+// futura em `src/__tests__/compatibilidadeFutura.test.js` provam que um leitor
+// que os ignore continua enxergando `nome`, `email`, `tipo` e `uid`.
 import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as firebaseAuth from 'firebase/auth';
 import { __registrarCredencial, __resetarAuth } from 'firebase/auth';
 import {
   collection,
@@ -38,7 +43,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  avisos.mockRestore();
+  jest.restoreAllMocks();
 });
 
 async function usuariosGravados() {
@@ -61,7 +66,7 @@ function enviar() {
 }
 
 describe('Cadastro de aluno (AC-AUTH-01)', () => {
-  it('cria o documento em usuarios/{uid} com nome, email, tipo e uid', async () => {
+  it('cria o documento em usuarios/{uid} com nome, email, tipo, uid e criadoEm', async () => {
     renderComProvedores(<Cadastro />);
 
     preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
@@ -74,12 +79,14 @@ describe('Cadastro de aluno (AC-AUTH-01)', () => {
           email: 'ana@senai.br',
           tipo: 'aluno',
           uid: expect.any(String),
+          criadoEm: expect.anything(),
+          provedor: 'password',
         },
       ]);
     });
   });
 
-  it('ainda NÃO grava criadoEm — lacuna conhecida do AC-AUTH-01, a fechar na task 01', async () => {
+  it('grava criadoEm com o relógio do servidor, não com o da máquina do laboratório', async () => {
     renderComProvedores(<Cadastro />);
 
     preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
@@ -87,7 +94,10 @@ describe('Cadastro de aluno (AC-AUTH-01)', () => {
 
     await waitFor(async () => expect(await usuariosGravados()).toHaveLength(1));
     const [usuario] = await usuariosGravados();
-    expect(usuario).not.toHaveProperty('criadoEm');
+
+    // As máquinas do laboratório têm o relógio frequentemente errado; gravar
+    // `new Date()` daqui produziria uma data de cadastro inventada.
+    expect(usuario.criadoEm).toEqual({ __tipo: 'serverTimestamp' });
   });
 
   it('leva o aluno para /aluno depois de cadastrar', async () => {
@@ -159,7 +169,14 @@ describe('Cadastro de professor (AC-AUTH-07)', () => {
   });
 });
 
-describe('Cadastro — erros do Firebase traduzidos', () => {
+describe('Cadastro — erros do Firebase traduzidos (AC-AUTH-05)', () => {
+  /** Força o Firebase a recusar o cadastro com o código pedido. */
+  function recusarCadastroCom(code, message) {
+    const erro = new Error(message);
+    erro.code = code;
+    jest.spyOn(firebaseAuth, 'createUserWithEmailAndPassword').mockRejectedValue(erro);
+  }
+
   it('avisa quando o e-mail já está em uso', async () => {
     __registrarCredencial('ana@senai.br', 'senha123');
     renderComProvedores(<Cadastro />);
@@ -168,7 +185,7 @@ describe('Cadastro — erros do Firebase traduzidos', () => {
     enviar();
 
     expect(
-      await screen.findByText('Este e-mail já está em uso. Tente um e-mail diferente.')
+      await screen.findByText('Este e-mail já está em uso. Entre com ele ou cadastre-se com outro.')
     ).toBeInTheDocument();
     expect(mockNavegar).not.toHaveBeenCalled();
   });
@@ -180,8 +197,69 @@ describe('Cadastro — erros do Firebase traduzidos', () => {
     preencher({ nome: 'Outra Ana', email: 'ana@senai.br', senha: 'senha456' });
     enviar();
 
-    await screen.findByText('Este e-mail já está em uso. Tente um e-mail diferente.');
+    await screen.findByText(
+      'Este e-mail já está em uso. Entre com ele ou cadastre-se com outro.'
+    );
     expect(screen.getByRole('button', { name: 'Cadastrar' })).toBeEnabled();
     expect(screen.getByLabelText('Nome')).toHaveValue('Outra Ana');
+  });
+
+  it('explica em português como vincular a conta já criada por outro método', async () => {
+    recusarCadastroCom(
+      'auth/account-exists-with-different-credential',
+      'Firebase: Error (auth/account-exists-with-different-credential).'
+    );
+    renderComProvedores(<Cadastro />);
+
+    preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
+    enviar();
+
+    const aviso = await screen.findByText(/já está cadastrado por outro método de login/);
+    expect(aviso).toBeInTheDocument();
+  });
+
+  it('nunca mostra o código nem a mensagem crua do Firebase', async () => {
+    // Código que o tradutor não conhece: é justamente aqui que a v0.2.0
+    // despejava `error.message` na tela do aluno.
+    recusarCadastroCom(
+      'auth/tenant-id-mismatch',
+      'Firebase: Error (auth/tenant-id-mismatch).'
+    );
+    renderComProvedores(<Cadastro />);
+
+    preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
+    enviar();
+
+    const aviso = await screen.findByText(
+      'Não foi possível concluir a operação. Tente novamente em instantes.'
+    );
+    expect(aviso).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/auth\//);
+    expect(document.body.textContent).not.toMatch(/Firebase/);
+  });
+});
+
+describe('Cadastro — sem alert bloqueando a aba (AC-AUTH-05)', () => {
+  it('confirma o cadastro levando para a tela, e não com um alert', async () => {
+    renderComProvedores(<Cadastro />);
+
+    preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
+    enviar();
+
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/aluno'));
+    expect(avisos).not.toHaveBeenCalled();
+  });
+
+  it('não usa alert nem para anunciar o erro', async () => {
+    __registrarCredencial('ana@senai.br', 'senha123');
+    renderComProvedores(<Cadastro />);
+
+    preencher({ nome: 'Outra Ana', email: 'ana@senai.br', senha: 'senha456' });
+    enviar();
+
+    await screen.findByText(
+      'Este e-mail já está em uso. Entre com ele ou cadastre-se com outro.'
+    );
+    expect(avisos).not.toHaveBeenCalled();
   });
 });

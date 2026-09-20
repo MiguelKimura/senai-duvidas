@@ -4,6 +4,7 @@ import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
 import '../styles/TelaProfessor.css';
 import Chat from './Chat';
+import BotaoSair from './BotaoSair';
 
 function TelaProfessor() {
   const [problemas, setProblemas] = useState([]);
@@ -47,6 +48,7 @@ function TelaProfessor() {
 
   return (
     <div className="tela-professor">
+      <BotaoSair />
       <h1>Chamados dos Alunos</h1>
 
       <div className="problemas-list">

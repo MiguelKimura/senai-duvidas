@@ -1,13 +1,17 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { AuthProvider } from '../contexts/AuthContext';
 
 // Ponto único de montagem dos provedores nos testes.
 //
-// Hoje só o react-router é necessário. A task 01 vai introduzir um AuthContext
-// único (substituindo as três implementações concorrentes de autenticação) e
-// deve envolvê-lo aqui — assim nenhum teste de caracterização precisa mudar
-// para continuar valendo.
+// A task 00 deixou este arquivo com um TODO explícito: quando a task 01
+// unificasse as três implementações de autenticação num provider só, ele
+// deveria ser montado aqui — assim nenhum teste de caracterização precisaria
+// mudar de forma para continuar valendo. É o que este import faz.
+//
+// A ordem importa: o `AuthProvider` fica **dentro** do roteador, porque quem
+// consome o contexto também navega, e `useNavigate` exige um Router acima.
 
 /**
  * Renderiza `elemento` dentro dos provedores da aplicação.
@@ -18,7 +22,11 @@ import { MemoryRouter } from 'react-router-dom';
  */
 export function renderComProvedores(elemento, { rota = '/', ...opcoesRender } = {}) {
   function Provedores({ children }) {
-    return <MemoryRouter initialEntries={[rota]}>{children}</MemoryRouter>;
+    return (
+      <MemoryRouter initialEntries={[rota]}>
+        <AuthProvider>{children}</AuthProvider>
+      </MemoryRouter>
+    );
   }
 
   return render(elemento, { wrapper: Provedores, ...opcoesRender });
