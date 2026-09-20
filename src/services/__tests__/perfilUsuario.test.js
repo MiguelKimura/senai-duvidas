@@ -13,6 +13,8 @@ import {
   getDocs,
   getFirestore,
   query,
+  __confirmarCarimbos,
+  __definirRelogioDoServidor,
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
@@ -44,6 +46,7 @@ afterEach(() => {
 describe('primeiro acesso — o documento é criado (AC-AUTH-03, AC-AUTH-04)', () => {
   it('cria usuarios/{uid} com uid, nome, email, tipo aluno e criadoEm', async () => {
     await garantirPerfil(ANA_DO_GOOGLE);
+    __confirmarCarimbos();
 
     expect(await usuariosGravados()).toEqual([
       {
@@ -58,13 +61,28 @@ describe('primeiro acesso — o documento é criado (AC-AUTH-03, AC-AUTH-04)', (
     ]);
   });
 
+  // Asserção reescrita pela task 02, e reescrita para mais forte. Antes ela
+  // afirmava que o sentinela de `serverTimestamp()` ficava gravado no banco,
+  // que era só o que o fake da task 01 sabia representar. O fake agora tem as
+  // duas fases do SDK real, então dá para afirmar o que o critério de fato
+  // pede: o valor que sobra no documento é o instante do **servidor**, e não
+  // um instante qualquer que a máquina pudesse ter produzido.
   it('grava criadoEm como timestamp do servidor, não como relógio do cliente', async () => {
     // AC-AUTH-01 e AC-TEMPO-01: o relógio das máquinas do laboratório não é
     // confiável, então a marca de criação tem que vir do servidor.
+    __definirRelogioDoServidor('2020-01-01T00:00:00.000Z');
+
     await garantirPerfil(ANA_DO_GOOGLE);
 
+    // Fase 1: escrita otimista, campo ainda vazio.
+    expect((await usuariosGravados())[0].criadoEm).toBeNull();
+
+    // Fase 2: o servidor responde.
+    __confirmarCarimbos();
+
     const [perfil] = await usuariosGravados();
-    expect(perfil.criadoEm).toEqual({ __tipo: 'serverTimestamp' });
+    // Uma data que a máquina que roda este teste não teria como inventar.
+    expect(perfil.criadoEm.toDate()).toEqual(new Date('2020-01-01T00:00:00.000Z'));
   });
 
   it('devolve o papel aluno e o perfil recém-criado', async () => {
