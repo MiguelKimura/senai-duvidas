@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"; 
 import { db, auth } from "../firebase"; 
 import { verificarPermissao } from "../utils/permissoes"; // Importa a função de verificação
@@ -39,13 +39,21 @@ const Cadastro = () => {
       // Atualizar nome do usuário no Firebase Authentication
       await updateProfile(user, { displayName: nome });
 
-      // Criar um documento no Firestore para o usuário
+      // Criar um documento no Firestore para o usuário (AC-AUTH-01).
+      //
+      // `criadoEm` vem do servidor de propósito: o relógio das máquinas do
+      // laboratório erra com frequência, e uma data de cadastro tirada do
+      // cliente seria inventada. `criadoEm` e `provedor` são aditivos — um
+      // leitor da versão anterior, que não os conhece, continua lendo `nome`,
+      // `email`, `tipo` e `uid` como sempre leu.
       const usuarioRef = doc(db, "usuarios", user.uid);
       await setDoc(usuarioRef, {
         nome,
         email,
         tipo,
         uid: user.uid, // Armazena o ID do usuário para referência
+        criadoEm: serverTimestamp(),
+        provedor: "password",
       });
 
       console.log("Usuário cadastrado com sucesso!");
