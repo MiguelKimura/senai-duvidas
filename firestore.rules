@@ -14,8 +14,9 @@ rules_version = '2';
 //   usuarios     ENDURECIDA pela task 01. Era onde a escalada de privilégio
 //                acontecia, então veio primeiro, antes de qualquer feature.
 //   autorizados  Escrita já era negada desde a v0.1.0, e continua.
-//   chamados     Aberta. Task 03 (escopo por sala).
-//   chat         Aberta. Tasks 03 e 06.
+//   chamados     Aberta, com UMA exceção: o `horario` gravado precisa ser o
+//                carimbo do servidor (task 02). O resto é a task 03.
+//   chat         Idem.
 //
 // Apertar `chamados` e `chat` agora quebraria o app em produção antes das
 // tasks que o adaptam — e ele roda em laboratório, com turma em aula.
@@ -60,6 +61,36 @@ service cloud.firestore {
              .data.Tipo.lower() == 'professor';
     }
 
+    /// O `horario` gravado é o carimbo do servidor (task 02, AC-TEMPO-01).
+    ///
+    /// `request.time` é o instante em que o servidor processa a escrita, e é
+    /// exatamente o valor que `serverTimestamp()` resolve. Um Timestamp
+    /// escolhido pelo cliente nunca bate com ele — e é isso que impede furar a
+    /// fila pelo horário, com o app novo instalado e tudo, escrevendo direto
+    /// no Firestore pelo DevTools.
+    ///
+    /// Três saídas, nesta ordem:
+    ///
+    ///   1. a escrita não mexe em `horario`. A validação de campos
+    ///      obrigatórios é da task 03, junto com o escopo de sala;
+    ///   2. o valor é o carimbo do servidor — o caminho comum;
+    ///   3. o valor é o mesmo que já estava no documento. Este é o que deixa
+    ///      `horarioIso` ser preenchido num chamado antigo sem que a rule
+    ///      exija recarimbar — e reescrever o `horario` de um documento já
+    ///      gravado é justamente o que não pode acontecer.
+    function horarioEhDoServidor() {
+      return !('horario' in request.resource.data)
+        || request.resource.data.horario == request.time
+        || horarioNaoMudou();
+    }
+
+    /// O `horario` da escrita é igual ao que já está gravado no documento.
+    function horarioNaoMudou() {
+      return resource != null
+        && 'horario' in resource.data
+        && request.resource.data.horario == resource.data.horario;
+    }
+
     /// A escrita está tentando marcar o documento como professor.
     function gravaTipoProfessor() {
       return request.resource.data.keys().hasAny(['tipo'])
@@ -73,20 +104,29 @@ service cloud.firestore {
     // front-end: nada no servidor confere autoria. Qualquer cliente com a
     // config do projeto apaga o chamado de qualquer aluno.
     //
-    // TODO(task-03): endurecer. Escopar por `salaId`, exigir request.auth,
-    // restringir delete ao autor ou ao professor da sala, e validar os campos
-    // na escrita.
+    // ENDURECIDO PARCIALMENTE pela task 02: `horario` agora só entra vindo do
+    // servidor. É o único vetor que esta task fecha, e o fecha por inteiro —
+    // corrigir só o cliente não adiantaria, porque a escrita vai direto ao
+    // Firestore.
+    //
+    // TODO(task-03): endurecer o resto. Escopar por `salaId`, exigir
+    // request.auth, restringir delete ao autor ou ao professor da sala, e
+    // validar os demais campos na escrita.
     match /chamados/{chamadoId} {
-      allow read, create, update, delete: if true;
+      allow read, delete: if true;
+      allow create, update: if horarioEhDoServidor();
     }
 
     // Chat: mesma história, e pior — o comando `!clear` apaga a conversa
     // inteira da turma, e qualquer aluno pode dispará-lo.
     //
-    // TODO(task-03): endurecer. Escopar por sala, exigir request.auth e
+    // ENDURECIDO PARCIALMENTE pela task 02, pelo mesmo motivo de `chamados`.
+    //
+    // TODO(task-03): endurecer o resto. Escopar por sala, exigir request.auth e
     // restringir a exclusão em massa ao professor (AC-CHAT-*, task 06).
     match /chat/{mensagemId} {
-      allow read, create, update, delete: if true;
+      allow read, delete: if true;
+      allow create, update: if horarioEhDoServidor();
     }
 
     // Usuários: criado por `Cadastro` e por `services/perfilUsuario.js` logo
