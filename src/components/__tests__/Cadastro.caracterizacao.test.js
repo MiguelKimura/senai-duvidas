@@ -1,10 +1,14 @@
 // Caracterização do cadastro — AC-AUTH-01 [REG].
 //
-// Atenção ao que este arquivo NÃO afirma: o AC-AUTH-01 exige que o documento
-// criado em `usuarios/{uid}` tenha `criadoEm`, e a v0.1.0 não grava esse campo.
-// O teste abaixo fixa a forma realmente gravada hoje (nome, email, tipo, uid) e
-// marca a lacuna — quem fechar o AC-AUTH-01 (task 01) vai ver este teste falhar
-// ao acrescentar `criadoEm`, que é exatamente o aviso que se quer dar.
+// Este arquivo nasceu na task 00 registrando uma lacuna: o AC-AUTH-01 exige
+// `criadoEm` no documento de `usuarios/{uid}`, e a v0.2.0 não gravava o campo.
+// A task 01 fecha a lacuna, então as duas asserções que a descreviam foram
+// invertidas de propósito — de "ainda NÃO grava" para "grava, e com o relógio
+// do servidor". Nenhum caso foi removido: o que era aviso virou garantia.
+//
+// `criadoEm` e `provedor` são campos aditivos. Os testes de compatibilidade
+// futura em `src/__tests__/compatibilidadeFutura.test.js` provam que um leitor
+// que os ignore continua enxergando `nome`, `email`, `tipo` e `uid`.
 import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -61,7 +65,7 @@ function enviar() {
 }
 
 describe('Cadastro de aluno (AC-AUTH-01)', () => {
-  it('cria o documento em usuarios/{uid} com nome, email, tipo e uid', async () => {
+  it('cria o documento em usuarios/{uid} com nome, email, tipo, uid e criadoEm', async () => {
     renderComProvedores(<Cadastro />);
 
     preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
@@ -74,12 +78,14 @@ describe('Cadastro de aluno (AC-AUTH-01)', () => {
           email: 'ana@senai.br',
           tipo: 'aluno',
           uid: expect.any(String),
+          criadoEm: expect.anything(),
+          provedor: 'password',
         },
       ]);
     });
   });
 
-  it('ainda NÃO grava criadoEm — lacuna conhecida do AC-AUTH-01, a fechar na task 01', async () => {
+  it('grava criadoEm com o relógio do servidor, não com o da máquina do laboratório', async () => {
     renderComProvedores(<Cadastro />);
 
     preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
@@ -87,7 +93,10 @@ describe('Cadastro de aluno (AC-AUTH-01)', () => {
 
     await waitFor(async () => expect(await usuariosGravados()).toHaveLength(1));
     const [usuario] = await usuariosGravados();
-    expect(usuario).not.toHaveProperty('criadoEm');
+
+    // As máquinas do laboratório têm o relógio frequentemente errado; gravar
+    // `new Date()` daqui produziria uma data de cadastro inventada.
+    expect(usuario.criadoEm).toEqual({ __tipo: 'serverTimestamp' });
   });
 
   it('leva o aluno para /aluno depois de cadastrar', async () => {
