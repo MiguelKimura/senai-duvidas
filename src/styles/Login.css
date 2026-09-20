@@ -97,3 +97,57 @@ a {
 a:hover {
   text-decoration: underline;
 }
+
+/* Mensagem de erro do login (AC-AUTH-05).
+   Substitui o alert() da v0.2.0: o texto fica na tela, junto do formulário,
+   para a pessoa reler enquanto corrige o que digitou. */
+.login-erro {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: #fdecea;
+  color: #8a1c13;
+  font-size: 14px;
+  text-align: left;
+}
+
+.login-carregando {
+  color: #ffffff;
+  font-size: 18px;
+}
+
+/* Entrada por provedor social (AC-AUTH-03, AC-AUTH-04). */
+.login-social {
+  margin-top: 18px;
+}
+
+.login-social-titulo {
+  margin: 0 0 10px;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.botao-social {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #1f1f1f;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.botao-social:hover:not(:disabled) {
+  background-color: #f2f2f2;
+}
+
+.botao-social:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
