@@ -26,6 +26,18 @@ let carimbosPendentes = [];
 /** O instante que `__confirmarCarimbos` grava. Nulo = relógio da máquina. */
 let relogioDoServidor = null;
 
+/**
+ * Caminhos em que a próxima escrita — ou leitura — deve ser recusada.
+ *
+ * Em produção quem recusa é a Security Rule: PIN já usado por outra sala, sala
+ * de outro professor, sala arquivada, segredo que não é seu. Aqui a recusa é
+ * marcada à mão, para que o caminho de erro do cliente seja exercitado sem
+ * precisar do emulador.
+ *
+ * @type {{escrita: Set<string>, leitura: Set<string>}}
+ */
+let recusas = { escrita: new Set(), leitura: new Set() };
+
 let contadorId = 0;
 
 const db = { __tipo: 'firestore-fake' };
@@ -64,10 +76,46 @@ function valorOrdenavel(valor) {
   return valor;
 }
 
-function documentosDe(caminho, ordenacoes = []) {
-  const documentos = [...colecaoDe(caminho).entries()].map(([id]) =>
-    criarSnapshotDeDocumento(`${caminho}/${id}`)
-  );
+/**
+ * Aplica um filtro de `where` a um documento.
+ *
+ * Documento sem o campo nunca entra no resultado, como no Firestore de
+ * verdade: lá o índice não tem entrada para campo ausente, e é por isso que um
+ * chamado da v0.1.0 — que não tem `atendido` — não aparece numa consulta por
+ * `atendido == false`.
+ */
+function atendeAoFiltro(dados, { campo, operador, valor }) {
+  if (!dados || !(campo in dados)) return false;
+
+  const atual = valorOrdenavel(dados[campo]);
+  const alvo = valorOrdenavel(valor);
+
+  switch (operador) {
+    case '==':
+      return atual === alvo;
+    case '!=':
+      return atual !== alvo;
+    case '<':
+      return atual < alvo;
+    case '<=':
+      return atual <= alvo;
+    case '>':
+      return atual > alvo;
+    case '>=':
+      return atual >= alvo;
+    case 'in':
+      return Array.isArray(valor) && valor.map(valorOrdenavel).includes(atual);
+    case 'array-contains':
+      return Array.isArray(dados[campo]) && dados[campo].includes(valor);
+    default:
+      throw new Error(`Operador de where não implementado no fake: ${operador}`);
+  }
+}
+
+function documentosDe(caminho, ordenacoes = [], filtros = [], quantidade = null) {
+  const documentos = [...colecaoDe(caminho).entries()]
+    .map(([id]) => criarSnapshotDeDocumento(`${caminho}/${id}`))
+    .filter((documento) => filtros.every((filtro) => atendeAoFiltro(documento.data(), filtro)));
 
   ordenacoes.forEach(({ campo, direcao }) => {
     documentos.sort((a, b) => {
@@ -80,7 +128,24 @@ function documentosDe(caminho, ordenacoes = []) {
     });
   });
 
-  return documentos;
+  // O corte vem depois da ordenação, como no Firestore: o `orderBy` decide
+  // quem são os N, e o `limit` diz quantos. Cortar antes devolveria N
+  // quaisquer, e o teste de paginação passaria sem provar nada.
+  return quantidade === null ? documentos : documentos.slice(0, quantidade);
+}
+
+/** Recusa a operação marcada, uma vez, como a rule faria do lado do servidor. */
+function conferirRecusa(tipo, caminho) {
+  if (!recusas[tipo].has(caminho)) return;
+
+  recusas[tipo].delete(caminho);
+
+  const erro = new Error(
+    `Missing or insufficient permissions. (fake: ${tipo} recusada em ${caminho})`
+  );
+  erro.code = 'permission-denied';
+
+  throw erro;
 }
 
 /**
@@ -113,8 +178,8 @@ function anotarCarimbos(caminho, id, campos) {
   }
 }
 
-function criarSnapshotDeConsulta(caminho, ordenacoes) {
-  const docs = documentosDe(caminho, ordenacoes);
+function criarSnapshotDeConsulta(caminho, ordenacoes, filtros, quantidade) {
+  const docs = documentosDe(caminho, ordenacoes, filtros, quantidade);
 
   return {
     docs,
@@ -127,7 +192,11 @@ function criarSnapshotDeConsulta(caminho, ordenacoes) {
 function notificar(caminho) {
   ouvintes
     .filter((ouvinte) => ouvinte.caminho === caminho)
-    .forEach((ouvinte) => ouvinte.callback(criarSnapshotDeConsulta(caminho, ouvinte.ordenacoes)));
+    .forEach((ouvinte) =>
+      ouvinte.callback(
+        criarSnapshotDeConsulta(caminho, ouvinte.ordenacoes, ouvinte.filtros, ouvinte.quantidade)
+      )
+    );
 }
 
 // --- API pública do SDK ----------------------------------------------------
@@ -171,10 +240,16 @@ export function doc(dbOuColecao, ...segmentos) {
 }
 
 export function query(colecao, ...restricoes) {
+  const doTipo = (tipo) => restricoes.filter((restricao) => restricao && restricao.__tipo === tipo);
+
+  const [corte] = doTipo('limit');
+
   return {
     __tipo: 'consulta',
     __caminho: colecao.__caminho,
-    __ordenacoes: restricoes.filter((restricao) => restricao && restricao.__tipo === 'orderBy'),
+    __ordenacoes: doTipo('orderBy'),
+    __filtros: doTipo('where'),
+    __quantidade: corte ? corte.quantidade : null,
   };
 }
 
@@ -193,6 +268,7 @@ export function where(campo, operador, valor) {
 export async function addDoc(colecao, dados) {
   contadorId += 1;
   const id = `doc-gerado-${contadorId}`;
+  conferirRecusa('escrita', `${colecao.__caminho}/${id}`);
   const { gravados, campos } = separarCarimbos(dados);
 
   colecaoDe(colecao.__caminho).set(id, gravados);
@@ -203,6 +279,7 @@ export async function addDoc(colecao, dados) {
 }
 
 export async function setDoc(referencia, dados) {
+  conferirRecusa('escrita', referencia.__caminho);
   const caminhoDaColecao = caminhoDoPai(referencia.__caminho);
   const id = idDe(referencia.__caminho);
   const { gravados, campos } = separarCarimbos(dados);
@@ -213,6 +290,7 @@ export async function setDoc(referencia, dados) {
 }
 
 export async function updateDoc(referencia, dados) {
+  conferirRecusa('escrita', referencia.__caminho);
   const caminhoDaColecao = caminhoDoPai(referencia.__caminho);
   const id = idDe(referencia.__caminho);
   const existente = colecaoDe(caminhoDaColecao).get(id);
@@ -229,19 +307,26 @@ export async function updateDoc(referencia, dados) {
 }
 
 export async function getDoc(referencia) {
+  conferirRecusa('leitura', referencia.__caminho);
+
   return criarSnapshotDeDocumento(referencia.__caminho);
 }
 
 export async function deleteDoc(referencia) {
+  conferirRecusa('escrita', referencia.__caminho);
   const caminhoDaColecao = caminhoDoPai(referencia.__caminho);
   colecaoDe(caminhoDaColecao).delete(idDe(referencia.__caminho));
   notificar(caminhoDaColecao);
 }
 
 export async function getDocs(consultaOuColecao) {
+  conferirRecusa('leitura', consultaOuColecao.__caminho);
+
   return criarSnapshotDeConsulta(
     consultaOuColecao.__caminho,
-    consultaOuColecao.__ordenacoes || []
+    consultaOuColecao.__ordenacoes || [],
+    consultaOuColecao.__filtros || [],
+    quantidadeDe(consultaOuColecao)
   );
 }
 
@@ -249,16 +334,27 @@ export function onSnapshot(consultaOuColecao, callback) {
   const ouvinte = {
     caminho: consultaOuColecao.__caminho,
     ordenacoes: consultaOuColecao.__ordenacoes || [],
+    filtros: consultaOuColecao.__filtros || [],
+    quantidade: quantidadeDe(consultaOuColecao),
     callback,
   };
   ouvintes.push(ouvinte);
 
   // O SDK real entrega o estado corrente assim que a inscrição é criada.
-  callback(criarSnapshotDeConsulta(ouvinte.caminho, ouvinte.ordenacoes));
+  callback(
+    criarSnapshotDeConsulta(ouvinte.caminho, ouvinte.ordenacoes, ouvinte.filtros, ouvinte.quantidade)
+  );
 
   return () => {
     ouvintes = ouvintes.filter((inscrito) => inscrito !== ouvinte);
   };
+}
+
+/** O corte da consulta, ou `null` quando se escutou a coleção crua. */
+function quantidadeDe(consultaOuColecao) {
+  const quantidade = consultaOuColecao.__quantidade;
+
+  return quantidade === undefined ? null : quantidade;
 }
 
 export function serverTimestamp() {
@@ -273,7 +369,28 @@ export function __resetarFirestore() {
   ouvintes = [];
   carimbosPendentes = [];
   relogioDoServidor = null;
+  recusas = { escrita: new Set(), leitura: new Set() };
   contadorId = 0;
+}
+
+/**
+ * Faz a próxima escrita naquele caminho falhar com `permission-denied`.
+ *
+ * Uma vez só: é o formato da colisão de PIN, que desaparece assim que o
+ * cliente sorteia outro número.
+ *
+ * @param {string} caminho caminho completo do documento.
+ */
+export function __recusarEscritaEm(caminho) {
+  recusas.escrita.add(caminho);
+}
+
+/**
+ * Faz a próxima leitura naquele caminho falhar com `permission-denied`.
+ * @param {string} caminho caminho completo do documento ou da coleção.
+ */
+export function __recusarLeituraEm(caminho) {
+  recusas.leitura.add(caminho);
 }
 
 /**
