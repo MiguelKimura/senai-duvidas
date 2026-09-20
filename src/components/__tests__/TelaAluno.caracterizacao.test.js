@@ -391,3 +391,92 @@ describe('TelaAluno — botão Sair (AC-SESSAO-05)', () => {
     expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
   });
 });
+
+// O critério de saída da v0.4.0, e o motivo de a task existir: mexer no
+// relógio do Windows não pode mudar a ordem de atendimento.
+//
+// Os dois sentidos importam, e erram para lados opostos com o código antigo,
+// que ordenava pelo `new Date()` de quem enviou:
+//
+//   relógio atrasado  -> horário menor -> sobe para o topo da fila;
+//   relógio adiantado -> horário maior -> afunda para o fim da fila.
+//
+// Com o carimbo do servidor, os dois casos caem na ordem de chegada.
+describe('TelaAluno — o relógio da máquina não move a fila (AC-TEMPO-02)', () => {
+  /** As descrições dos cards, na ordem em que estão na tela. */
+  function filaNaTela() {
+    return [...cartoes()].map((cartao) => within(cartao).getByText(/^chegou /).textContent);
+  }
+
+  /** Um chamado de outra pessoa, já carimbado pelo servidor. */
+  function chamadoDeBruno(descricao, instante) {
+    return fabricaChamado({
+      id: 'do-bruno',
+      nome: 'Bruno Dias',
+      email: 'bruno@senai.br',
+      descricao,
+      horario: Timestamp.fromDate(new Date(instante)),
+    });
+  }
+
+  async function anaEnviaCom({ relogioDaMaquina, carimboDoServidor, descricao }) {
+    fixarRelogio(relogioDaMaquina);
+    __definirRelogioDoServidor(carimboDoServidor);
+
+    renderComProvedores(<TelaAluno />);
+    await abrirModalECriar({ descricao });
+
+    await waitFor(async () => expect(await chamadosGravados()).toHaveLength(2));
+    __confirmarCarimbos();
+  }
+
+  it('atrasar o relógio em 3 horas não passa ninguém na frente', async () => {
+    // Bruno enviou às 10:00 pelo relógio do servidor.
+    __semearColecao('chamados', [chamadoDeBruno('chegou primeiro', '2025-03-10T10:00:00.000Z')]);
+
+    // Ana atrasa o relógio dela em 3 horas e envia depois. Pelo código
+    // antigo, o chamado dela nasceria com 07:05 e apareceria no topo.
+    await anaEnviaCom({
+      relogioDaMaquina: '2025-03-10T07:05:00.000Z',
+      carimboDoServidor: '2025-03-10T10:05:00.000Z',
+      descricao: 'chegou depois',
+    });
+
+    // `waitFor` e não asserção seca: a confirmação do servidor chega por um
+    // `onSnapshot` fora de `act`, e é a reordenação **depois** dela que este
+    // caso precisa observar.
+    await waitFor(() => expect(filaNaTela()).toEqual(['chegou primeiro', 'chegou depois']));
+  });
+
+  it('adiantar o relógio em 3 horas não manda ninguém para o fim', async () => {
+    // Bruno enviou às 10:10, depois de Ana.
+    __semearColecao('chamados', [chamadoDeBruno('chegou depois', '2025-03-10T10:10:00.000Z')]);
+
+    // Ana está com o relógio 3 horas adiantado e enviou às 10:05 pelo
+    // servidor. Pelo código antigo, o chamado dela nasceria com 13:05 e cairia
+    // para o fim, e ela nunca seria atendida.
+    await anaEnviaCom({
+      relogioDaMaquina: '2025-03-10T13:05:00.000Z',
+      carimboDoServidor: '2025-03-10T10:05:00.000Z',
+      descricao: 'chegou primeiro',
+    });
+
+    await waitFor(() => expect(filaNaTela()).toEqual(['chegou primeiro', 'chegou depois']));
+  });
+
+  it('o horário exibido é o do servidor, não o que o relógio da máquina marcava', async () => {
+    __semearColecao('chamados', [chamadoDeBruno('chegou primeiro', '2025-03-10T10:00:00.000Z')]);
+
+    await anaEnviaCom({
+      relogioDaMaquina: '2025-03-10T07:05:00.000Z',
+      carimboDoServidor: '2025-03-10T10:05:00.000Z',
+      descricao: 'chegou depois',
+    });
+
+    // 10:05Z é 07:05 em Brasília. O relógio da máquina marcava 07:05 **UTC**,
+    // que daria 04:05 em Brasília — é essa a diferença que o teste separa.
+    await waitFor(() =>
+      expect(cartoes()[1].querySelector('em')).toHaveTextContent('10/03/2025 07:05')
+    );
+  });
+});
