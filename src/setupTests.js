@@ -5,6 +5,8 @@
 // garante que nenhum teste unitário toque a rede ou o projeto de produção:
 // os módulos do Firebase têm mocks manuais em `src/__mocks__/firebase/`.
 import '@testing-library/jest-dom';
+import { webcrypto } from 'node:crypto';
+import { TextDecoder, TextEncoder } from 'node:util';
 import { instalarSuporteAHsl } from './test-utils/corDeFundo';
 
 // O jsdom do react-scripts descarta `hsl()`. Toda cor desta base é `hsl()`,
@@ -17,3 +19,17 @@ instalarSuporteAHsl();
 beforeEach(() => {
   jest.clearAllMocks();
 });
+
+// Web Crypto e TextEncoder, que o jsdom do react-scripts não traz.
+//
+// O PIN da sala é sorteado com `crypto.getRandomValues` e resumido com
+// `crypto.subtle` — as duas APIs padrão de navegador que a task 03 usa
+// (AC-SALA-02, AC-SEC-05). O Node tem as duas, e são a mesma implementação
+// que o Chrome usa; sem elas aqui, o teste provaria um substituto em vez de
+// provar o código que roda no laboratório.
+if (typeof globalThis.TextEncoder === 'undefined') globalThis.TextEncoder = TextEncoder;
+if (typeof globalThis.TextDecoder === 'undefined') globalThis.TextDecoder = TextDecoder;
+
+if (!globalThis.crypto || !globalThis.crypto.subtle) {
+  Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
+}
