@@ -347,3 +347,11 @@ describe('TelaAluno — exclusão (AC-CHAMADO-04 e AC-CHAMADO-05)', () => {
     confirmar.mockRestore();
   });
 });
+
+describe('TelaAluno — botão Sair (AC-SESSAO-05)', () => {
+  it('oferece a saída explícita da sessão na própria tela', () => {
+    renderComProvedores(<TelaAluno />);
+
+    expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
+  });
+});

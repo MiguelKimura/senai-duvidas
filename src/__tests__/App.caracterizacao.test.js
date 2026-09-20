@@ -283,3 +283,32 @@ describe('App — login social agora existe na interface (AC-AUTH-03, AC-AUTH-04
     expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
   });
 });
+
+describe('App — sair de ponta a ponta (AC-AUTH-08, AC-SESSAO-05)', () => {
+  it('o botão Sair devolve a pessoa para a raiz, no login', async () => {
+    __definirUsuarioAtual(ANA);
+    irPara('/aluno');
+    await montarApp();
+    await screen.findByRole('heading', { name: /bem-vindo/i });
+
+    screen.getByRole('button', { name: 'Sair' }).click();
+
+    expect(await screen.findByRole('heading', { name: /login/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /bem-vindo/i })).not.toBeInTheDocument();
+  });
+
+  it('depois de sair, voltar pelo histórico não reabre a tela autenticada', async () => {
+    __definirUsuarioAtual(ANA);
+    irPara('/aluno');
+    await montarApp();
+    await screen.findByRole('heading', { name: /bem-vindo/i });
+
+    screen.getByRole('button', { name: 'Sair' }).click();
+    await screen.findByRole('heading', { name: /login/i });
+    window.history.back();
+
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: /bem-vindo/i })).not.toBeInTheDocument()
+    );
+  });
+});

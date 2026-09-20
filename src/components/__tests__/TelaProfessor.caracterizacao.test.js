@@ -248,3 +248,11 @@ describe('TelaProfessor — exclusão sem restrição (AC-CHAMADO-05)', () => {
     );
   });
 });
+
+describe('TelaProfessor — botão Sair (AC-SESSAO-05)', () => {
+  it('oferece a saída explícita da sessão na própria tela', () => {
+    renderComProvedores(<TelaProfessor />);
+
+    expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
+  });
+});
