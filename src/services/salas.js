@@ -23,10 +23,18 @@
 // `hashing.sha256(sal + pin)` e compara com o resumo. O cliente nunca precisa
 // ler o segredo, e é por isso que regerar o PIN invalida o anterior sem que
 // ninguém guarde o número antigo em lugar nenhum (AC-SALA-09).
-import { addDoc, collection, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { carimboServidor } from './tempo';
-import { gerarPin, gerarSal, hashDePin } from './pin';
+import {
+  ERRO_DE_LIMITE,
+  ERRO_DE_PIN,
+  ehPinValido,
+  gerarPin,
+  gerarSal,
+  hashDePin,
+  normalizarPin,
+} from './pin';
 
 export const COLECAO_DE_SALAS = 'salas';
 export const COLECAO_DO_INDICE = 'indicePins';
@@ -126,6 +134,11 @@ export function referenciaDaSala(salaId) {
 /** O documento que guarda resumo e sal do PIN. Só o dono da sala o lê. */
 export function referenciaDoSegredo(salaId) {
   return doc(db, COLECAO_DE_SALAS, salaId, 'segredo', 'pin');
+}
+
+/** O contador de tentativas de PIN de uma pessoa (AC-SALA-12). */
+export function referenciaDaTentativa(uid) {
+  return doc(db, COLECAO_DE_TENTATIVAS, uid);
 }
 
 /** Referência ao vínculo de uma pessoa com a sala. */
@@ -299,4 +312,148 @@ export async function criarSala(dados, professor) {
   await registrarVinculo(salaId, professor, PAPEL_DE_PROFESSOR);
 
   return { salaId, pin };
+}
+
+
+// --- entrada por PIN --------------------------------------------------------
+
+/**
+ * Conta mais uma tentativa de PIN desta pessoa (AC-SALA-12).
+ *
+ * Quem decide se a tentativa cabe é a **rule**, porque só o servidor tem um
+ * relógio confiável e só ele vê todas as tentativas. O cliente propõe duas
+ * escritas, nesta ordem:
+ *
+ *   1. somar 1 ao contador da janela corrente;
+ *   2. se a primeira foi recusada, começar uma janela nova.
+ *
+ * A segunda é uma **pergunta ao servidor**, não um contorno: a rule só aceita
+ * reiniciar a janela depois que ela venceu. Se as duas forem recusadas, o
+ * limite está valendo de verdade. Perguntar em vez de calcular a janela aqui é
+ * o que impede que o relógio errado de uma máquina de laboratório — o problema
+ * que a task 02 documentou — bloqueie um aluno que não fez nada.
+ *
+ * O documento também guarda `pinTentado`: é ele que amarra cada consulta ao
+ * índice a uma tentativa contada. Sem a amarra, o contador seria decoração e a
+ * rule deixaria varrer o índice de PINs à vontade.
+ *
+ * @param {string} uid
+ * @param {string} pin PIN digitado, já normalizado.
+ * @throws {ErroDeSala} quando o limite está valendo.
+ */
+export async function registrarTentativa(uid, pin) {
+  const referencia = referenciaDaTentativa(uid);
+  const anterior = await getDoc(referencia);
+  const comum = { pinTentado: pin, ultimaTentativaEm: carimboServidor() };
+
+  if (!anterior.exists()) {
+    await setDoc(referencia, { ...comum, tentativas: 1, janelaIniciadaEm: carimboServidor() });
+    return;
+  }
+
+  try {
+    await updateDoc(referencia, {
+      ...comum,
+      tentativas: (Number(anterior.data().tentativas) || 0) + 1,
+    });
+    return;
+  } catch (erro) {
+    if (!ehRecusaDoServidor(erro)) throw erro;
+  }
+
+  try {
+    await updateDoc(referencia, {
+      ...comum,
+      tentativas: 1,
+      janelaIniciadaEm: carimboServidor(),
+    });
+  } catch (erro) {
+    if (ehRecusaDoServidor(erro)) throw new ErroDeSala(ERRO_DE_LIMITE);
+    throw erro;
+  }
+}
+
+/**
+ * Traduz a sala apontada por um PIN, ou `null`.
+ *
+ * A leitura é de um documento específico — `get`, nunca `list` —, e a rule
+ * ainda exige a tentativa recém-contada. Recusa vira `null` pelo mesmo motivo
+ * que "não existe": a tela não pode distinguir os dois casos (AC-SALA-04).
+ */
+async function salaDoPin(pin) {
+  try {
+    const indice = await getDoc(doc(db, COLECAO_DO_INDICE, pin));
+
+    if (!indice.exists()) return null;
+
+    const { salaId, ativo } = indice.data();
+
+    return ativo === true && salaId ? salaId : null;
+  } catch (erro) {
+    if (ehRecusaDoServidor(erro)) return null;
+    throw erro;
+  }
+}
+
+/**
+ * O papel de uma pessoa dentro da sala, ou `null` se ela não é membro.
+ *
+ * Ser professor no SENAI não é ser professor **desta** sala: o papel global
+ * vem do `AuthContext`, e este aqui vem do vínculo (AC-SEC-02).
+ *
+ * @param {string} salaId
+ * @param {string} uid
+ * @returns {Promise<'aluno'|'professor'|null>}
+ */
+export async function lerPapelNaSala(salaId, uid) {
+  try {
+    const membro = await getDoc(referenciaDoMembro(salaId, uid));
+
+    return membro.exists() ? membro.data().papel || PAPEL_DE_ALUNO : null;
+  } catch (erro) {
+    if (ehRecusaDoServidor(erro)) return null;
+    throw erro;
+  }
+}
+
+/**
+ * Entra numa sala pelo PIN (AC-SALA-04, AC-SALA-06, AC-SALA-12).
+ *
+ * Quem confere o PIN é o servidor: a rule de `membros` refaz o resumo com o
+ * sal da sala e compara com o segredo, que o aluno não lê. Por isso a recusa
+ * chega aqui como `permission-denied` e sai como a mesma frase de "PIN
+ * inválido" — o cliente não sabe, e não deve saber, se o PIN existe em outra
+ * sala, se foi regerado ou se a sala foi arquivada.
+ *
+ * @param {string} pinDigitado o que o aluno digitou.
+ * @param {{uid: string, nome: string, email?: string}} pessoa
+ * @returns {Promise<{salaId: string, jaEraMembro: boolean}>}
+ * @throws {ErroDeSala} sempre com mensagem pronta para a tela.
+ */
+export async function entrarComPin(pinDigitado, pessoa) {
+  const pin = normalizarPin(pinDigitado);
+
+  // Formato errado não chega a consultar nada, e por isso não gasta tentativa:
+  // não há o que um PIN de cinco dígitos revelasse sobre as salas existentes.
+  if (!ehPinValido(pin)) throw new ErroDeSala(ERRO_DE_PIN);
+
+  await registrarTentativa(pessoa.uid, pin);
+
+  const salaId = await salaDoPin(pin);
+  if (!salaId) throw new ErroDeSala(ERRO_DE_PIN);
+
+  // Quem já é membro não reescreve o vínculo: a rule de `membros` só permite
+  // `create`, e reentrar não pode reiniciar a data de entrada de ninguém.
+  if (await lerPapelNaSala(salaId, pessoa.uid)) {
+    return { salaId, jaEraMembro: true };
+  }
+
+  try {
+    await registrarVinculo(salaId, pessoa, PAPEL_DE_ALUNO);
+  } catch (erro) {
+    if (ehRecusaDoServidor(erro)) throw new ErroDeSala(ERRO_DE_PIN);
+    throw erro;
+  }
+
+  return { salaId, jaEraMembro: false };
 }

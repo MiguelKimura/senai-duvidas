@@ -34,9 +34,9 @@ let relogioDoServidor = null;
  * marcada à mão, para que o caminho de erro do cliente seja exercitado sem
  * precisar do emulador.
  *
- * @type {{escrita: Set<string>, leitura: Set<string>}}
+ * @type {{escrita: Map<string, number>, leitura: Map<string, number>}}
  */
-let recusas = { escrita: new Set(), leitura: new Set() };
+let recusas = { escrita: new Map(), leitura: new Map() };
 
 let contadorId = 0;
 
@@ -134,11 +134,16 @@ function documentosDe(caminho, ordenacoes = [], filtros = [], quantidade = null)
   return quantidade === null ? documentos : documentos.slice(0, quantidade);
 }
 
-/** Recusa a operação marcada, uma vez, como a rule faria do lado do servidor. */
+/** Recusa a operação marcada, como a rule faria do lado do servidor. */
 function conferirRecusa(tipo, caminho) {
-  if (!recusas[tipo].has(caminho)) return;
+  const restantes = recusas[tipo].get(caminho) || 0;
+  if (restantes === 0) return;
 
-  recusas[tipo].delete(caminho);
+  if (restantes === 1) {
+    recusas[tipo].delete(caminho);
+  } else {
+    recusas[tipo].set(caminho, restantes - 1);
+  }
 
   const erro = new Error(
     `Missing or insufficient permissions. (fake: ${tipo} recusada em ${caminho})`
@@ -369,28 +374,32 @@ export function __resetarFirestore() {
   ouvintes = [];
   carimbosPendentes = [];
   relogioDoServidor = null;
-  recusas = { escrita: new Set(), leitura: new Set() };
+  recusas = { escrita: new Map(), leitura: new Map() };
   contadorId = 0;
 }
 
 /**
  * Faz a próxima escrita naquele caminho falhar com `permission-denied`.
  *
- * Uma vez só: é o formato da colisão de PIN, que desaparece assim que o
- * cliente sorteia outro número.
+ * Uma vez, por padrão: é o formato da colisão de PIN, que desaparece assim que
+ * o cliente sorteia outro número. `vezes` cobre o caso em que o cliente tenta
+ * duas escritas seguidas no mesmo documento e as duas são recusadas — o 6º
+ * erro de PIN, que não consegue nem contar a tentativa nem reiniciar a janela.
  *
  * @param {string} caminho caminho completo do documento.
+ * @param {number} [vezes] quantas recusas seguidas.
  */
-export function __recusarEscritaEm(caminho) {
-  recusas.escrita.add(caminho);
+export function __recusarEscritaEm(caminho, vezes = 1) {
+  recusas.escrita.set(caminho, (recusas.escrita.get(caminho) || 0) + vezes);
 }
 
 /**
  * Faz a próxima leitura naquele caminho falhar com `permission-denied`.
  * @param {string} caminho caminho completo do documento ou da coleção.
+ * @param {number} [vezes] quantas recusas seguidas.
  */
-export function __recusarLeituraEm(caminho) {
-  recusas.leitura.add(caminho);
+export function __recusarLeituraEm(caminho, vezes = 1) {
+  recusas.leitura.set(caminho, (recusas.leitura.get(caminho) || 0) + vezes);
 }
 
 /**
