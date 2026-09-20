@@ -19,6 +19,8 @@ import {
   getFirestore,
   query,
   Timestamp,
+  __confirmarCarimbos,
+  __definirRelogioDoServidor,
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
@@ -39,9 +41,14 @@ jest.mock('react-router-dom', () => ({
 const db = getFirestore();
 const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
 
+/** O instante que o servidor carimba. Três horas atrás do relógio do aluno. */
+const HORARIO_DO_SERVIDOR = '2025-03-10T13:45:00.000Z';
+const RELOGIO_ADIANTADO_DO_ALUNO = '2025-03-10T16:45:00.000Z';
+
 beforeEach(() => {
   __resetarAuth();
   __resetarFirestore();
+  __definirRelogioDoServidor(HORARIO_DO_SERVIDOR);
   __definirUsuarioAtual(ANA);
 });
 
@@ -202,18 +209,20 @@ describe('TelaAluno — criação de chamado (AC-CHAMADO-01)', () => {
 
     await abrirModalECriar({ descricao: 'O VS Code não abre' });
 
-    await waitFor(async () =>
-      expect(await chamadosGravados()).toEqual([
-        {
-          nome: 'Ana Souza',
-          email: 'ana@senai.br',
-          descricao: 'O VS Code não abre',
-          horario: expect.any(String),
-          cor: expect.stringMatching(/^hsl\(/),
-          imagem: null,
-        },
-      ])
-    );
+    await waitFor(async () => expect(await chamadosGravados()).toHaveLength(1));
+    __confirmarCarimbos();
+
+    expect(await chamadosGravados()).toEqual([
+      {
+        nome: 'Ana Souza',
+        email: 'ana@senai.br',
+        descricao: 'O VS Code não abre',
+        horario: expect.any(Timestamp),
+        horarioIso: HORARIO_DO_SERVIDOR,
+        cor: expect.stringMatching(/^hsl\(/),
+        imagem: null,
+      },
+    ]);
   });
 
   it('gera cor automática quando o aluno não escolhe nenhuma (AC-COR-05)', async () => {
@@ -236,15 +245,42 @@ describe('TelaAluno — criação de chamado (AC-CHAMADO-01)', () => {
     );
   });
 
-  it('carimba o horário com o relógio DO CLIENTE — falha que a task 02 corrige', async () => {
-    fixarRelogio('2025-03-10T13:45:00.000Z');
+  // INVERTIDO pela task 02. Este caso nasceu na task 00 provando que o horário
+  // saía de `new Date().toISOString()` do aluno — a origem da fila furada. A
+  // asserção vira de "é o relógio do cliente" para "é o do servidor, e o do
+  // cliente não influi". Nenhum caso foi removido.
+  it('carimba o horário com o relógio DO SERVIDOR (AC-TEMPO-01)', async () => {
+    // O relógio do aluno está três horas adiantado, como acontece em
+    // laboratório — e como faria quem quisesse furar a fila de propósito.
+    fixarRelogio(RELOGIO_ADIANTADO_DO_ALUNO);
     renderComProvedores(<TelaAluno />);
 
     await abrirModalECriar({ descricao: 'O VS Code não abre' });
 
     await waitFor(async () => expect(await chamadosGravados()).toHaveLength(1));
+
+    // Fase 1: escrita otimista, sem horário provisório inventado pelo cliente.
+    expect((await chamadosGravados())[0].horario).toBeNull();
+
+    // Fase 2: o servidor responde.
+    __confirmarCarimbos();
+
     const [chamado] = await chamadosGravados();
-    expect(chamado.horario).toBe('2025-03-10T13:45:00.000Z');
+    expect(chamado.horario.toDate()).toEqual(new Date(HORARIO_DO_SERVIDOR));
+  });
+
+  it('não grava em lugar nenhum o instante que o relógio do aluno marcava', async () => {
+    fixarRelogio(RELOGIO_ADIANTADO_DO_ALUNO);
+    renderComProvedores(<TelaAluno />);
+
+    await abrirModalECriar({ descricao: 'O VS Code não abre' });
+
+    await waitFor(async () => expect(await chamadosGravados()).toHaveLength(1));
+    __confirmarCarimbos();
+
+    expect(JSON.stringify(await chamadosGravados())).not.toContain(
+      RELOGIO_ADIANTADO_DO_ALUNO
+    );
   });
 });
 

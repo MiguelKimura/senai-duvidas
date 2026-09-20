@@ -17,6 +17,9 @@ import {
   collection,
   getDocs,
   getFirestore,
+  Timestamp,
+  __confirmarCarimbos,
+  __definirRelogioDoServidor,
   __ouvintesAtivos,
   __resetarFirestore,
   __semearColecao,
@@ -27,6 +30,9 @@ import { corDeFundo, fabricaMensagem, renderComProvedores } from '../../test-uti
 const db = getFirestore();
 
 const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
+
+/** O instante que o servidor carimba, longe de qualquer relógio de máquina. */
+const HORARIO_DO_SERVIDOR = '2025-03-10T13:45:00.000Z';
 const BRUNO = { uid: 'uid-bruno', email: 'bruno@senai.br', displayName: 'Bruno Dias' };
 
 /** Abre o painel do chat, que começa fechado. */
@@ -47,6 +53,7 @@ function falasNaTela() {
 beforeEach(() => {
   __resetarFirestore();
   __resetarAuth();
+  __definirRelogioDoServidor(HORARIO_DO_SERVIDOR);
   __definirUsuarioAtual(ANA);
 });
 
@@ -182,7 +189,10 @@ describe('Chat — envio de mensagem (AC-CHAT-01)', () => {
     expect(gravadas.size).toBe(0);
   });
 
-  it('carimba o horário com o relógio DO CLIENTE — falha que a task 02 corrige', async () => {
+  // INVERTIDO pela task 02. O caso nasceu na task 00 provando que o horário da
+  // mensagem era um `Date` do navegador — o relógio do aluno. A asserção vira
+  // para o carimbo do servidor; o caso continua aqui.
+  it('carimba o horário com o relógio DO SERVIDOR (AC-TEMPO-01)', async () => {
     renderComProvedores(<Chat />);
     await abrirChat();
 
@@ -194,10 +204,16 @@ describe('Chat — envio de mensagem (AC-CHAT-01)', () => {
       expect(gravadas.size).toBe(1);
     });
 
+    // Fase 1: escrita otimista, sem horário provisório do cliente.
+    const emVoo = await getDocs(collection(db, 'chat'));
+    expect(emVoo.docs[0].data().horario).toBeNull();
+
+    // Fase 2: o servidor responde.
+    __confirmarCarimbos();
+
     const gravadas = await getDocs(collection(db, 'chat'));
-    // Um `Date` do navegador, não um `serverTimestamp()`: o horário da mensagem
-    // é o que o relógio do aluno disser que é.
-    expect(gravadas.docs[0].data().horario).toBeInstanceOf(Date);
+    expect(gravadas.docs[0].data().horario).toBeInstanceOf(Timestamp);
+    expect(gravadas.docs[0].data().horario.toDate()).toEqual(new Date(HORARIO_DO_SERVIDOR));
   });
 });
 

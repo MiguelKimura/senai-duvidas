@@ -9,6 +9,7 @@
 // como se grava (carimbo do servidor), como se lê (formato antigo e novo) e
 // como se ordena (pendente por último, de forma estável).
 import {
+  carimboServidor,
   comparar,
   criarComparadorPorHorario,
   estaPendente,
@@ -18,7 +19,7 @@ import {
   FUSO_BRASILIA,
   paraData,
 } from '../tempo';
-import { Timestamp } from 'firebase/firestore';
+import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import { fixarRelogio, restaurarRelogio } from '../../test-utils';
 
 describe('paraData — leitura dupla dos formatos de horario (AC-TEMPO-08)', () => {
@@ -303,5 +304,23 @@ describe('criarComparadorPorHorario — o comparador que as telas usam', () => {
       'perk-tarde',
       'sem-perk',
     ]);
+  });
+});
+
+// O palpite natural seria consultar uma API pública de horário de Brasília.
+// Seria pior em todos os eixos: depende de rede além do Firestore, cai no meio
+// da aula, custa latência — e, principalmente, continuaria falsificável, porque
+// quem carimbaria o documento com a resposta da API ainda seria o cliente.
+describe('carimboServidor — a autoridade de tempo da escrita (AC-TEMPO-01, AC-TEMPO-09)', () => {
+  it('devolve o sentinela de serverTimestamp() do Firestore', () => {
+    expect(carimboServidor()).toEqual(serverTimestamp());
+  });
+
+  it('o que ele devolve conta como pendente até o servidor responder', () => {
+    expect(estaPendente(carimboServidor())).toBe(true);
+  });
+
+  it('não devolve data alguma: quem decide o instante é o servidor', () => {
+    expect(paraData(carimboServidor())).toBeNull();
   });
 });
