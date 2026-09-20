@@ -1,17 +1,24 @@
 rules_version = '2';
 
-// Security Rules do Firestore — ESTADO ATUAL, DELIBERADAMENTE INSEGURO.
+// Security Rules do Firestore — ENDURECIMENTO EM ANDAMENTO.
 //
-// Este arquivo NÃO endurece nada. Ele descreve, por escrito e de forma
-// testável, o que a aplicação da v0.1.0 precisa para funcionar hoje. Apertar as
-// regras aqui quebraria o app em produção antes das tasks que o adaptam — e o
-// app roda em laboratório, com turma em aula.
-//
-// Por que versionar regras frouxas em vez de não versionar nada: sem baseline
-// não há como provar que a task 03 apertou. Cada permissão excessiva abaixo
-// tem um teste em `tests/rules/firestore.rules.test.js` que a demonstra
-// explorada. Quando a task 03 endurecer, esses testes invertem de sinal — de
+// A task 00 versionou este arquivo deliberadamente frouxo: um baseline escrito
+// e testável do que a v0.1.0 precisava para funcionar. Sem esse baseline não
+// haveria como provar que uma task apertou alguma coisa. Cada permissão
+// excessiva tem um teste em `tests/rules/firestore.rules.test.js` que a
+// demonstra explorada; quando uma task a fecha, o teste inverte de sinal — de
 // "consegue" para "é negado" — e é essa inversão que comprova a correção.
+//
+// Situação por coleção:
+//
+//   usuarios     ENDURECIDA pela task 01. Era onde a escalada de privilégio
+//                acontecia, então veio primeiro, antes de qualquer feature.
+//   autorizados  Escrita já era negada desde a v0.1.0, e continua.
+//   chamados     Aberta. Task 03 (escopo por sala).
+//   chat         Aberta. Tasks 03 e 06.
+//
+// Apertar `chamados` e `chat` agora quebraria o app em produção antes das
+// tasks que o adaptam — e ele roda em laboratório, com turma em aula.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -100,8 +107,9 @@ service cloud.firestore {
     match /usuarios/{uid} {
       allow read: if ehAutenticado();
       allow create, update: if ehDono(uid) && (!gravaTipoProfessor() || ehProfessor());
-      // TODO(task-01): a exclusão ainda é livre. Próximo ciclo.
-      allow delete: if true;
+      // Nenhuma tela apaga perfil. Quando precisar existir, é operação de
+      // administrador pelo console, não do cliente.
+      allow delete: if false;
     }
 
     // Autorizados: a lista que diz quem pode se cadastrar como professor.
