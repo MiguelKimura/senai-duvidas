@@ -12,6 +12,7 @@
 import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as firebaseAuth from 'firebase/auth';
 import { __registrarCredencial, __resetarAuth } from 'firebase/auth';
 import {
   collection,
@@ -42,7 +43,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  avisos.mockRestore();
+  jest.restoreAllMocks();
 });
 
 async function usuariosGravados() {
@@ -168,7 +169,14 @@ describe('Cadastro de professor (AC-AUTH-07)', () => {
   });
 });
 
-describe('Cadastro — erros do Firebase traduzidos', () => {
+describe('Cadastro — erros do Firebase traduzidos (AC-AUTH-05)', () => {
+  /** Força o Firebase a recusar o cadastro com o código pedido. */
+  function recusarCadastroCom(code, message) {
+    const erro = new Error(message);
+    erro.code = code;
+    jest.spyOn(firebaseAuth, 'createUserWithEmailAndPassword').mockRejectedValue(erro);
+  }
+
   it('avisa quando o e-mail já está em uso', async () => {
     __registrarCredencial('ana@senai.br', 'senha123');
     renderComProvedores(<Cadastro />);
@@ -177,7 +185,7 @@ describe('Cadastro — erros do Firebase traduzidos', () => {
     enviar();
 
     expect(
-      await screen.findByText('Este e-mail já está em uso. Tente um e-mail diferente.')
+      await screen.findByText('Este e-mail já está em uso. Entre com ele ou cadastre-se com outro.')
     ).toBeInTheDocument();
     expect(mockNavegar).not.toHaveBeenCalled();
   });
@@ -189,8 +197,69 @@ describe('Cadastro — erros do Firebase traduzidos', () => {
     preencher({ nome: 'Outra Ana', email: 'ana@senai.br', senha: 'senha456' });
     enviar();
 
-    await screen.findByText('Este e-mail já está em uso. Tente um e-mail diferente.');
+    await screen.findByText(
+      'Este e-mail já está em uso. Entre com ele ou cadastre-se com outro.'
+    );
     expect(screen.getByRole('button', { name: 'Cadastrar' })).toBeEnabled();
     expect(screen.getByLabelText('Nome')).toHaveValue('Outra Ana');
+  });
+
+  it('explica em português como vincular a conta já criada por outro método', async () => {
+    recusarCadastroCom(
+      'auth/account-exists-with-different-credential',
+      'Firebase: Error (auth/account-exists-with-different-credential).'
+    );
+    renderComProvedores(<Cadastro />);
+
+    preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
+    enviar();
+
+    const aviso = await screen.findByText(/já está cadastrado por outro método de login/);
+    expect(aviso).toBeInTheDocument();
+  });
+
+  it('nunca mostra o código nem a mensagem crua do Firebase', async () => {
+    // Código que o tradutor não conhece: é justamente aqui que a v0.2.0
+    // despejava `error.message` na tela do aluno.
+    recusarCadastroCom(
+      'auth/tenant-id-mismatch',
+      'Firebase: Error (auth/tenant-id-mismatch).'
+    );
+    renderComProvedores(<Cadastro />);
+
+    preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
+    enviar();
+
+    const aviso = await screen.findByText(
+      'Não foi possível concluir a operação. Tente novamente em instantes.'
+    );
+    expect(aviso).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/auth\//);
+    expect(document.body.textContent).not.toMatch(/Firebase/);
+  });
+});
+
+describe('Cadastro — sem alert bloqueando a aba (AC-AUTH-05)', () => {
+  it('confirma o cadastro levando para a tela, e não com um alert', async () => {
+    renderComProvedores(<Cadastro />);
+
+    preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
+    enviar();
+
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/aluno'));
+    expect(avisos).not.toHaveBeenCalled();
+  });
+
+  it('não usa alert nem para anunciar o erro', async () => {
+    __registrarCredencial('ana@senai.br', 'senha123');
+    renderComProvedores(<Cadastro />);
+
+    preencher({ nome: 'Outra Ana', email: 'ana@senai.br', senha: 'senha456' });
+    enviar();
+
+    await screen.findByText(
+      'Este e-mail já está em uso. Entre com ele ou cadastre-se com outro.'
+    );
+    expect(avisos).not.toHaveBeenCalled();
   });
 });
