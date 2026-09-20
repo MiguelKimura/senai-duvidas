@@ -38,10 +38,19 @@ describe('gerarPin — AC-SALA-02', () => {
     const sorteio = jest.spyOn(globalThis.crypto, 'getRandomValues');
     const mathRandom = jest.spyOn(Math, 'random');
 
-    gerarPin();
+    try {
+      gerarPin();
 
-    expect(sorteio).toHaveBeenCalled();
-    expect(mathRandom).not.toHaveBeenCalled();
+      expect(sorteio).toHaveBeenCalled();
+      expect(mathRandom).not.toHaveBeenCalled();
+    } finally {
+      // `resetMocks` do react-scripts zera a implementação de todo espião
+      // antes do teste seguinte. Um `Math.random` que devolve `undefined`
+      // envenena o próprio Jest, e o erro sai como falha inexplicável do
+      // arquivo inteiro. Espião de global se desfaz onde foi criado.
+      sorteio.mockRestore();
+      mathRandom.mockRestore();
+    }
   });
 
   it('sorteia os dez dígitos, sem faixa morta', () => {
