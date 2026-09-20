@@ -151,6 +151,46 @@ def save_state(path: Path, state: dict[str, Any]) -> None:
         )
 
 
+def chave_da_task(repo: Path, task: Path) -> str:
+    """
+    Chave do estado, relativa à raiz do repositório.
+
+    Caminho absoluto como chave amarra o estado à pasta: mover o projeto (para
+    um SSD, para fora do OneDrive, para outra máquina) faria toda task concluída
+    parecer pendente e ser refeita.
+    """
+    try:
+        return task.resolve().relative_to(repo.resolve()).as_posix()
+    except ValueError:
+        return task.as_posix()
+
+
+def migrar_chaves_do_estado(repo: Path, state: dict[str, Any]) -> bool:
+    """Converte chaves absolutas gravadas por versões anteriores em relativas."""
+    tasks = state.get("tasks") or {}
+    convertidas: dict[str, Any] = {}
+    mudou = False
+
+    for chave, valor in tasks.items():
+        nova = chave
+        if "/" in chave and (":" in chave.split("/", 1)[0] or chave.startswith("/")):
+            # Caminho absoluto: aproveita o sufixo a partir de "tasks/".
+            marcador = "/tasks/"
+            if marcador in chave:
+                nova = "tasks/" + chave.split(marcador, 1)[1]
+                mudou = True
+        convertidas[nova] = valor
+
+    if mudou:
+        state["tasks"] = convertidas
+        for item in state.get("history", []):
+            caminho = item.get("task", "")
+            if "/tasks/" in caminho:
+                item["task"] = "tasks/" + caminho.split("/tasks/", 1)[1]
+        print("[estado] Chaves absolutas convertidas em relativas (estado agora é portátil).")
+    return mudou
+
+
 def task_id_from_file(task: Path) -> int | None:
     m = re.match(r"^(\d\d)-", task.name)
     return int(m.group(1)) if m else None
@@ -540,7 +580,7 @@ def wait_for_merge(cfg: dict[str, Any], wt: Path, pr_url: str) -> None:
 
 
 def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, Any], dry_run: bool, skip_claude: bool = False) -> bool:
-    key = task.as_posix()
+    key = chave_da_task(repo, task)
     current = state["tasks"].get(key, {})
     if current.get("status") == "done":
         print(f"[skip] {task.name}")
@@ -771,6 +811,8 @@ def main() -> int:
         return 1
 
     state = load_state(state_path)
+    if migrar_chaves_do_estado(repo, state):
+        save_state(state_path, state)
 
     if args.reset_failed:
         for item in state["tasks"].values():
@@ -797,7 +839,7 @@ def main() -> int:
             # Uma task já concluída é pulada sem trabalho nenhum. Ela não pode
             # consumir o --once nem o --skip-claude, que valem para a próxima
             # task que de fato for executada.
-            ja_concluida = state["tasks"].get(task.as_posix(), {}).get("status") == "done"
+            ja_concluida = state["tasks"].get(chave_da_task(repo, task), {}).get("status") == "done"
 
             if not process_task(cfg, repo, task, state, args.dry_run, skip_claude=pular_claude):
                 return 1

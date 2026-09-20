@@ -235,3 +235,68 @@ repositório, em vez de escondida dentro de um script.
 padrão de commits — mas não cobre "esta feature ficou boa?" nem "este modelo de dados vai
 escalar?". As tasks 03 (salas) e 06 (chat/DM) mudam o modelo de dados e as regras de segurança;
 essas duas valem uma olhada humana antes do merge, mesmo que o resto ande sozinho.
+
+
+---
+
+# Mover o projeto de pasta (SSD externo, sair do OneDrive, outra máquina)
+
+A pasta inteira é autocontida: o `.git` vai junto, então o vínculo com o GitHub sobrevive.
+Mas quatro coisas guardam caminho absoluto e precisam de atenção.
+
+## Antes de mover
+
+```powershell
+# 1. Nada rodando
+Get-Process python -EA SilentlyContinue | Stop-Process
+
+# 2. Nenhum worktree com trabalho não mesclado
+git worktree list
+git worktree prune
+
+# Se houver algum listado, veja se tem commit não mesclado antes de apagar:
+#   git log --oneline dev..<branch>
+# Worktrees guardam caminho absoluto e NÃO sobrevivem à mudança de pasta.
+Remove-Item .automation\worktrees -Recurse -Force -EA SilentlyContinue
+```
+
+## Mover
+
+```powershell
+robocopy "C:\caminho\antigo\senai-duvidas" "D:\dev\senai-duvidas" /E /MOVE
+cd D:\dev\senai-duvidas
+git status          # tem que reconhecer o repositório normalmente
+git worktree prune  # limpa registros que apontavam para o caminho antigo
+```
+
+## Depois de mover
+
+```powershell
+# O atalho de inicialização tem o caminho ANTIGO gravado dentro dele.
+.\scripts\instalar-inicio-automatico.ps1     # regrava com o caminho e o PATH novos
+
+python .\scripts\claude_queue.py --dry-run   # confere antes de valer
+```
+
+O `--dry-run` deve listar as tasks pendentes. Se listar tasks **já concluídas**, o estado não
+migrou — veja abaixo.
+
+## O estado é portátil desde a v0.3.0 da automação
+
+Versões anteriores gravavam a chave de cada task como **caminho absoluto** em
+`.automation/state.json`. Mover a pasta mudava a chave, o `status: done` deixava de ser
+encontrado e as tasks concluídas eram refeitas do zero.
+
+Hoje a chave é relativa (`tasks/00-fundacao-testes.md`), e o estado antigo é convertido
+automaticamente na primeira execução — você verá
+`[estado] Chaves absolutas convertidas em relativas`.
+
+## Cuidados específicos de SSD externo
+
+| Ponto | Por quê |
+|---|---|
+| **Formate em NTFS, não exFAT** | exFAT não tem permissões nem symlink; `npm install` e git ficam lentos e dão erro intermitente |
+| **Fixe a letra do drive** | Se o SSD aparecer como `E:` num dia e `F:` no outro, o atalho de inicialização quebra. Gerenciamento de Disco → Alterar Letra → escolha uma alta (`Z:`) para não competir |
+| **USB 3.0 ou melhor** | `npm install` mexe em dezenas de milhares de arquivos pequenos; em USB 2.0 leva um tempo desproporcional |
+| **SSD conectado antes do logon** | A fila sobe ao logon. Se o drive não estiver montado, ela falha no preflight — o que é o comportamento certo, mas nada vai acontecer |
+| **Fora do OneDrive** | Confirme que o novo caminho não está sendo sincronizado. Sincronizar `node_modules` é o que causou o `ENOSPC` |
