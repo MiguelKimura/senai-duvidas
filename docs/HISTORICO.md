@@ -200,7 +200,66 @@ O raciocínio completo, com as alternativas, está em
 
 ## v0.4.0 — Horário oficial
 
-*(a preencher pela task 02)*
+**O que existia**
+
+A fila de atendimento ordenada pelo relógio do computador do aluno. `TelaAluno.js` gravava
+`new Date().toISOString()`, `Chat.js` gravava `new Date()`, e as duas telas exibiam com
+`toLocaleString()` — o fuso da máquina, qualquer que fosse.
+
+**O problema que isso causava**
+
+Nos laboratórios as máquinas são compartilhadas e reimageadas, e data, hora ou fuso
+frequentemente estão errados. O resultado aparecia de dois jeitos, e o segundo é pior:
+
+- **Sem ninguém fazer nada.** O aluno da máquina adiantada passava na frente de quem chegou
+  antes. O da máquina atrasada afundava no fim e não era atendido enquanto a aula durasse —
+  e não parecia erro do sistema, parecia que o professor não tinha chegado lá.
+- **De propósito.** Adiantar o relógio do Windows é um clique. Não havia nada a explorar: o
+  campo que ordenava a fila era escrito pelo cliente, e o servidor aceitava qualquer valor.
+
+Além disso, a meia-noite que limpava o chat era a da máquina. Numa máquina configurada em
+UTC, a conversa da turma sumia às 21h.
+
+**A decisão, e o que foi descartado**
+
+O horário passa a ser carimbado pelo **servidor**, com o `serverTimestamp()` do Firestore, e
+as Firestore Rules passam a **negar** qualquer `horario` que não seja `request.time` — porque
+não basta o cliente ser correto quando qualquer pessoa pode escrever a requisição à mão pelo
+DevTools. Todo tempo do app entra e sai por `src/services/tempo.js`.
+
+O palpite natural era **consultar uma API pública de horário de Brasília**, e ele foi
+descartado — é a decisão mais contraintuitiva desta versão, e o motivo é simples: **não
+resolveria nada**. Quem carimbaria o documento com a resposta da API ainda seria o cliente,
+então o valor continuaria falsificável, agora com mais passos. De quebra, seria uma segunda
+rede para cair no meio da aula e mais latência em cada envio. O `serverTimestamp()` é atômico
+com a própria escrita, não depende de rede extra e não custa cota nenhuma. O raciocínio
+completo está no ADR `docs/adr/0004-serverTimestamp-como-autoridade-de-tempo.md`.
+
+Também foi descartado **migrar os documentos antigos**: existe dado em produção com `horario`
+em string ISO, e migração destrutiva de campo de ordenação não tem volta se falhar no meio.
+`paraData()` entende os dois formatos, permanentemente nesta versão.
+
+O preço da decisão é a latência do carimbo: entre apertar "enviar" e o servidor confirmar, o
+documento local vem sem horário. O card mostra **"enviando…"** nesse intervalo — em vez de um
+horário provisório errado que depois muda sozinho —, e fica no fim da fila, sem pular de
+posição, até a confirmação chegar.
+
+O risco é o cliente que ainda não atualizou: `horario` mantém o nome e muda de tipo, e a
+versão anterior faria `new Date(...)` nele e escreveria "Invalid Date" no card, calada. Por
+isso a v0.4.0 grava **também** `horarioIso`, a mesma data em string ao lado. É campo de
+transição, com data de morte marcada na 1.0.0.
+
+**O que o usuário sente na prática**
+
+- **A fila fica na ordem certa.** Quem enviou primeiro aparece primeiro, independentemente do
+  relógio de cada máquina — e mexer no relógio do Windows não move mais ninguém de lugar.
+- **Todo mundo vê o mesmo horário**, no fuso de Brasília e no formato `dd/mm/aaaa HH:mm`,
+  mesmo que a máquina esteja configurada em outro fuso.
+- **Eventos recentes ganham rótulo em português** — "agora mesmo", "há 3 minutos" — e acima de
+  uma hora voltam a mostrar data e hora, que é quando o relativo para de informar.
+- **Ao enviar**, o card aparece imediatamente com "enviando…" no lugar do horário, e assume a
+  posição definitiva quando o servidor confirma.
+- **O chat some à meia-noite de Brasília**, e não às 21h de uma máquina em UTC.
 
 ## v0.5.0 — Salas com PIN
 
