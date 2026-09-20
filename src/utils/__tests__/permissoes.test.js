@@ -102,4 +102,20 @@ describe('verificarPermissao — nenhum dado pessoal no console', () => {
 
     expect(saida).toBe('');
   });
+
+  // A mensagem de erro do Firestore cita o caminho do documento — e o caminho
+  // é `autorizados/{email}`. Registrar o erro cru publica o e-mail.
+  it('nega sem registrar nada quando a leitura do Firestore falha', async () => {
+    jest
+      .spyOn(firestore, 'getDoc')
+      .mockRejectedValue(new Error('Missing permissions on autorizados/carlos@senai.br'));
+
+    let permitido;
+    const saida = await consoleDurante(async () => {
+      permitido = await verificarPermissao('carlos@senai.br');
+    });
+
+    expect(permitido).toBe(false);
+    expect(saida).toBe('');
+  });
 });
