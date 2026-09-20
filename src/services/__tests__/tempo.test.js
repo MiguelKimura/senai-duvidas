@@ -9,6 +9,9 @@
 // como se grava (carimbo do servidor), como se lê (formato antigo e novo) e
 // como se ordena (pendente por último, de forma estável).
 import {
+  comparar,
+  criarComparadorPorHorario,
+  estaPendente,
   formatarDataHora,
   formatarHora,
   formatarRelativo,
@@ -179,5 +182,126 @@ describe('formatarRelativo — rótulos de evento recente (AC-TEMPO-04)', () => 
     fixarRelogio(AGORA);
 
     expect(formatarRelativo(minutosAtras(5))).toBe('há 5 minutos');
+  });
+});
+
+// `estaPendente` nasceu no ciclo anterior, para separar "enviando…" de "—".
+// Estes testes fixam a distinção, que a partir daqui a fila também usa.
+describe('estaPendente — escrita em voo x campo ausente (AC-TEMPO-06)', () => {
+  it('o sentinela recém-saído de carimboServidor está pendente', () => {
+    expect(estaPendente({ __tipo: 'serverTimestamp' })).toBe(true);
+  });
+
+  it('o null do documento local, antes de o servidor carimbar, está pendente', () => {
+    expect(estaPendente(null)).toBe(true);
+  });
+
+  it('campo ausente não está pendente: não há escrita em voo atrás dele', () => {
+    expect(estaPendente(undefined)).toBe(false);
+  });
+
+  it('um Timestamp confirmado não está pendente', () => {
+    expect(estaPendente(Timestamp.fromDate(new Date('2026-09-19T17:32:00.000Z')))).toBe(false);
+  });
+
+  it('a string ISO da v0.1.0 não está pendente', () => {
+    expect(estaPendente('2026-09-19T17:32:00.000Z')).toBe(false);
+  });
+});
+
+// A ordem da fila é o produto: o professor atende na ordem em que as dúvidas
+// chegaram (AC-CHAMADO-03). O comparador é o único lugar onde essa ordem é
+// decidida.
+describe('comparar — a ordem da fila (AC-CHAMADO-03, AC-TEMPO-08)', () => {
+  const NOVE = '2026-09-19T09:00:00.000Z';
+  const DEZ = '2026-09-19T10:00:00.000Z';
+
+  it('põe o mais antigo antes do mais novo', () => {
+    expect(comparar(NOVE, DEZ)).toBeLessThan(0);
+  });
+
+  it('põe o mais novo depois do mais antigo', () => {
+    expect(comparar(DEZ, NOVE)).toBeGreaterThan(0);
+  });
+
+  it('empata dois horários iguais', () => {
+    expect(comparar(NOVE, NOVE)).toBe(0);
+  });
+
+  it('compara Timestamp com string ISO sem se confundir com o tipo', () => {
+    expect(comparar(Timestamp.fromDate(new Date(DEZ)), NOVE)).toBeGreaterThan(0);
+  });
+
+  it('manda o pendente para depois de quem já tem horário', () => {
+    expect(comparar(null, NOVE)).toBeGreaterThan(0);
+    expect(comparar(NOVE, null)).toBeLessThan(0);
+  });
+
+  it('empata dois pendentes, para que a ordem de chegada os desempate', () => {
+    expect(comparar(null, null)).toBe(0);
+  });
+});
+
+describe('criarComparadorPorHorario — o comparador que as telas usam', () => {
+  /** Ids da fila depois de ordenada por `comparador`. */
+  function filaOrdenada(documentos, comparador = criarComparadorPorHorario()) {
+    return [...documentos].sort(comparador).map((documento) => documento.id);
+  }
+
+  it('ordena a fila por horário crescente', () => {
+    const fila = [
+      { id: 'segunda', horario: '2026-09-19T10:05:00.000Z' },
+      { id: 'terceira', horario: '2026-09-19T10:10:00.000Z' },
+      { id: 'primeira', horario: '2026-09-19T10:00:00.000Z' },
+    ];
+
+    expect(filaOrdenada(fila)).toEqual(['primeira', 'segunda', 'terceira']);
+  });
+
+  it('ordena uma fila que mistura Timestamp novo e string ISO antiga', () => {
+    const fila = [
+      { id: 'timestamp', horario: Timestamp.fromDate(new Date('2026-09-19T10:05:00.000Z')) },
+      { id: 'iso', horario: '2026-09-19T10:00:00.000Z' },
+    ];
+
+    expect(filaOrdenada(fila)).toEqual(['iso', 'timestamp']);
+  });
+
+  // O card de quem acabou de enviar não pode ficar pulando de posição
+  // enquanto o servidor não responde.
+  it('joga os pendentes para o fim preservando a ordem de chegada entre eles', () => {
+    const fila = [
+      { id: 'pendente-1', horario: null },
+      { id: 'confirmado', horario: '2026-09-19T10:00:00.000Z' },
+      { id: 'pendente-2', horario: null },
+    ];
+
+    expect(filaOrdenada(fila)).toEqual(['confirmado', 'pendente-1', 'pendente-2']);
+  });
+
+  it('trata documento sem o campo horario como quem ainda não tem posição', () => {
+    const fila = [
+      { id: 'sem-horario' },
+      { id: 'com-horario', horario: '2026-09-19T10:00:00.000Z' },
+    ];
+
+    expect(filaOrdenada(fila)).toEqual(['com-horario', 'sem-horario']);
+  });
+
+  // A task 09 ordena por `prioridade desc, horario asc`. O comparador aceita
+  // o critério anterior em vez de a task ter que reescrever a ordenação.
+  it('aceita um critério anterior e só desempata por horário', () => {
+    const porPrioridadeDesc = (a, b) => (b.prioridade || 0) - (a.prioridade || 0);
+    const fila = [
+      { id: 'sem-perk', prioridade: 0, horario: '2026-09-19T09:00:00.000Z' },
+      { id: 'perk-tarde', prioridade: 2, horario: '2026-09-19T10:00:00.000Z' },
+      { id: 'perk-cedo', prioridade: 2, horario: '2026-09-19T09:30:00.000Z' },
+    ];
+
+    expect(filaOrdenada(fila, criarComparadorPorHorario(porPrioridadeDesc))).toEqual([
+      'perk-cedo',
+      'perk-tarde',
+      'sem-perk',
+    ]);
   });
 });
