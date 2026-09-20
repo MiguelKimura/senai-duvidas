@@ -1,0 +1,134 @@
+# Pipeline de CI do Projeto Dúvidas SENAI.
+#
+# Baseado em docs/exemplos/ci.yml, com uma diferença deliberada: lá os jobs eram
+# dois ("rapido" e "completo"), aqui são quatro, com os nomes exatos que
+# docs/PROTECAO-BRANCHES.md manda marcar como obrigatórios em Settings →
+# Branches. A proteção de branch casa pelo nome do check; job e documento
+# precisam concordar, e `src/__tests__/ci.test.js` reprova se divergirem.
+#
+# A ordem é lint → test → test-rules → build. Encadear em vez de paralelizar
+# custa alguns segundos e economiza minutos: não faz sentido subir o emulador do
+# Firestore para um PR que não passa no lint.
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+# O CI só lê. Nada aqui publica, comenta ou escreve no repositório.
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Instalar
+        run: npm ci
+      - name: ESLint, zero warnings
+        run: npm run lint
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Instalar
+        run: npm ci
+      # Sai diferente de zero se a cobertura cair abaixo de 80% de linhas ou
+      # 75% de branches — o threshold vive em package.json.
+      - name: Testes unitários com cobertura
+        run: npm run test:ci
+      # `always()`: a cobertura de uma suíte que falhou é justamente a que se
+      # quer abrir para entender o que não foi exercitado.
+      - name: Publicar cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: coverage/
+          if-no-files-found: ignore
+
+  test-rules:
+    name: test-rules
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      # Os emuladores de Firestore e Storage são aplicações Java. Sem isto o
+      # `firebase emulators:exec` falha antes de rodar um único teste.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Instalar
+        run: npm ci
+      # Roda contra o projeto demo-senai-duvidas. O prefixo `demo-` é o que faz
+      # o SDK se recusar a sair para a nuvem; tests/rules/projetoDeTeste.js
+      # verifica isso de novo, em tempo de execução.
+      - name: Testes de Firestore e Storage Rules
+        run: npm run test:rules
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    needs: test-rules
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      # `npm ci` e não `npm install`: é o comando que prova que o projeto
+      # levanta em máquina limpa, a partir do package-lock.json.
+      - name: Instalar
+        run: npm ci
+      # Sem .env: exercita o caminho de fallback da config do Firebase, que é o
+      # que o AC-AUTH-10 promete continuar funcionando.
+      - name: Build de produção
+        run: npm run build
+
+  commits:
+    name: commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validar mensagens de commit do PR
+        run: |
+          git fetch --no-tags origin "$GITHUB_BASE_REF"
+          padrao='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|release)(\([a-z0-9 /_-]+\))?!?: .+'
+          falhou=0
+          while read -r sha; do
+            [ -z "$sha" ] && continue
+            msg=$(git log -1 --pretty=%s "$sha")
+            if ! echo "$msg" | grep -qE "$padrao"; then
+              echo "::error::Commit $sha fora do padrão Conventional Commits: $msg"
+              falhou=1
+            fi
+          done < <(git rev-list "origin/$GITHUB_BASE_REF..HEAD")
+          exit $falhou
