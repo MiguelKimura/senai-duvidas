@@ -1,93 +1,144 @@
 # Projeto Dúvidas SENAI
 
-Sistema de gestão de dúvidas para alunos e professores do SENAI. O aluno abre um "chamado"
-descrevendo o problema, com anexo de imagem; o professor vê a fila em tempo real e atende na ordem.
-Há também um chat da turma.
+Sistema de gestão de dúvidas para as aulas de laboratório do SENAI.
 
-## Planejamento (leia primeiro)
+Em vez de levantar a mão e esperar, o aluno abre um **chamado** descrevendo o problema — com
+anexo de imagem, se ajudar a explicar. O chamado entra numa fila que o professor vê em tempo
+real, na ordem de chegada, e ele atende sem precisar varrer a sala com os olhos. Há também um
+chat da turma para as dúvidas que se resolvem com uma frase.
 
-| Documento | O que é |
-|---|---|
-| [`docs/CRITERIOS-DE-ACEITE.md`](docs/CRITERIOS-DE-ACEITE.md) | Todos os critérios de aceite do projeto, com ID estável e prioridade |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Caminho da v0.1.0 até a v1.0.0, versão por versão |
-| [`tasks/`](tasks/) | Uma task por versão, cada uma pronta para rodar como sessão one-shot |
-| [`docs/COMO-RODAR-AS-TASKS.md`](docs/COMO-RODAR-AS-TASKS.md) | Como executar as tasks e manter o repositório sincronizado |
-| [`docs/PROTECAO-BRANCHES.md`](docs/PROTECAO-BRANCHES.md) | Estratégia `main`/`dev` e configuração de proteção no GitHub |
-| [`docs/HISTORICO.md`](docs/HISTORICO.md) | Memória do projeto: o que mudou em cada versão e por quê |
-| [`docs/AUTOMACAO.md`](docs/AUTOMACAO.md) | Fila automatizada: pré-requisitos, comandos e solução de problemas |
+**Para quem é:** alunos e professores do SENAI, em laboratório, durante a aula. Máquinas
+compartilhadas, relógios de sistema frequentemente errados, rede instável. Toda decisão técnica
+deste repositório assume esse cenário — e assume que uma falha em produção interrompe uma turma
+inteira.
 
-> O restante deste arquivo ainda é o texto padrão do Create React App. A task 00
-> (`tasks/00-fundacao-testes.md`) o reescreve com a documentação real do projeto.
+**Versão atual:** 0.2.0 · [CHANGELOG](CHANGELOG.md) · [Histórico e decisões](docs/HISTORICO.md)
 
 ---
 
-## Referência do Create React App
+## Como rodar
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Três comandos:
 
-## Available Scripts
+```bash
+git clone https://github.com/MiguelKimura/senai-duvidas.git
+cd senai-duvidas
+npm install
+npm start
+```
 
-In the project directory, you can run:
+O app sobe em <http://localhost:3000>.
 
-### `npm start`
+Sem `.env`, a aplicação usa a configuração do Firebase embutida no código e **avisa no
+console** quais variáveis faltaram. Isso funciona, mas aponta para o projeto de produção. Para
+apontar para outro projeto, copie o modelo e preencha:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```bash
+cp .env.example .env
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Cada variável está documentada em [`.env.example`](.env.example). Nenhum segredo de verdade vive
+no repositório: as chaves do cliente Firebase são públicas por natureza (o bundle as expõe), e
+quem protege os dados são as Security Rules em `firestore.rules` e `storage.rules`.
 
-### `npm test`
+## Scripts
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+| Comando | O que faz |
+|---|---|
+| `npm start` | Servidor de desenvolvimento na porta 3000 |
+| `npm run build` | Build de produção em `build/` |
+| `npm test` | Testes unitários em modo watch |
+| `npm run test:ci` | Testes uma vez, sem watch, com cobertura — **é o que vale no CI** |
+| `npm run test:rules` | Testes das Security Rules; sobe o emulador, roda e desliga |
+| `npm run emulators` | Sobe o Firebase Emulator Suite para uso manual (UI em <http://localhost:4000>) |
+| `npm run lint` | ESLint com `--max-warnings=0` |
+| `npm run format` | Prettier em tudo que é versionado |
+| `npm run changelog -- <base>..<head>` | Gera a seção do CHANGELOG a partir dos commits |
 
-### `npm run build`
+`npm run test:rules` e `npm run emulators` precisam de **Java 11 ou superior** instalado: os
+emuladores de Firestore e Storage são aplicações Java. O resto precisa só de **Node 20**.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Arquitetura
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Create React App (React 18) com Firebase como back-end inteiro. Não há servidor próprio: o
+navegador fala direto com o Firestore, e é por isso que as Security Rules não são um detalhe de
+configuração, e sim a camada de autorização do sistema.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+src/
+  App.js              roteamento (react-router-dom 6) e resolução de papel
+  AuthContext.js      segundo contexto de autenticação, hoje sem nenhum consumidor
+  firebase.js         inicialização do SDK, config por REACT_APP_*, helpers de auth e upload
+  components/
+    Login.js          entrada por e-mail e senha
+    Cadastro.js       criação de conta; consulta `autorizados` para liberar professor
+    TelaAluno.js      fila de chamados, criação por modal, exclusão do próprio
+    TelaProfessor.js  fila de chamados com exclusão de qualquer um
+    Chat.js           chat da turma
+    Modal.js          formulário de novo chamado
+    Footer.js
+  utils/permissoes.js leitura de `autorizados/{email}.Tipo`
+  styles/             CSS por componente
+  styles/tokens.css   fonte única de cores, espaçamentos, raios, sombras e durações
+  test-utils/         fábricas de dados, relógio determinístico, render com provedores
+  __mocks__/firebase/ fakes em memória do SDK, usados pela suíte unitária
+tests/rules/          testes de Security Rules contra o emulador
+scripts/              ferramentas de linha de comando (gerador de changelog)
+```
 
-### `npm run eject`
+**Coleções do Firestore**
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+| Coleção | O que guarda |
+|---|---|
+| `usuarios/{uid}` | `nome`, `email`, `tipo` (`aluno` ou `professor`) |
+| `autorizados/{email}` | `Tipo` — a lista, mantida à mão no console, de quem pode ser professor |
+| `chamados/{id}` | `nome`, `email`, `descricao`, `horario`, `cor`, `imagem` |
+| `chat/{id}` | `nome`, `email`, `texto`, `horario` |
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Estado desta versão
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+A 0.2.0 é uma fundação de testes, não uma versão de funcionalidades. Os problemas conhecidos da
+0.1.0 **continuam todos lá** — de propósito. Cada um está fixado em um teste de caracterização,
+que descreve o comportamento atual *incluindo o que está errado*, para que a task que for
+corrigi-lo mude o teste de forma explícita em vez de mudar o sistema por acidente.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+A lista completa, com a task responsável por cada item, está no [CHANGELOG](CHANGELOG.md) sob a
+seção `[0.1.0]`, e narrada em [`docs/HISTORICO.md`](docs/HISTORICO.md).
 
-## Learn More
+## Testes
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+| Suíte | Onde | Contra o quê roda |
+|---|---|---|
+| Unitários e de componente | `src/**/__tests__/` | jsdom, com fakes do Firebase em `src/__mocks__/` |
+| Security Rules | `tests/rules/` | Firebase Emulator Suite, projeto `demo-senai-duvidas` |
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Cobertura mínima exigida: **80% de linhas e 75% de branches**, globais. O limiar vive em
+`package.json` e faz `npm run test:ci` sair diferente de zero quando a cobertura cai — limiar
+que não morde não é limiar.
 
-### Code Splitting
+Os testes de integração nunca tocam o projeto de produção: `tests/rules/projetoDeTeste.js` recusa
+qualquer `projectId` que não comece com `demo-` (prefixo que faz o SDK do Firebase se recusar a
+sair para a rede) e exige que haja um emulador rodando.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Branches e contribuição
 
-### Analyzing the Bundle Size
+`main` é o que os usuários veem. `dev` é integração. Trabalho novo sai de `dev` como
+`feat/…`, `fix/…` ou `chore/…`, e volta por Pull Request contra `dev`, com CI verde.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+O passo a passo completo — commits convencionais, ciclo red-green-refactor, como rodar os
+emuladores — está em [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-### Making a Progressive Web App
+## Documentação
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+| Documento | O que é |
+|---|---|
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Fluxo de branches, padrão de commits, como rodar tudo |
+| [`CHANGELOG.md`](CHANGELOG.md) | O que mudou em cada versão (gerado dos commits) |
+| [`docs/HISTORICO.md`](docs/HISTORICO.md) | A memória do projeto: por que cada decisão foi tomada |
+| [`docs/CRITERIOS-DE-ACEITE.md`](docs/CRITERIOS-DE-ACEITE.md) | Todos os critérios, com ID estável e prioridade |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | O caminho da 0.1.0 até a 1.0.0, versão por versão |
+| [`docs/adr/`](docs/adr/) | Decisões arquiteturais, uma por arquivo |
+| [`docs/PROTECAO-BRANCHES.md`](docs/PROTECAO-BRANCHES.md) | Configuração de proteção a aplicar no GitHub |
+| [`docs/AUTOMACAO.md`](docs/AUTOMACAO.md) | A fila automatizada que executa as tasks |
+| [`docs/COMO-RODAR-AS-TASKS.md`](docs/COMO-RODAR-AS-TASKS.md) | Como executar as tasks do roadmap |
+| [`tasks/`](tasks/) | Uma task por versão, cada uma pronta para rodar como sessão one-shot |
