@@ -76,13 +76,20 @@ jobs:
           fetch-depth: 0
       - name: Validar mensagens de commit do PR
         run: |
-          padrao='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|release)(\([a-z0-9 /_-]+\))?!?: .+'
+          git fetch --no-tags origin "$GITHUB_BASE_REF"
+          padrao='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|release|revert)(\([a-z0-9 /_-]+\))?!?: .+'
           falhou=0
+          # --no-merges é obrigatório por duas razões:
+          #  1. num evento pull_request, o actions/checkout faz checkout de um
+          #     merge commit sintético cuja mensagem é "Merge <sha> into <sha>";
+          #  2. resolver conflito mesclando a base na branch (ver tasks/_PROTOCOLO.md)
+          #     também gera merge commit, que não segue nem deve seguir o padrão.
           while read -r sha; do
+            [ -z "$sha" ] && continue
             msg=$(git log -1 --pretty=%s "$sha")
             if ! echo "$msg" | grep -qE "$padrao"; then
               echo "::error::Commit $sha fora do padrão Conventional Commits: $msg"
               falhou=1
             fi
-          done < <(git rev-list origin/${{ github.base_ref }}..HEAD)
+          done < <(git rev-list --no-merges "origin/$GITHUB_BASE_REF..HEAD")
           exit $falhou

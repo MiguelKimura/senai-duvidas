@@ -105,6 +105,7 @@ e mescle. O script detecta o merge em até 30 segundos e segue.
 | Task marcada `failed` depois de muito trabalho | Falha real, não transitória | O worktree é **preservado**. Inspecione-o, e rode `--reset-failed` para continuar de onde parou — a sessão é avisada de que está retomando |
 | `'charmap' codec can't decode byte` | Corrigido. Era o Python lendo a saída UTF-8 do npm/jest como cp1252 no Windows PT-BR | `git pull origin dev` |
 | A sessão terminou o trabalho e a falha foi do orquestrador | Não vale pagar outra sessão do zero | `--skip-claude` vai direto para validação e PR |
+| CI reprova `Merge <sha> into <sha>` no job de commits | O `actions/checkout` cria um merge commit sintético no evento `pull_request` | O `git rev-list` do job precisa de `--no-merges`. Corrigido em `docs/exemplos/ci.yml` |
 | `PR #N foi fechado sem merge` | Você fechou o PR | A fila para de propósito. Reabra ou rode `--reset-failed` |
 | Fila parada em `[quota]` | Limite de uso atingido | Deixe rodando: o script dorme até o reset e retoma sozinho |
 | `[resume] Claude atingiu max_turns` | Task grande | Normal. O worktree é preservado e a sessão continua de onde parou |
