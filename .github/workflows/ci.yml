@@ -54,6 +54,14 @@ jobs:
       # 75% de branches — o threshold vive em package.json.
       - name: Testes unitários com cobertura
         run: npm run test:ci
+      # A independência de fuso (AC-TEMPO-03, AC-TEST-09) não cabe dentro de um
+      # teste: no contexto de VM do Jest, reatribuir `process.env.TZ` não
+      # invalida o cache de fuso do V8. O fuso precisa vir do ambiente, então a
+      # suíte roda de novo em UTC e em America/New_York. Sem isto, um
+      # formatador que esqueceu o `timeZone` passa despercebido em qualquer
+      # máquina que já esteja no fuso de Brasília.
+      - name: Testes unitários em outros fusos
+        run: npm run test:fusos
       # `always()`: a cobertura de uma suíte que falhou é justamente a que se
       # quer abrir para entender o que não foi exercitado.
       - name: Publicar cobertura
