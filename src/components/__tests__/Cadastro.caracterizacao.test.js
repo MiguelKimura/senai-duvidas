@@ -19,6 +19,8 @@ import {
   getDocs,
   getFirestore,
   query,
+  __confirmarCarimbos,
+  __definirRelogioDoServidor,
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
@@ -38,6 +40,9 @@ let avisos;
 beforeEach(() => {
   __resetarAuth();
   __resetarFirestore();
+  // Um instante que nenhuma máquina rodando este teste produziria: é assim
+  // que a asserção distingue o relógio do servidor do relógio local.
+  __definirRelogioDoServidor('2020-01-01T00:00:00.000Z');
   mockNavegar.mockClear();
   avisos = jest.spyOn(window, 'alert').mockImplementation(() => {});
 });
@@ -72,18 +77,19 @@ describe('Cadastro de aluno (AC-AUTH-01)', () => {
     preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
     enviar();
 
-    await waitFor(async () => {
-      expect(await usuariosGravados()).toEqual([
-        {
-          nome: 'Ana Souza',
-          email: 'ana@senai.br',
-          tipo: 'aluno',
-          uid: expect.any(String),
-          criadoEm: expect.anything(),
-          provedor: 'password',
-        },
-      ]);
-    });
+    await waitFor(async () => expect(await usuariosGravados()).toHaveLength(1));
+    __confirmarCarimbos();
+
+    expect(await usuariosGravados()).toEqual([
+      {
+        nome: 'Ana Souza',
+        email: 'ana@senai.br',
+        tipo: 'aluno',
+        uid: expect.any(String),
+        criadoEm: expect.anything(),
+        provedor: 'password',
+      },
+    ]);
   });
 
   it('grava criadoEm com o relógio do servidor, não com o da máquina do laboratório', async () => {
@@ -93,11 +99,18 @@ describe('Cadastro de aluno (AC-AUTH-01)', () => {
     enviar();
 
     await waitFor(async () => expect(await usuariosGravados()).toHaveLength(1));
-    const [usuario] = await usuariosGravados();
 
+    // Fase 1 da escrita otimista: o campo chega vazio, como no SDK real.
+    expect((await usuariosGravados())[0].criadoEm).toBeNull();
+
+    // Fase 2: o servidor responde com o instante dele.
+    __confirmarCarimbos();
+
+    const [usuario] = await usuariosGravados();
     // As máquinas do laboratório têm o relógio frequentemente errado; gravar
-    // `new Date()` daqui produziria uma data de cadastro inventada.
-    expect(usuario.criadoEm).toEqual({ __tipo: 'serverTimestamp' });
+    // `new Date()` daqui produziria uma data de cadastro inventada. A data
+    // abaixo é a do relógio do servidor — nenhuma máquina a produziria hoje.
+    expect(usuario.criadoEm.toDate()).toEqual(new Date('2020-01-01T00:00:00.000Z'));
   });
 
   it('leva o aluno para /aluno depois de cadastrar', async () => {

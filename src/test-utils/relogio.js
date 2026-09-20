@@ -1,10 +1,12 @@
 // Relógio determinístico (AC-TEST-09).
 //
-// Hoje `TelaAluno` e `Chat` gravam o horário com `new Date()` do cliente — a
-// falha que a task 02 vai corrigir. Enquanto isso existir, qualquer asserção
-// sobre horário depende do relógio da máquina que roda o teste. Congelar o
-// tempo torna a suíte reprodutível e, de quebra, deixa explícito nos testes
-// *que* o horário vem do cliente.
+// Desde a task 02 o horário dos dados vem do servidor, não do relógio da
+// máquina — quem controla o instante carimbado nos testes é
+// `__definirRelogioDoServidor`, do fake de Firestore. Este helper continua
+// valendo para o outro lado do tempo: o relógio do LEITOR, que decide o
+// "agora" de `formatarRelativo` e o disparo do reset do chat à meia-noite.
+// Congelá-lo é o que torna essas asserções reprodutíveis, e é também o que
+// prova que a suíte não depende do fuso da máquina que a roda (AC-TEST-09).
 
 /**
  * Congela `Date` e os timers no instante informado.

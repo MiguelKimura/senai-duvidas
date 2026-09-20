@@ -9,6 +9,52 @@ Todas as mudanças relevantes deste projeto são registradas aqui, no formato
 > intervalo e os agrupa. Escrever à mão é escrever de memória no fim do trabalho, e o que
 > fica de fora é justamente o que ninguém lembrou.
 
+> node scripts/gerarChangelog.js origin/dev..HEAD --versao 0.4.0 --data 2026-09-20
+
+## [0.4.0] - 2026-09-20
+
+### Adicionado
+
+- **tempo:** implementa paraData com leitura dupla de Timestamp e string ISO
+- **tempo:** exibe data e hora no fuso de Brasília com Intl
+- **tempo:** implementa formatarRelativo com corte em uma hora
+- **tempo:** implementa comparar e o comparador componível da fila
+- **tempo:** ensina o fake de Firestore as duas fases do serverTimestamp
+- **tempo:** grava o horário com serverTimestamp em chamados e mensagens
+- **tempo:** usa a meia-noite de Brasília no reset do chat
+- **tempo:** nega no servidor todo horario que não venha de serverTimestamp
+- **tempo:** migra horarioIso nos documentos que o autor não vai reabrir
+
+### Alterado
+
+- **tempo:** exige leitura dupla de horario em paraData
+- **tempo:** exige exibição em America/Sao_Paulo no formato brasileiro
+- **tempo:** exige rótulo relativo para evento recente e absoluto acima de 1h
+- **tempo:** exige ordem por horário com pendente no fim e critério componível
+- **tempo:** exige as duas fases do serverTimestamp no fake de Firestore
+- **tempo:** inverte a caracterização do relógio do cliente para o do servidor
+- **tempo:** prova que mexer no relógio da máquina não move a fila
+- **tempo:** exige "enviando…" no card enquanto o servidor não carimba
+- **tempo:** exige a meia-noite de Brasília no reset do chat
+- **tempo:** exige que o servidor recuse horario que não seja request.time
+- **tempo:** exige a migração idempotente de horarioIso
+- **tempo:** prova a leitura do horario pelos dois formatos, nos dois sentidos
+
+### Descontinuado
+
+- **tempo:** `horarioIso` nasce já com data de morte marcada: é a ponte para o cliente que
+  ainda lê `horario` com `new Date()` e será removido na **1.0.0**, quando não houver mais
+  versão anterior em sala. Até lá, `scripts/migrar-horarios.js --dry-run` mostra quantos
+  documentos ainda dependem dele.
+
+### Corrigido
+
+- **BREAKING (dado, não API)** **tempo:** `horario` deixa de ser a string ISO do relógio do
+  aluno e passa a ser o `Timestamp` que o **servidor** carimba. Era assim que um relógio
+  adiantado furava a fila — de propósito ou sem querer — e um atrasado nunca era atendido.
+  A leitura aceita os dois formatos, permanentemente nesta versão; as Firestore Rules
+  passam a **negar** qualquer `horario` que não seja `request.time`.
+
 > node scripts/gerarChangelog.js origin/dev..HEAD --versao 0.3.0 --data 2026-09-20
 
 ## [0.3.0] - 2026-09-20

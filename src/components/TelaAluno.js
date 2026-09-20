@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { db, auth } from '../firebase';
 import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
-import { Timestamp } from 'firebase/firestore';
+import {
+  carimboServidor,
+  completarHorariosIso,
+  criarComparadorPorHorario,
+  formatarDataHora,
+} from '../services/tempo';
 import '../styles/TelaAluno.css';
 import Chat from './Chat';
 import BotaoSair from './BotaoSair';
@@ -20,22 +25,19 @@ function TelaAluno() {
     }
 
     const unsubscribe = onSnapshot(collection(db, "chamados"), (querySnapshot) => {
-      const problemasList = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        let horario = data.horario;
-        if (horario instanceof Timestamp) {
-          horario = horario.toDate();
-        } else if (typeof horario === 'string') {
-          horario = new Date(horario);
-        } else {
-          horario = new Date();
-        }
+      // `horario` fica cru: quem entende os formatos que convivem no banco é
+      // `services/tempo.js`, na hora de ordenar e na hora de exibir.
+      const problemasList = querySnapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data(),
+      }));
 
-        return { id: doc.id, ...data, horario };
-      });
-
-      problemasList.sort((a, b) => a.horario - b.horario); // Ordenando os problemas pela data
+      problemasList.sort(criarComparadorPorHorario());
       setProblemas(problemasList);
+
+      // Depois de publicar a lista, para que a reemissão provocada pela
+      // escrita chegue por último e a tela fique com os dados mais novos.
+      completarHorariosIso(querySnapshot.docs, auth.currentUser?.email);
     });
 
     return () => unsubscribe(); // Limpar o listener quando o componente for desmontado
@@ -51,13 +53,14 @@ function TelaAluno() {
     if (!user) return;
 
     const novaCor = `hsl(${Math.random() * 360}, 70%, 80%)`;
-    const horario = new Date().toISOString();
 
     const novoProblema = {
       nome: usuarioNome,
       email: user.email,
       descricao,
-      horario,
+      // AC-TEMPO-01: quem decide a posição na fila é o servidor, não o relógio
+      // desta máquina. Ver services/tempo.js.
+      horario: carimboServidor(),
       cor: novaCor,
       imagem: imagem || null, // Salva a imagem (se houver)
     };
@@ -111,7 +114,7 @@ function TelaAluno() {
             </div>
             
             <p>{problema.descricao}</p>
-            <p><em>{new Date(problema.horario).toLocaleString()}</em></p>
+            <p><em>{formatarDataHora(problema.horario)}</em></p>
             
             {problema.email === auth.currentUser?.email && (
               <button className="delete-button" onClick={() => removerProblema(problema.id)}>

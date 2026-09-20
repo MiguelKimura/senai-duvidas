@@ -3,6 +3,12 @@ import { db, auth } from '../firebase';
 import { FaArrowRight, FaComments } from 'react-icons/fa'; 
 import '../styles/Chat.css';
 import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, getDocs } from 'firebase/firestore';
+import {
+  carimboServidor,
+  completarHorariosIso,
+  criarComparadorPorHorario,
+  msAteProximaMeiaNoiteBrasilia,
+} from '../services/tempo';
 
 
 // Função para gerar uma cor única para o usuário com base em um valor único (email)
@@ -40,11 +46,18 @@ function Chat() {
     const q = query(collection(db, 'chat'), orderBy('horario'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const mensagensList = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return { id: doc.id, ...data };
-      });
+      const mensagensList = querySnapshot.docs.map((documento) => ({
+        id: documento.id,
+        ...documento.data(),
+      }));
+
+      // O `orderBy` do Firestore ordena por tipo antes de ordenar por valor:
+      // toda string ISO da v0.1.0 cairia depois de todo `Timestamp` novo,
+      // independentemente do instante. A ordem final é decidida aqui.
+      mensagensList.sort(criarComparadorPorHorario());
       setMensagens(mensagensList);
+
+      completarHorariosIso(querySnapshot.docs, auth.currentUser?.email);
     });
 
     return () => unsubscribe();
@@ -76,7 +89,8 @@ function Chat() {
     const novaMensagemData = {
       texto: novaMensagem,
       nome: usuarioNome,
-      horario: new Date(),
+      // AC-TEMPO-01: o horário da mensagem é o do servidor, como o do chamado.
+      horario: carimboServidor(),
       email: user.email
     };
 
@@ -101,22 +115,20 @@ function Chat() {
     }
   };
 
-  // Resetando o chat à meia-noite
+  // Resetando o chat à meia-noite DE BRASÍLIA (AC-TEMPO-07).
+  //
+  // `setHours(24, 0, 0, 0)` usava a meia-noite da máquina. Numa máquina com o
+  // fuso errado — o caso comum nos laboratórios — a conversa da turma sumia no
+  // meio da aula seguinte, ou sobrevivia um dia a mais.
+  //
+  // O instante de referência ainda é o relógio local, porque um `setTimeout`
+  // não tem outro. O que deixa de depender da máquina é **qual** meia-noite se
+  // espera: o fuso sai de `services/tempo.js`, não da configuração do Windows.
   useEffect(() => {
-    const resetarChatAmeiaNoite = () => {
-      const agora = new Date();
-      const proximaMeiaNoite = new Date();
-      proximaMeiaNoite.setHours(24, 0, 0, 0); // Definindo a próxima meia-noite
+    const temporizador = setTimeout(limparMensagens, msAteProximaMeiaNoiteBrasilia());
 
-      const tempoParaProximaMeiaNoite = proximaMeiaNoite - agora;
-      if (tempoParaProximaMeiaNoite > 0) {
-        setTimeout(() => {
-          limparMensagens(); // Limpa as mensagens à meia-noite
-        }, tempoParaProximaMeiaNoite);
-      }
-    };
-
-    resetarChatAmeiaNoite();
+    // Sem isto o timer sobrevive ao componente e limpa o chat de outra tela.
+    return () => clearTimeout(temporizador);
   }, []);
 
   return (

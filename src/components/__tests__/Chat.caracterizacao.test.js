@@ -17,16 +17,28 @@ import {
   collection,
   getDocs,
   getFirestore,
+  Timestamp,
+  __confirmarCarimbos,
+  __definirRelogioDoServidor,
   __ouvintesAtivos,
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
 import Chat from '../Chat';
-import { corDeFundo, fabricaMensagem, renderComProvedores } from '../../test-utils';
+import {
+  corDeFundo,
+  fabricaMensagem,
+  fixarRelogio,
+  renderComProvedores,
+  restaurarRelogio,
+} from '../../test-utils';
 
 const db = getFirestore();
 
 const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
+
+/** O instante que o servidor carimba, longe de qualquer relógio de máquina. */
+const HORARIO_DO_SERVIDOR = '2025-03-10T13:45:00.000Z';
 const BRUNO = { uid: 'uid-bruno', email: 'bruno@senai.br', displayName: 'Bruno Dias' };
 
 /** Abre o painel do chat, que começa fechado. */
@@ -47,6 +59,7 @@ function falasNaTela() {
 beforeEach(() => {
   __resetarFirestore();
   __resetarAuth();
+  __definirRelogioDoServidor(HORARIO_DO_SERVIDOR);
   __definirUsuarioAtual(ANA);
 });
 
@@ -182,7 +195,10 @@ describe('Chat — envio de mensagem (AC-CHAT-01)', () => {
     expect(gravadas.size).toBe(0);
   });
 
-  it('carimba o horário com o relógio DO CLIENTE — falha que a task 02 corrige', async () => {
+  // INVERTIDO pela task 02. O caso nasceu na task 00 provando que o horário da
+  // mensagem era um `Date` do navegador — o relógio do aluno. A asserção vira
+  // para o carimbo do servidor; o caso continua aqui.
+  it('carimba o horário com o relógio DO SERVIDOR (AC-TEMPO-01)', async () => {
     renderComProvedores(<Chat />);
     await abrirChat();
 
@@ -194,10 +210,16 @@ describe('Chat — envio de mensagem (AC-CHAT-01)', () => {
       expect(gravadas.size).toBe(1);
     });
 
+    // Fase 1: escrita otimista, sem horário provisório do cliente.
+    const emVoo = await getDocs(collection(db, 'chat'));
+    expect(emVoo.docs[0].data().horario).toBeNull();
+
+    // Fase 2: o servidor responde.
+    __confirmarCarimbos();
+
     const gravadas = await getDocs(collection(db, 'chat'));
-    // Um `Date` do navegador, não um `serverTimestamp()`: o horário da mensagem
-    // é o que o relógio do aluno disser que é.
-    expect(gravadas.docs[0].data().horario).toBeInstanceOf(Date);
+    expect(gravadas.docs[0].data().horario).toBeInstanceOf(Timestamp);
+    expect(gravadas.docs[0].data().horario.toDate()).toEqual(new Date(HORARIO_DO_SERVIDOR));
   });
 });
 
@@ -315,5 +337,58 @@ describe('Chat — compatibilidade retroativa', () => {
 
     expect(falasNaTela()).toEqual(['Autor Antigo: sem email']);
     expect(corDeFundo(document.querySelector('.fala-box'))).toMatch(/^hsl\(/);
+  });
+});
+
+// O chat se limpa à meia-noite. **Qual** meia-noite não é detalhe: a da
+// máquina pode estar a horas da de Brasília, e a conversa da turma sumiria no
+// meio da aula seguinte — ou sobreviveria um dia a mais.
+//
+// Este arquivo roda também em `npm run test:fusos`, com o processo em UTC e em
+// America/New_York. É lá que o caso ganha os dentes: numa máquina já em
+// Brasília, `setHours(24, 0, 0, 0)` acerta por coincidência.
+describe('Chat — reset à meia-noite de Brasília (AC-TEMPO-07)', () => {
+  // 19/09/2026, 14:32 em Brasília. Faltam 9h28min para a meia-noite de lá.
+  const TARDE_DE_SABADO = '2026-09-19T17:32:00.000Z';
+  const MS_ATE_A_MEIA_NOITE = 9 * 3600000 + 28 * 60000;
+
+  afterEach(() => restaurarRelogio());
+
+  it('não limpa nada um milissegundo antes da meia-noite de Brasília', async () => {
+    const relogio = fixarRelogio(TARDE_DE_SABADO);
+    __semearColecao('chat', [fabricaMensagem({ id: 'm1', texto: 'conversa da tarde' })]);
+    renderComProvedores(<Chat />);
+    await abrirChat();
+    expect(jest.getTimerCount()).toBe(1);
+
+    relogio.avancar(MS_ATE_A_MEIA_NOITE - 1);
+
+    // A asserção que importa é a do timer, não a da tela: a limpeza é
+    // assíncrona, então olhar só para os balões daria verde mesmo com o timer
+    // já disparado — o `deleteDoc` ainda não teria chegado ao DOM. Um timer
+    // que continua armado é prova de que nada foi disparado.
+    expect(jest.getTimerCount()).toBe(1);
+    expect(falasNaTela()).toHaveLength(1);
+  });
+
+  it('limpa a conversa exatamente na meia-noite de Brasília', async () => {
+    const relogio = fixarRelogio(TARDE_DE_SABADO);
+    __semearColecao('chat', [fabricaMensagem({ id: 'm1', texto: 'conversa da tarde' })]);
+    renderComProvedores(<Chat />);
+    await abrirChat();
+
+    relogio.avancar(MS_ATE_A_MEIA_NOITE);
+
+    await waitFor(() => expect(falasNaTela()).toHaveLength(0));
+  });
+
+  it('cancela o timer ao desmontar, para não limpar o chat de outra tela', () => {
+    fixarRelogio(TARDE_DE_SABADO);
+    const { unmount } = renderComProvedores(<Chat />);
+    expect(jest.getTimerCount()).toBeGreaterThan(0);
+
+    unmount();
+
+    expect(jest.getTimerCount()).toBe(0);
   });
 });

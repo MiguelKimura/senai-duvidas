@@ -115,15 +115,15 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-TEMPO-01 | O horário gravado em chamados e mensagens vem do **servidor** (`serverTimestamp()` do Firestore), nunca do relógio do computador do usuário. | [MVP] |
-| AC-TEMPO-02 | Alterar manualmente o relógio do computador **não** altera a posição do chamado na fila. | [MVP] |
-| AC-TEMPO-03 | Todo horário é exibido no fuso **America/Sao_Paulo**, independentemente do fuso configurado na máquina. | [MVP] |
-| AC-TEMPO-04 | A exibição usa formato brasileiro (`dd/mm/aaaa HH:mm`) e rótulos relativos ("há 3 minutos") para eventos recentes. | [MVP] |
-| AC-TEMPO-05 | Existe um módulo único `src/services/tempo.js` como **única** fonte de horário do app; nenhum componente chama `new Date()` diretamente para gravar dados. | [MVP] |
-| AC-TEMPO-06 | Enquanto o `serverTimestamp()` não é confirmado, a UI mostra "enviando…" em vez de um horário provisório errado. | [MVP] |
-| AC-TEMPO-07 | O reset do chat à meia-noite usa a meia-noite de Brasília, não a meia-noite local da máquina. | [MVP] |
-| AC-TEMPO-08 | Registros antigos com `horario` em string ISO continuam sendo lidos e ordenados corretamente. | [MVP] [REG] |
-| AC-TEMPO-09 | O app funciona sem nenhuma chamada a API externa de horário (o `serverTimestamp` do Firestore é a autoridade), evitando dependência de serviço de terceiros em sala de aula. | [MVP] |
+| AC-TEMPO-01 ✅ | O horário gravado em chamados e mensagens vem do **servidor** (`serverTimestamp()` do Firestore), nunca do relógio do computador do usuário. | [MVP] |
+| AC-TEMPO-02 ✅ | Alterar manualmente o relógio do computador **não** altera a posição do chamado na fila. | [MVP] |
+| AC-TEMPO-03 ✅ | Todo horário é exibido no fuso **America/Sao_Paulo**, independentemente do fuso configurado na máquina. | [MVP] |
+| AC-TEMPO-04 ✅ | A exibição usa formato brasileiro (`dd/mm/aaaa HH:mm`) e rótulos relativos ("há 3 minutos") para eventos recentes. | [MVP] |
+| AC-TEMPO-05 ✅ | Existe um módulo único `src/services/tempo.js` como **única** fonte de horário do app; nenhum componente chama `new Date()` diretamente para gravar dados. | [MVP] |
+| AC-TEMPO-06 ✅ | Enquanto o `serverTimestamp()` não é confirmado, a UI mostra "enviando…" em vez de um horário provisório errado. | [MVP] |
+| AC-TEMPO-07 ✅ | O reset do chat à meia-noite usa a meia-noite de Brasília, não a meia-noite local da máquina. | [MVP] |
+| AC-TEMPO-08 ✅ | Registros antigos com `horario` em string ISO continuam sendo lidos e ordenados corretamente. | [MVP] [REG] |
+| AC-TEMPO-09 ✅ | O app funciona sem nenhuma chamada a API externa de horário (o `serverTimestamp` do Firestore é a autoridade), evitando dependência de serviço de terceiros em sala de aula. | [MVP] |
 
 ## 8. Chat (`CHAT`)
 
@@ -382,3 +382,50 @@ corrigir precise invertê-lo de forma explícita.
 A linha do AC-AUTH-06 em "Explicitamente não atendidos" da v0.2.0 aponta a task **02** como
 responsável. Estava errado: quem corrige a origem do papel é a task **01**, e é o que esta
 versão faz. O critério em si não mudou.
+
+---
+
+### v0.4.0 — Horário autoritativo do servidor no fuso de Brasília
+
+**Atendidos (✅)**
+
+| AC | Prova |
+|---|---|
+| AC-TEMPO-01 | `src/components/__tests__/TelaAluno.caracterizacao.test.js:252` e `src/components/__tests__/Chat.caracterizacao.test.js` — a escrita carimba com `serverTimestamp()`; `tests/rules/firestore.rules.test.js:406` — o **servidor** nega `horario` que não seja `request.time`, inclusive por `update`. Inverte a caracterização da v0.2.0. |
+| AC-TEMPO-02 | `src/components/__tests__/TelaAluno.caracterizacao.test.js:433` e `:451` — atrasar ou adiantar o relógio da máquina em 3 horas não move ninguém na fila; `:467` — o horário exibido é o do servidor |
+| AC-TEMPO-03 | `src/services/__tests__/tempo.test.js:78` — `Intl` com `America/Sao_Paulo` por identificador IANA, não offset fixo; a suíte inteira roda igual com `TZ=UTC` e `TZ=America/New_York` (`npm run test:fusos`) |
+| AC-TEMPO-04 | `src/services/__tests__/tempo.test.js:85` — `dd/mm/aaaa HH:mm`, com zero à esquerda e meia-noite como `00`; `:140` — "há 3 minutos" abaixo de uma hora e absoluto acima dela |
+| AC-TEMPO-05 | `src/services/tempo.js` é a porta única; `grep -rn "new Date()" src/` não encontra nenhuma ocorrência em caminho de escrita (as remanescentes são parâmetros padrão de leitura, dentro do próprio módulo) |
+| AC-TEMPO-06 | `src/components/__tests__/TelaAluno.caracterizacao.test.js:487` — o card mostra "enviando…" enquanto o carimbo não volta; `src/services/__tests__/tempo.test.js:193` — `estaPendente` separa escrita em voo de campo ausente |
+| AC-TEMPO-07 | `src/components/__tests__/Chat.caracterizacao.test.js:350` — não limpa um milissegundo antes, limpa exatamente na meia-noite **de Brasília**; `src/services/__tests__/tempo.test.js:333` e `:368` — inclusive nas duas noites de virada de horário de verão, se ele voltar |
+| AC-TEMPO-08 | `src/services/__tests__/tempo.test.js:27` — `paraData` lê `Timestamp`, string ISO, `Date` e `{seconds, nanoseconds}`; `:264` — fila mista dos dois formatos ordena certo; `src/__tests__/compatibilidadeFutura.test.js` — os dois sentidos da leitura |
+| AC-TEMPO-09 | Não há chamada de rede a serviço de horário em lugar nenhum: a autoridade é o `serverTimestamp()` do próprio Firestore. O motivo de a API pública ter sido descartada está no ADR 0004. |
+| AC-CHAMADO-03 | `src/services/__tests__/tempo.test.js:248` — `criarComparadorPorHorario` ordena crescente, joga pendentes para o fim de forma estável e aceita um critério anterior (a task 09 compõe `prioridade desc, horario asc`); aplicado em `TelaAluno` e `TelaProfessor` |
+
+**Sobre a ordenação: por que ela saiu do Firestore**
+
+O `orderBy` do Firestore ordena por **tipo** antes de ordenar por valor — toda string ISO da
+v0.1.0 cairia depois de todo `Timestamp` novo, qualquer que fosse o instante. Enquanto os dois
+formatos convivem, quem decide a ordem final é `criarComparadorPorHorario()`, no cliente.
+
+**Compatibilidade desta versão**
+
+| Sentido | Prova |
+|---|---|
+| Retroativa | `src/__tests__/compatibilidadeFutura.test.js` — o leitor da v0.4.0 lê e formata o chamado da v0.1.0, que nunca teve `Timestamp`, e ordena uma fila que mistura os dois formatos |
+| Futura | `src/__tests__/compatibilidadeFutura.test.js` — o leitor da v0.3.0 diante de um `Timestamp` não lança, mas devolve `Invalid Date`; `horarioIso` guarda o mesmo instante em string e devolve a ele um caminho. O app grava o campo na confirmação do carimbo, e `scripts/migrar-horarios.js` cobre os documentos de quem não volta a entrar. |
+
+**Continuam não atendidos, de propósito**
+
+| AC | Por quê | Task que resolve |
+|---|---|---|
+| AC-CHAMADO-05 | As rules de `chamados` continuam abertas para exclusão. O escopo desta task é tempo; endurecer dono de chamado antes do escopo de sala derrubaria o app em produção. | 03 |
+| AC-SALA-07 / AC-CHAT-10 | `chamados` e `chat` ainda são coleções globais. O campo `horario` foi mantido com o mesmo nome justamente para que a migração de sala não precise mexer em tempo ao mesmo tempo. | 03 e 06 |
+| AC-CHAT-08 | `!clear` ainda funciona para qualquer aluno | 06 |
+| AC-PERF-03 | `onSnapshot` ainda sem `where` nem `limit` | 07 |
+
+**Correção de rota na tabela de v0.3.0**
+
+As duas tabelas de "não atendidos" das versões 0.2.0 e 0.3.0 apontam a task **05** como
+responsável pelo AC-TEMPO-01. Estava errado: quem troca o relógio do cliente pelo do servidor
+é a task **02**, e é o que esta versão faz. O critério em si não mudou.

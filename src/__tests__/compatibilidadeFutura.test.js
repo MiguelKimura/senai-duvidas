@@ -15,10 +15,20 @@
 // A prova precisa existir agora, antes de os campos novos aparecerem: depois do
 // deploy, já é tarde para descobrir que não.
 import React from 'react';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
-import { __resetarFirestore, __semearColecao } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  getFirestore,
+  query,
+  Timestamp,
+  __confirmarCarimbos,
+  __definirRelogioDoServidor,
+  __resetarFirestore,
+  __semearColecao,
+} from 'firebase/firestore';
 import TelaAluno from '../components/TelaAluno';
 import TelaProfessor from '../components/TelaProfessor';
 import Chat from '../components/Chat';
@@ -229,5 +239,109 @@ describe('usuarios com campos que a v0.2.0 não conhece', () => {
     await expect(
       garantirPerfil({ uid: 'uid-ana', email: 'ana@senai.br' })
     ).resolves.toMatchObject({ papel: 'aluno', criado: false });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// `horario` — a mudança de FORMA de dado da v0.4.0.
+//
+// As seções acima tratam de campos **acrescentados**, que o leitor antigo
+// ignora sem esforço. Esta é diferente, e mais perigosa: o campo `horario`
+// continua com o mesmo nome e muda de tipo. Era string ISO, passa a ser
+// `Timestamp` do servidor — que é o único jeito de a ordem da fila não ser
+// decidida pelo relógio da máquina do aluno.
+//
+// O leitor da v0.3.0 faz `new Date(chamado.horario)`. Diante de um
+// `Timestamp`, isso não lança: devolve `Invalid Date`, e o card escreve
+// "Invalid Date" em silêncio, durante a aula. Um campo que muda de tipo é pior
+// do que um campo removido, justamente porque não explode.
+//
+// Por isso a v0.4.0 grava **também** `horarioIso`, a mesma data em string, ao
+// lado. O campo só sai na 1.0.0, quando não houver mais cliente antigo em
+// sala. Os testes abaixo provam as duas pontas: que a string existe e vale o
+// mesmo instante, e que o leitor novo continua entendendo o documento que
+// nunca teve `Timestamp` nenhum.
+// ---------------------------------------------------------------------------
+describe('horario: a forma de dado que mudou na v0.4.0', () => {
+  const INSTANTE = '2025-03-10T13:45:00.000Z';
+  const INSTANTE_ANTERIOR = '2025-03-10T09:00:00.000Z';
+
+  /** Um chamado como a v0.4.0 o deixa no banco, depois da confirmação. */
+  const CHAMADO_DA_V040 = {
+    ...CHAMADO_DE_HOJE,
+    id: 'novo',
+    horario: Timestamp.fromDate(new Date(INSTANTE)),
+    horarioIso: INSTANTE,
+  };
+
+  /** O leitor da v0.3.0, reproduzido: ele conhecia só `horario`. */
+  function leitorDaV030(chamado) {
+    return new Date(chamado.horario);
+  }
+
+  /**
+   * O mesmo leitor com a correção de uma linha que `horarioIso` torna
+   * possível — a saída que o campo aditivo abre para quem ficou para trás.
+   */
+  function leitorDaV030ComAPonte(chamado) {
+    return new Date(chamado.horarioIso || chamado.horario);
+  }
+
+  it('o leitor antigo diante do Timestamp não lança: erra em silêncio', () => {
+    expect(() => leitorDaV030(CHAMADO_DA_V040)).not.toThrow();
+  });
+
+  it('e o que ele erra é tudo: Invalid Date — é por isto que horarioIso existe', () => {
+    expect(Number.isNaN(leitorDaV030(CHAMADO_DA_V040).getTime())).toBe(true);
+  });
+
+  it('com horarioIso, o leitor antigo volta a acertar o instante', () => {
+    expect(leitorDaV030ComAPonte(CHAMADO_DA_V040).toISOString()).toBe(INSTANTE);
+  });
+
+  it('horarioIso guarda o mesmo instante que horario, e não outro', () => {
+    expect(new Date(CHAMADO_DA_V040.horarioIso).getTime()).toBe(
+      CHAMADO_DA_V040.horario.toDate().getTime()
+    );
+  });
+
+  it('o chamado que o app grava hoje leva horarioIso junto', async () => {
+    __definirRelogioDoServidor(INSTANTE);
+    renderComProvedores(<TelaAluno />);
+
+    await userEvent.click(screen.getByRole('button', { name: '+' }));
+    await userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'O VS Code não abre');
+    await userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    const chamados = async () =>
+      (await getDocs(query(collection(getFirestore(), 'chamados')))).docs;
+
+    await waitFor(async () => expect(await chamados()).toHaveLength(1));
+    __confirmarCarimbos();
+
+    expect((await chamados())[0].data().horarioIso).toBe(INSTANTE);
+  });
+
+  it('o leitor da v0.4.0 lê o chamado da v0.1.0, que nunca teve Timestamp', () => {
+    __semearColecao('chamados', [CHAMADO_DE_HOJE]);
+
+    renderComProvedores(<TelaProfessor />);
+
+    // 13:45 em UTC são 10:45 em Brasília: a data velha é lida e convertida.
+    expect(screen.getByText('10/03/2025 10:45')).toBeInTheDocument();
+  });
+
+  it('o leitor da v0.4.0 ordena uma fila que mistura os dois formatos', () => {
+    __semearColecao('chamados', [
+      { ...CHAMADO_DA_V040, descricao: 'mais novo' },
+      { ...CHAMADO_DE_HOJE, id: 'antigo', descricao: 'mais antigo', horario: INSTANTE_ANTERIOR },
+    ]);
+
+    renderComProvedores(<TelaProfessor />);
+
+    const textos = [...document.querySelectorAll('.problema-card')].map((card) => card.textContent);
+
+    expect(textos[0]).toContain('mais antigo');
+    expect(textos[1]).toContain('mais novo');
   });
 });

@@ -13,7 +13,17 @@ const {
   assertSucceeds,
   assertFails,
 } = require('@firebase/rules-unit-testing');
-const { doc, getDoc, setDoc, deleteDoc, collection, getDocs } = require('firebase/firestore');
+const {
+  doc,
+  getDoc,
+  setDoc,
+  deleteDoc,
+  collection,
+  getDocs,
+  serverTimestamp,
+  Timestamp,
+  updateDoc,
+} = require('firebase/firestore');
 const { projetoDeTeste } = require('./projetoDeTeste');
 
 let ambiente;
@@ -78,6 +88,10 @@ describe('guarda de segurança da suíte', () => {
 });
 
 describe('chamados — estado atual', () => {
+  // AJUSTADO pela task 02. O caso continua sendo "o aluno cria o próprio
+  // chamado", que é o caminho comum e não pode quebrar. O que mudou é o campo
+  // `horario`: era a string ISO do relógio do aluno, e passa a ser o carimbo
+  // do servidor, que é o que as rules agora exigem.
   it('um aluno autenticado cria o próprio chamado', async () => {
     const db = como(ANA);
 
@@ -86,7 +100,7 @@ describe('chamados — estado atual', () => {
         nome: 'Ana Souza',
         email: 'ana@senai.br',
         descricao: 'O Visual Studio não abre.',
-        horario: '2025-03-10T13:45:00.000Z',
+        horario: serverTimestamp(),
         cor: 'hsl(210, 70%, 80%)',
         imagem: null,
       })
@@ -132,13 +146,15 @@ describe('chamados — estado atual', () => {
 });
 
 describe('chat — estado atual', () => {
+  // AJUSTADO pela task 02, pelo mesmo motivo do chamado: `new Date()` era o
+  // relógio do aluno.
   it('um aluno autenticado envia mensagem', async () => {
     await assertSucceeds(
       setDoc(doc(como(ANA), 'chat/m1'), {
         texto: 'Alguém conseguiu rodar?',
         nome: 'Ana Souza',
         email: 'ana@senai.br',
-        horario: new Date(),
+        horario: serverTimestamp(),
       })
     );
   });
@@ -374,5 +390,102 @@ describe('coleções desconhecidas nascem fechadas', () => {
 
     await assertFails(setDoc(doc(db, 'colecao-nova/x'), { a: 1 }));
     await assertFails(getDoc(doc(db, 'colecao-nova/x')));
+  });
+});
+
+// O horário visto do lado do servidor — AC-TEMPO-01.
+//
+// Corrigir o cliente não resolve o problema: a fila é pública e a escrita é
+// direta no Firestore, então quem abrir o DevTools grava o `horario` que
+// quiser e se põe no topo. Só a rule fecha isso, porque `request.time` é o
+// relógio do servidor e o cliente não tem como forjá-lo.
+//
+// Nenhuma outra permissão excessiva de `chamados` e `chat` é tocada aqui: elas
+// dependem do escopo de sala, que é a task 03. O que esta task fecha é o vetor
+// da própria task — furar a fila pelo horário.
+describe('horario só pode ser o carimbo do servidor (AC-TEMPO-01)', () => {
+  const PASSADO_FORJADO = Timestamp.fromDate(new Date('2000-01-01T00:00:00.000Z'));
+
+  describe('chamados', () => {
+    it('aceita a criação com serverTimestamp()', async () => {
+      await assertSucceeds(
+        setDoc(doc(como(ANA), 'chamados/c1'), {
+          descricao: 'O Visual Studio não abre.',
+          horario: serverTimestamp(),
+        })
+      );
+    });
+
+    it('nega um Timestamp escolhido pelo cliente, ainda que autenticado', async () => {
+      await assertFails(
+        setDoc(doc(como(ANA), 'chamados/furado'), {
+          descricao: 'quero ser o primeiro da fila',
+          horario: PASSADO_FORJADO,
+        })
+      );
+    });
+
+    it('nega a string ISO da v0.1.0, que era o vetor original', async () => {
+      await assertFails(
+        setDoc(doc(como(ANA), 'chamados/furado'), {
+          descricao: 'quero ser o primeiro da fila',
+          horario: '2000-01-01T00:00:00.000Z',
+        })
+      );
+    });
+
+    it('nega também para quem não está logado', async () => {
+      await assertFails(
+        setDoc(doc(comoVisitante(), 'chamados/furado'), { horario: PASSADO_FORJADO })
+      );
+    });
+
+    it('deixa passar a escrita que não mexe em horario nenhum', async () => {
+      // A task 03 é quem vai exigir os campos; aqui só o horário é validado.
+      await assertSucceeds(setDoc(doc(como(ANA), 'chamados/sem-horario'), { descricao: 'oi' }));
+    });
+
+    it('deixa o autor preencher horarioIso sem tocar em horario', async () => {
+      await semearComoAdministrador('chamados/antigo', {
+        descricao: 'chamado da v0.1.0',
+        horario: PASSADO_FORJADO,
+      });
+
+      await assertSucceeds(
+        updateDoc(doc(como(ANA), 'chamados/antigo'), {
+          horarioIso: '2000-01-01T00:00:00.000Z',
+        })
+      );
+    });
+
+    it('nega o update que reescreve horario para um instante escolhido', async () => {
+      await semearComoAdministrador('chamados/meu', { descricao: 'meu chamado' });
+
+      await assertFails(
+        updateDoc(doc(como(ANA), 'chamados/meu'), { horario: PASSADO_FORJADO })
+      );
+    });
+
+    it('aceita o update que recarimba horario com serverTimestamp()', async () => {
+      await semearComoAdministrador('chamados/meu', { descricao: 'meu chamado' });
+
+      await assertSucceeds(
+        updateDoc(doc(como(ANA), 'chamados/meu'), { horario: serverTimestamp() })
+      );
+    });
+  });
+
+  describe('chat', () => {
+    it('aceita a mensagem com serverTimestamp()', async () => {
+      await assertSucceeds(
+        setDoc(doc(como(ANA), 'chat/m1'), { texto: 'oi', horario: serverTimestamp() })
+      );
+    });
+
+    it('nega a mensagem com horário escolhido pelo cliente', async () => {
+      await assertFails(
+        setDoc(doc(como(ANA), 'chat/m1'), { texto: 'oi', horario: PASSADO_FORJADO })
+      );
+    });
   });
 });
