@@ -102,14 +102,21 @@ if ($TarefaAgendada) {
 else {
     # O .vbs existe para rodar em janela OCULTA. Um .bat piscaria uma janela
     # preta a cada logon e ficaria com o console aberto o tempo todo.
+    # O PATH do processo criado no logon pode ser menor que o do seu terminal.
+    # Como as cinco ferramentas acabaram de ser VALIDADAS neste PATH, gravamos
+    # ele dentro do .vbs para a fila herdar exatamente o mesmo ambiente.
+    $pathAtual = $env:PATH -replace '"', '""'
+
     $conteudo = @"
 ' Sobe a fila de automacao do Projeto Duvidas SENAI em janela oculta.
 ' Gerado por scripts\instalar-inicio-automatico.ps1 — nao edite a mao.
+' O PATH abaixo foi capturado na instalacao, ja validado.
 Set sh = CreateObject("WScript.Shell")
+sh.Environment("Process")("PATH") = "$pathAtual"
 sh.CurrentDirectory = "$repo"
 sh.Run "python ""$repo\scripts\claude_queue.py""", 0, False
 "@
-    Set-Content -Path $vbs -Value $conteudo -Encoding ASCII
+    Set-Content -Path $vbs -Value $conteudo -Encoding Unicode
 
     if (-not (Test-Path $vbs)) { throw "Nao foi possivel criar $vbs" }
 
@@ -121,7 +128,7 @@ sh.Run "python ""$repo\scripts\claude_queue.py""", 0, False
 }
 
 Write-Host ""
-Write-Host "Acompanhar:      Get-Content `"$repo\.automation\queue.log`" -Wait -Tail 40"
+Write-Host "Acompanhar:      Get-Content `"$repo\.automation\queue.log`" -Wait -Tail 40 -Encoding UTF8"
 Write-Host "Parar a fila:    encerre o processo python (Get-Process python | Stop-Process)"
 Write-Host ""
 Write-Host "A fila tem trava: se ja houver uma rodando, a nova sai sozinha." -ForegroundColor DarkGray
