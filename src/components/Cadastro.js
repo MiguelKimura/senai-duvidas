@@ -4,6 +4,7 @@ import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"; 
 import { db, auth } from "../firebase"; 
 import { verificarPermissao } from "../utils/permissoes"; // Importa a função de verificação
+import { traduzirErroDeAuth } from "../utils/errosAuth";
 
 import '../styles/Cadastro.css';
 
@@ -56,23 +57,14 @@ const Cadastro = () => {
         provedor: "password",
       });
 
-      console.log("Usuário cadastrado com sucesso!");
-
-      alert("Cadastro realizado com sucesso!");
+      // A confirmação é a própria tela que abre. O `alert()` que ficava aqui
+      // bloqueava a aba e sumia sem deixar texto nenhum na página.
       navigate(tipo === "aluno" ? "/aluno" : "/professor");
     } catch (error) {
-      console.error("Erro ao cadastrar o usuário:", error);
-
-      // Tratando erros de forma específica
-      if (error.code === "auth/email-already-in-use") {
-        setErrorMessage("Este e-mail já está em uso. Tente um e-mail diferente.");
-      } else if (error.code === "auth/invalid-email") {
-        setErrorMessage("O e-mail fornecido não é válido. Verifique e tente novamente.");
-      } else if (error.code === "auth/weak-password") {
-        setErrorMessage("A senha deve ter pelo menos 6 caracteres.");
-      } else {
-        setErrorMessage(`Erro ao cadastrar! Tente novamente. Erro: ${error.message}`);
-      }
+      // Um único tradutor para todo o projeto (AC-AUTH-05). A cadeia de `if`
+      // que vivia aqui tinha um ramo final que despejava `error.message` na
+      // tela — código do Firebase lido por um aluno no meio da aula.
+      setErrorMessage(traduzirErroDeAuth(error));
     } finally {
       setIsLoading(false);
     }
