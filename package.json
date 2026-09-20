@@ -20,9 +20,9 @@
   "scripts": {
     "start": "cross-env PORT=3000 react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
-    "test:ci": "cross-env CI=true react-scripts test --watchAll=false --coverage",
-    "test:fusos": "cross-env CI=true TZ=UTC react-scripts test --watchAll=false && cross-env CI=true TZ=America/New_York react-scripts test --watchAll=false",
+    "test": "react-scripts test --roots src --roots scripts",
+    "test:ci": "cross-env CI=true react-scripts test --watchAll=false --coverage --roots src --roots scripts",
+    "test:fusos": "cross-env CI=true TZ=UTC react-scripts test --watchAll=false --roots src --roots scripts && cross-env CI=true TZ=America/New_York react-scripts test --watchAll=false --roots src --roots scripts",
     "test:rules": "firebase emulators:exec --project demo-senai-duvidas --only firestore,storage \"jest --config jest.rules.config.js\"",
     "emulators": "firebase emulators:start --project demo-senai-duvidas",
     "lint": "eslint \"src/**/*.{js,jsx}\" \"tests/**/*.js\" \"scripts/**/*.js\" --max-warnings=0",
