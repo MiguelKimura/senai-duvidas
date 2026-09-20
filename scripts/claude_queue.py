@@ -37,6 +37,10 @@ def run(cmd: list[str], cwd: Path, timeout: int | None = None) -> CommandResult:
         cmd,
         cwd=str(cwd),
         text=True,
+        # No Windows, text=True sem encoding usa a codificação local (cp1252 em
+        # PT-BR), que não decodifica a saída UTF-8 do git, do gh e do Claude.
+        encoding="utf-8",
+        errors="replace",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         timeout=timeout,
@@ -314,6 +318,10 @@ def validate(cfg: dict[str, Any], wt: Path) -> tuple[bool, str]:
             cwd=str(wt),
             shell=True,
             text=True,
+            # Mesma razão do run(): jest e npm emitem UTF-8 (símbolos de status,
+            # acentos), e cp1252 quebra ao ler bytes como 0x8f.
+            encoding="utf-8",
+            errors="replace",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )
@@ -446,7 +454,7 @@ def wait_for_merge(cfg: dict[str, Any], wt: Path, pr_url: str) -> None:
     raise TimeoutError(f"Timeout aguardando merge do PR #{pr_number}.")
 
 
-def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, Any], dry_run: bool) -> bool:
+def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, Any], dry_run: bool, skip_claude: bool = False) -> bool:
     key = task.as_posix()
     current = state["tasks"].get(key, {})
     if current.get("status") == "done":
@@ -500,7 +508,12 @@ def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, A
             retomando = continuation_count > 0 or commits_ahead(wt, base) > 0
             if retomando and continuation_count == 0:
                 print(f"[resume] A branch {branch} já tem {commits_ahead(wt, base)} commit(s). Continuando o trabalho anterior.")
-            ok, claude_log = run_claude(cfg, wt, task, continuation=retomando, run_number=run_number)
+
+            if skip_claude:
+                print("[skip-claude] Sessão pulada. Indo direto para validação e PR.")
+                ok, claude_log = True, ""
+            else:
+                ok, claude_log = run_claude(cfg, wt, task, continuation=retomando, run_number=run_number)
             if not ok:
                 # Session/quota reset is special: keep the worktree alive and wait.
                 if is_transient(claude_log, patterns) and wait_for_quota_retry(cfg, claude_log, safety_margin):
@@ -580,12 +593,26 @@ def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, A
 
 
 def main() -> int:
+    # Impede UnicodeEncodeError ao imprimir log de ferramenta com acento ou
+    # símbolo quando a saída está redirecionada para arquivo no Windows.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--reset-failed", action="store_true")
     parser.add_argument("--from-task", type=int, default=None)
     parser.add_argument("--to-task", type=int, default=None)
+    parser.add_argument(
+        "--skip-claude",
+        action="store_true",
+        help="Pula a sessão do Claude na PRÓXIMA task e vai direto para validação e PR. "
+             "Use quando a sessão já concluiu o trabalho e a falha foi do orquestrador.",
+    )
     args = parser.parse_args()
 
     repo = Path.cwd()
@@ -612,9 +639,11 @@ def main() -> int:
         print(f"Nenhuma task no intervalo {start_id:02d}-{end_id:02d}.")
         return 0
 
+    pular_claude = args.skip_claude
     for task in sorted(tasks, key=lambda p: task_id_from_file(p)):
-        if not process_task(cfg, repo, task, state, args.dry_run):
+        if not process_task(cfg, repo, task, state, args.dry_run, skip_claude=pular_claude):
             return 1
+        pular_claude = False  # vale só para a primeira task processada
         if args.once:
             break
     return 0

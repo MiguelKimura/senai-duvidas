@@ -68,7 +68,14 @@ python .\scripts\claude_queue.py --from-task 3 --to-task 5
 
 # limpar tasks marcadas como failed e tentar de novo
 python .\scripts\claude_queue.py --reset-failed
+
+# o trabalho já está pronto na branch e só a validação/PR falhou:
+# pula a sessão do Claude (e o custo dela) e vai direto para validação e PR
+python .\scripts\claude_queue.py --reset-failed --skip-claude
 ```
+
+`--skip-claude` vale **apenas para a primeira task processada** na execução. As seguintes rodam
+normalmente, com sessão.
 
 ## O ciclo de cada task
 
@@ -96,6 +103,8 @@ e mescle. O script detecta o merge em até 30 segundos e segue.
 | `Validação falhou` | `lint`, `test:ci` ou `build` vermelho | O gate funcionou. Leia o log, rode `--reset-failed` e tente de novo |
 | `SSL certificate has expired`, `Unable to connect`, `ECONNRESET` | Queda de internet | Tratado como transitório: o script espera (60s, 120s, 240s, 480s) e tenta de novo sozinho, até 4 vezes |
 | Task marcada `failed` depois de muito trabalho | Falha real, não transitória | O worktree é **preservado**. Inspecione-o, e rode `--reset-failed` para continuar de onde parou — a sessão é avisada de que está retomando |
+| `'charmap' codec can't decode byte` | Corrigido. Era o Python lendo a saída UTF-8 do npm/jest como cp1252 no Windows PT-BR | `git pull origin dev` |
+| A sessão terminou o trabalho e a falha foi do orquestrador | Não vale pagar outra sessão do zero | `--skip-claude` vai direto para validação e PR |
 | `PR #N foi fechado sem merge` | Você fechou o PR | A fila para de propósito. Reabra ou rode `--reset-failed` |
 | Fila parada em `[quota]` | Limite de uso atingido | Deixe rodando: o script dorme até o reset e retoma sozinho |
 | `[resume] Claude atingiu max_turns` | Task grande | Normal. O worktree é preservado e a sessão continua de onde parou |
