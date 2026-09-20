@@ -25,7 +25,13 @@ import {
   __semearColecao,
 } from 'firebase/firestore';
 import Chat from '../Chat';
-import { corDeFundo, fabricaMensagem, renderComProvedores } from '../../test-utils';
+import {
+  corDeFundo,
+  fabricaMensagem,
+  fixarRelogio,
+  renderComProvedores,
+  restaurarRelogio,
+} from '../../test-utils';
 
 const db = getFirestore();
 
@@ -331,5 +337,52 @@ describe('Chat — compatibilidade retroativa', () => {
 
     expect(falasNaTela()).toEqual(['Autor Antigo: sem email']);
     expect(corDeFundo(document.querySelector('.fala-box'))).toMatch(/^hsl\(/);
+  });
+});
+
+// O chat se limpa à meia-noite. **Qual** meia-noite não é detalhe: a da
+// máquina pode estar a horas da de Brasília, e a conversa da turma sumiria no
+// meio da aula seguinte — ou sobreviveria um dia a mais.
+//
+// Este arquivo roda também em `npm run test:fusos`, com o processo em UTC e em
+// America/New_York. É lá que o caso ganha os dentes: numa máquina já em
+// Brasília, `setHours(24, 0, 0, 0)` acerta por coincidência.
+describe('Chat — reset à meia-noite de Brasília (AC-TEMPO-07)', () => {
+  // 19/09/2026, 14:32 em Brasília. Faltam 9h28min para a meia-noite de lá.
+  const TARDE_DE_SABADO = '2026-09-19T17:32:00.000Z';
+  const MS_ATE_A_MEIA_NOITE = 9 * 3600000 + 28 * 60000;
+
+  afterEach(() => restaurarRelogio());
+
+  it('não limpa nada um milissegundo antes da meia-noite de Brasília', async () => {
+    const relogio = fixarRelogio(TARDE_DE_SABADO);
+    __semearColecao('chat', [fabricaMensagem({ id: 'm1', texto: 'conversa da tarde' })]);
+    renderComProvedores(<Chat />);
+    await abrirChat();
+
+    relogio.avancar(MS_ATE_A_MEIA_NOITE - 1);
+
+    expect(falasNaTela()).toHaveLength(1);
+  });
+
+  it('limpa a conversa exatamente na meia-noite de Brasília', async () => {
+    const relogio = fixarRelogio(TARDE_DE_SABADO);
+    __semearColecao('chat', [fabricaMensagem({ id: 'm1', texto: 'conversa da tarde' })]);
+    renderComProvedores(<Chat />);
+    await abrirChat();
+
+    relogio.avancar(MS_ATE_A_MEIA_NOITE);
+
+    await waitFor(() => expect(falasNaTela()).toHaveLength(0));
+  });
+
+  it('cancela o timer ao desmontar, para não limpar o chat de outra tela', () => {
+    fixarRelogio(TARDE_DE_SABADO);
+    const { unmount } = renderComProvedores(<Chat />);
+    expect(jest.getTimerCount()).toBeGreaterThan(0);
+
+    unmount();
+
+    expect(jest.getTimerCount()).toBe(0);
   });
 });

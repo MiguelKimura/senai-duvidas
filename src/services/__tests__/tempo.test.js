@@ -17,7 +17,9 @@ import {
   formatarHora,
   formatarRelativo,
   FUSO_BRASILIA,
+  msAteProximaMeiaNoiteBrasilia,
   paraData,
+  proximaMeiaNoiteBrasilia,
 } from '../tempo';
 import { serverTimestamp, Timestamp } from 'firebase/firestore';
 import { fixarRelogio, restaurarRelogio } from '../../test-utils';
@@ -322,5 +324,83 @@ describe('carimboServidor — a autoridade de tempo da escrita (AC-TEMPO-01, AC-
 
   it('não devolve data alguma: quem decide o instante é o servidor', () => {
     expect(paraData(carimboServidor())).toBeNull();
+  });
+});
+
+// O chat se limpa à meia-noite. Qual meia-noite não é detalhe: a da máquina
+// pode estar a horas de distância da de Brasília, e a conversa da turma
+// sumiria no meio da aula seguinte — ou sobreviveria um dia a mais.
+describe('proximaMeiaNoiteBrasilia (AC-TEMPO-07)', () => {
+  it('devolve a meia-noite seguinte, em UTC, para uma tarde comum', () => {
+    // 14:32 de 19/09 em Brasília -> 00:00 de 20/09, que é 03:00Z.
+    expect(proximaMeiaNoiteBrasilia(new Date('2026-09-19T17:32:00.000Z'))).toEqual(
+      new Date('2026-09-20T03:00:00.000Z')
+    );
+  });
+
+  it('não pula um dia quando já passou da meia-noite UTC mas não da de Brasília', () => {
+    // 02:30Z do dia 20 ainda é 23:30 do dia 19 em Brasília. Uma implementação
+    // que usasse a meia-noite da máquina em UTC já teria limpado o chat.
+    expect(proximaMeiaNoiteBrasilia(new Date('2026-09-20T02:30:00.000Z'))).toEqual(
+      new Date('2026-09-20T03:00:00.000Z')
+    );
+  });
+
+  it('exatamente na meia-noite de Brasília, aponta para a do dia seguinte', () => {
+    expect(proximaMeiaNoiteBrasilia(new Date('2026-09-20T03:00:00.000Z'))).toEqual(
+      new Date('2026-09-21T03:00:00.000Z')
+    );
+  });
+
+  it('aceita string ISO e Timestamp, como todo o resto do módulo', () => {
+    expect(proximaMeiaNoiteBrasilia('2026-09-19T17:32:00.000Z')).toEqual(
+      new Date('2026-09-20T03:00:00.000Z')
+    );
+    expect(
+      proximaMeiaNoiteBrasilia(Timestamp.fromDate(new Date('2026-09-19T17:32:00.000Z')))
+    ).toEqual(new Date('2026-09-20T03:00:00.000Z'));
+  });
+
+  // O horário de verão brasileiro está suspenso desde 2019, mas foi suspenso
+  // por decreto — e decreto se revoga. Estes dois casos usam datas em que ele
+  // valia de verdade, e é a base IANA que os resolve. Um `-03:00` escrito à
+  // mão erraria nos dois, em silêncio.
+  describe('horário de verão, se voltar', () => {
+    it('acerta a meia-noite num dia de horário de verão (UTC-2)', () => {
+      // 10:00 de 25/12/2018 em Brasília, sob BRST -> 00:00 de 26/12 = 02:00Z.
+      expect(proximaMeiaNoiteBrasilia(new Date('2018-12-25T12:00:00.000Z'))).toEqual(
+        new Date('2018-12-26T02:00:00.000Z')
+      );
+    });
+
+    it('acerta a meia-noite na noite em que o relógio ATRASA uma hora', () => {
+      // Em 17/02/2019 o horário de verão terminou: 23:59:59 de 16/02 (UTC-2)
+      // voltou para 23:00 (UTC-3). A meia-noite de 17/02 é 03:00Z, e não
+      // 02:00Z — que ainda seria 23:00 do dia 16.
+      expect(proximaMeiaNoiteBrasilia(new Date('2019-02-16T12:00:00.000Z'))).toEqual(
+        new Date('2019-02-17T03:00:00.000Z')
+      );
+    });
+
+    it('acerta a noite em que a meia-noite não existe, porque o relógio ADIANTA', () => {
+      // Em 04/11/2018 o horário de verão começou à meia-noite: o relógio foi
+      // de 23:59:59 direto para 01:00. A virada do dia é 03:00Z.
+      expect(proximaMeiaNoiteBrasilia(new Date('2018-11-03T13:00:00.000Z'))).toEqual(
+        new Date('2018-11-04T03:00:00.000Z')
+      );
+    });
+  });
+});
+
+describe('msAteProximaMeiaNoiteBrasilia', () => {
+  it('conta os milissegundos que faltam, para alimentar um setTimeout', () => {
+    // De 14:32 até a meia-noite de Brasília são 9h28min.
+    expect(msAteProximaMeiaNoiteBrasilia(new Date('2026-09-19T17:32:00.000Z'))).toBe(
+      9 * 3600000 + 28 * 60000
+    );
+  });
+
+  it('nunca devolve zero nem negativo, para o timer não disparar em laço', () => {
+    expect(msAteProximaMeiaNoiteBrasilia(new Date('2026-09-20T03:00:00.000Z'))).toBeGreaterThan(0);
   });
 });
