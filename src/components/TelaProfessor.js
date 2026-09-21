@@ -1,16 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { deleteDoc, doc, limit, onSnapshot, query } from 'firebase/firestore';
 import { criarComparadorPorHorario, formatarDataHora } from '../services/tempo';
+import { LIMITE_DE_CHAMADOS, colecaoDeChamados } from '../services/salas';
 import '../styles/TelaProfessor.css';
 import Chat from './Chat';
 import BotaoSair from './BotaoSair';
 
-function TelaProfessor() {
+// A tela do professor, agora dentro de uma sala (AC-SALA-07).
+//
+// A fila que ele vê é a da turma dele, e não mais a da escola inteira. Sem
+// `salaId`, cai na coleção global da v0.4.0 pelo mesmo fallback da tela do
+// aluno — o que mantém a tela útil enquanto a migração não rodou.
+function TelaProfessor({ salaId = null }) {
   const [problemas, setProblemas] = useState([]);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "chamados"), (querySnapshot) => {
+    // AC-PERF-03: mesmo teto da tela do aluno, pela mesma razão.
+    const consulta = query(colecaoDeChamados(salaId), limit(LIMITE_DE_CHAMADOS));
+
+    const unsubscribe = onSnapshot(consulta, (querySnapshot) => {
       // A fila do professor é a mesma do aluno, e a ordem dela é decidida no
       // mesmo lugar: `services/tempo.js`. O professor não preenche
       // `horarioIso` de ninguém — quem faz isso é o cliente do autor.
@@ -24,11 +32,11 @@ function TelaProfessor() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [salaId]);
 
   const handleDelete = async (id) => {
     try {
-      await deleteDoc(doc(db, "chamados", id));
+      await deleteDoc(doc(colecaoDeChamados(salaId), id));
       alert('Chamado excluído com sucesso!');
     } catch (error) {
       console.error("Erro ao excluir o chamado:", error);
@@ -54,7 +62,7 @@ function TelaProfessor() {
           >
             <div className="card-header">
               <div className="user-name-wrapper">
-                <p className="user-name"><strong>{problema.nome}</strong></p>
+                <p className="user-name"><strong>{problema.autorNome || problema.nome}</strong></p>
               </div>
 
               {/* Exibindo o ícone para visualizar imagem no canto superior direito do card */}
@@ -84,7 +92,7 @@ function TelaProfessor() {
           </div>
         ))}
       </div>
-      <Chat/>
+      <Chat salaId={salaId} />
     </div>
   );
 }

@@ -295,7 +295,11 @@ describe('Custo de leitura e listeners (AC-PERF-03, AC-PERF-04)', () => {
         nome: 'Ana Souza',
         email: ANA.email,
         descricao: `Chamado ${indice}`,
+        // `horarioIso` já preenchido: sem ele, o backfill da task 02 dispararia
+        // uma escrita por documento, e o que este teste mede é o teto do
+        // listener, não a migração de horário.
         horario: new Date(Date.UTC(2026, 2, 10, 12, indice)).toISOString(),
+        horarioIso: new Date(Date.UTC(2026, 2, 10, 12, indice)).toISOString(),
         atendido: false,
       }))
     );
@@ -316,6 +320,7 @@ describe('Custo de leitura e listeners (AC-PERF-03, AC-PERF-04)', () => {
         email: ANA.email,
         texto: `Mensagem ${indice}`,
         horario: new Date(Date.UTC(2026, 2, 10, 12, indice)).toISOString(),
+        horarioIso: new Date(Date.UTC(2026, 2, 10, 12, indice)).toISOString(),
       }))
     );
 

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { db, auth } from '../firebase';
+import React, { useCallback, useEffect, useState } from 'react';
+import { auth } from '../firebase';
 import { FaArrowRight, FaComments } from 'react-icons/fa'; 
 import '../styles/Chat.css';
-import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, getDocs } from 'firebase/firestore';
+import { addDoc, deleteDoc, getDocs, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { LIMITE_DE_MENSAGENS, colecaoDeChat } from '../services/salas';
 import {
   carimboServidor,
   completarHorariosIso,
@@ -25,7 +26,11 @@ const gerarCorParaUsuario = (valorUnico) => {
   return `hsl(${h}, ${s}%, ${l}%)`;
 };
 
-function Chat() {
+// A conversa da turma, agora presa à sala (AC-SALA-07, AC-CHAT-10).
+//
+// Sem `salaId` o componente lê a coleção global da v0.4.0 — o mesmo fallback
+// das telas de chamado, pelo mesmo motivo e com o mesmo prazo.
+function Chat({ salaId = null }) {
   const [mensagens, setMensagens] = useState([]);
   const [novaMensagem, setNovaMensagem] = useState('');
   const [usuarioNome, setUsuarioNome] = useState('');
@@ -43,7 +48,9 @@ function Chat() {
 
   // Subscribing ao banco de dados para receber as mensagens em tempo real
   useEffect(() => {
-    const q = query(collection(db, 'chat'), orderBy('horario'));
+    // AC-PERF-03: o alvo do projeto é 1000 mensagens por sala ao longo do ano.
+    // Sem teto, entrar na sala em novembro custaria as mil de uma vez.
+    const q = query(colecaoDeChat(salaId), orderBy('horario'), limit(LIMITE_DE_MENSAGENS));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const mensagensList = querySnapshot.docs.map((documento) => ({
@@ -61,16 +68,19 @@ function Chat() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [salaId]);
 
   // Função para excluir todas as mensagens (comando !clear)
-  const limparMensagens = async () => {
-    const q = query(collection(db, 'chat'));
+  //
+  // Escopada por sala: até a v0.4.0 este comando apagava a conversa da escola
+  // inteira, porque a coleção era uma só. Agora ele para na porta da sala.
+  const limparMensagens = useCallback(async () => {
+    const q = query(colecaoDeChat(salaId), limit(LIMITE_DE_MENSAGENS));
     const querySnapshot = await getDocs(q); // Usando getDocs para buscar os documentos de forma síncrona
     querySnapshot.forEach(async (doc) => {
       await deleteDoc(doc.ref); // Deleta todas as mensagens
     });
-  };
+  }, [salaId]);
 
   // Enviar nova mensagem
   const enviarMensagem = async () => {
@@ -88,6 +98,11 @@ function Chat() {
 
     const novaMensagemData = {
       texto: novaMensagem,
+      // Escrita dupla do autor, como nos chamados: `autorNome` é o campo novo,
+      // `nome` é o que o cliente da v0.4.0 lê. Os dois saem com o mesmo
+      // conteúdo até a 1.0.0.
+      autorUid: user.uid,
+      autorNome: usuarioNome,
       nome: usuarioNome,
       // AC-TEMPO-01: o horário da mensagem é o do servidor, como o do chamado.
       horario: carimboServidor(),
@@ -95,7 +110,7 @@ function Chat() {
     };
 
     try {
-      await addDoc(collection(db, 'chat'), novaMensagemData);
+      await addDoc(colecaoDeChat(salaId), novaMensagemData);
       setNovaMensagem('');
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
@@ -129,7 +144,7 @@ function Chat() {
 
     // Sem isto o timer sobrevive ao componente e limpa o chat de outra tela.
     return () => clearTimeout(temporizador);
-  }, []);
+  }, [limparMensagens]);
 
   return (
     <div className="chat-container">
@@ -157,7 +172,7 @@ function Chat() {
                     className="fala-box" 
                     style={{ backgroundColor: corUsuario }}
                   >
-                    <strong>{mensagem.nome}</strong>: {mensagem.texto}
+                    <strong>{mensagem.autorNome || mensagem.nome}</strong>: {mensagem.texto}
                   </div>
                 </div>
               );
