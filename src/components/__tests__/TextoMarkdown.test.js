@@ -14,99 +14,88 @@ import { render, screen } from '@testing-library/react';
 import TextoMarkdown from '../TextoMarkdown';
 import { FORMATO_MARKDOWN, FORMATO_TEXTO } from '../../utils/markdown';
 
+/** O bloco de texto renderizado, ou `null` quando o componente não rendeu nada. */
+const bloco = () => document.querySelector('.texto-markdown');
+
 describe('TextoMarkdown — formato antigo, texto puro (retrocompatibilidade)', () => {
   it('é o padrão quando ninguém diz o formato', () => {
-    const { container } = render(<TextoMarkdown texto="o **cabo** está solto" />);
+    render(<TextoMarkdown texto="o **cabo** está solto" />);
 
-    expect(container.querySelector('strong')).toBeNull();
+    expect(bloco().querySelector('strong')).toBeNull();
     expect(screen.getByText('o **cabo** está solto')).toBeInTheDocument();
   });
 
   it('mostra asterisco como asterisco, e não como itálico', () => {
-    const { container } = render(
-      <TextoMarkdown texto="o arquivo C:\Users\*.log sumiu" formato={FORMATO_TEXTO} />
-    );
+    render(<TextoMarkdown texto="o arquivo C:\Users\*.log sumiu" formato={FORMATO_TEXTO} />);
 
-    expect(container.querySelector('em')).toBeNull();
+    expect(bloco().querySelector('em')).toBeNull();
     expect(screen.getByText('o arquivo C:\\Users\\*.log sumiu')).toBeInTheDocument();
   });
 
   it('mostra "# 12" como está, e não como título', () => {
-    const { container } = render(<TextoMarkdown texto="# 12 travou" formato={FORMATO_TEXTO} />);
+    render(<TextoMarkdown texto="# 12 travou" formato={FORMATO_TEXTO} />);
 
-    expect(container.querySelector('h1')).toBeNull();
+    expect(bloco().querySelector('h1')).toBeNull();
     expect(screen.getByText('# 12 travou')).toBeInTheDocument();
   });
 
   it('escapa HTML digitado por quem escrevia texto puro (AC-SEC-04)', () => {
-    const { container } = render(
-      <TextoMarkdown texto="<script>alert(1)</script>" formato={FORMATO_TEXTO} />
-    );
+    render(<TextoMarkdown texto="<script>alert(1)</script>" formato={FORMATO_TEXTO} />);
 
-    expect(container.querySelector('script')).toBeNull();
+    expect(bloco().querySelector('script')).toBeNull();
     expect(screen.getByText('<script>alert(1)</script>')).toBeInTheDocument();
   });
 });
 
 describe('TextoMarkdown — formato novo, markdown (AC-COR-07)', () => {
   it('rende **negrito** como <strong>', () => {
-    const { container } = render(
-      <TextoMarkdown texto="o **cabo** está solto" formato={FORMATO_MARKDOWN} />
-    );
+    render(<TextoMarkdown texto="o **cabo** está solto" formato={FORMATO_MARKDOWN} />);
 
-    expect(container.querySelector('strong')).toHaveTextContent('cabo');
+    expect(bloco().querySelector('strong')).toHaveTextContent('cabo');
   });
 
   it('rende lista como <ul><li>', () => {
-    const { container } = render(
-      <TextoMarkdown texto={'- reiniciei\n- troquei o cabo'} formato={FORMATO_MARKDOWN} />
-    );
+    render(<TextoMarkdown texto={'- reiniciei\n- troquei o cabo'} formato={FORMATO_MARKDOWN} />);
 
-    expect(container.querySelectorAll('ul li')).toHaveLength(2);
+    expect(bloco().querySelectorAll('ul li')).toHaveLength(2);
   });
 
   it('rende `código` como <code>', () => {
-    const { container } = render(
-      <TextoMarkdown texto="rode `npm start`" formato={FORMATO_MARKDOWN} />
-    );
+    render(<TextoMarkdown texto="rode `npm start`" formato={FORMATO_MARKDOWN} />);
 
-    expect(container.querySelector('code')).toHaveTextContent('npm start');
+    expect(bloco().querySelector('code')).toHaveTextContent('npm start');
   });
 
   it('não deixa script chegar ao DOM (AC-COR-08)', () => {
-    const { container } = render(
-      <TextoMarkdown texto="<script>alert(1)</script>" formato={FORMATO_MARKDOWN} />
-    );
+    render(<TextoMarkdown texto="<script>alert(1)</script>" formato={FORMATO_MARKDOWN} />);
 
-    expect(container.querySelector('script')).toBeNull();
+    expect(document.querySelector('script')).toBeNull();
   });
 
   it('não deixa handler on* chegar ao DOM (AC-COR-08)', () => {
-    const { container } = render(
-      <TextoMarkdown texto="<img src=x onerror=alert(1)>" formato={FORMATO_MARKDOWN} />
-    );
+    render(<TextoMarkdown texto="<img src=x onerror=alert(1)>" formato={FORMATO_MARKDOWN} />);
 
-    expect(container.querySelector('img')).toBeNull();
-    expect(container.querySelector('[onerror]')).toBeNull();
+    expect(document.querySelector('img')).toBeNull();
+    expect(document.querySelector('[onerror]')).toBeNull();
   });
 });
 
 describe('TextoMarkdown — bordas', () => {
   it('não rende nada para descrição vazia', () => {
-    const { container } = render(<TextoMarkdown texto="" formato={FORMATO_MARKDOWN} />);
+    render(<TextoMarkdown texto="" formato={FORMATO_MARKDOWN} />);
 
-    expect(container).toBeEmptyDOMElement();
+    expect(bloco()).toBeNull();
   });
 
   it('não rende nada para descrição ausente', () => {
-    const { container } = render(<TextoMarkdown />);
+    render(<TextoMarkdown />);
 
-    expect(container).toBeEmptyDOMElement();
+    expect(bloco()).toBeNull();
   });
 
   it('trata formato desconhecido como texto puro, e não como markdown', () => {
-    const { container } = render(<TextoMarkdown texto="**forte**" formato="html" />);
+    render(<TextoMarkdown texto="**forte**" formato="html" />);
 
-    expect(container.querySelector('strong')).toBeNull();
+    expect(bloco().querySelector('strong')).toBeNull();
   });
 });

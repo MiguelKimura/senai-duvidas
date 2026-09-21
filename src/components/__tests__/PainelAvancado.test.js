@@ -12,9 +12,8 @@
 // de errar em algum deles. O `aria-expanded` é declarado por cima do nativo
 // porque o AC-COR-06 o exige explicitamente e porque `<summary>` ainda é
 // anunciado de formas diferentes pelos leitores de tela em uso.
-const fs = require('fs');
-const path = require('path');
-
+import fs from 'fs';
+import path from 'path';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
