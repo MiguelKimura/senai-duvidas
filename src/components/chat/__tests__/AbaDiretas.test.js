@@ -101,11 +101,11 @@ describe('AbaDiretas — abrir e conversar', () => {
   });
 
   it('os dois lados chegam à MESMA conversa', async () => {
-    const pelaProfessora = renderComProvedores(<AbaDiretas salaId={SALA} pessoa={CARLOS} />);
+    const view = renderComProvedores(<AbaDiretas salaId={SALA} pessoa={CARLOS} />);
     await abrirNovaConversa();
     await userEvent.click(await screen.findByRole('button', { name: 'Ana Souza' }));
     await waitFor(() => expect(__documentosDe(CONVERSAS)).toHaveLength(1));
-    pelaProfessora.unmount();
+    view.unmount();
 
     renderComProvedores(<AbaDiretas salaId={SALA} pessoa={ANA} />);
     await abrirNovaConversa();

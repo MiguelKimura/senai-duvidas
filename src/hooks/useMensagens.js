@@ -30,7 +30,7 @@
 // como em toda tela deste app.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { limit, onSnapshot, orderBy, query } from 'firebase/firestore';
-import { MENSAGENS_POR_PAGINA } from '../services/chat';
+import { MENSAGENS_POR_PAGINA, colecaoDeMensagensDiretas } from '../services/chat';
 import { LIMITE_DE_MENSAGENS, colecaoDeChat } from '../services/salas';
 import { criarComparadorPorHorario } from '../services/tempo';
 
@@ -38,7 +38,11 @@ import { criarComparadorPorHorario } from '../services/tempo';
  * Escuta a conversa da sala em janela crescente.
  *
  * @param {string|null} salaId `null` cai na coleção global da v0.4.0.
- * @param {{porPagina?: number, teto?: number}} [opcoes]
+ * @param {{porPagina?: number, teto?: number, conversaId?: string|null}} [opcoes]
+ *   `conversaId` troca a conversa da turma pela conversa direta. A janela, a
+ *   paginação e a ordenação são as mesmas nos dois casos — uma DM de 1000
+ *   mensagens custa o mesmo que a conversa da sala, e não havia por que ter
+ *   dois hooks quase iguais divergindo com o tempo.
  * @returns {{
  *   mensagens: Array<object>,
  *   temMais: boolean,
@@ -47,7 +51,11 @@ import { criarComparadorPorHorario } from '../services/tempo';
  * }}
  */
 export function useMensagens(salaId, opcoes = {}) {
-  const { porPagina = MENSAGENS_POR_PAGINA, teto = LIMITE_DE_MENSAGENS } = opcoes;
+  const {
+    porPagina = MENSAGENS_POR_PAGINA,
+    teto = LIMITE_DE_MENSAGENS,
+    conversaId = null,
+  } = opcoes;
 
   const [janela, setJanela] = useState(porPagina);
   const [mensagens, setMensagens] = useState([]);
@@ -60,14 +68,14 @@ export function useMensagens(salaId, opcoes = {}) {
     setJanela(porPagina);
     setMensagens([]);
     setCarregando(true);
-  }, [salaId, porPagina]);
+  }, [salaId, conversaId, porPagina]);
 
   useEffect(() => {
-    const consulta = query(
-      colecaoDeChat(salaId),
-      orderBy('horario', 'desc'),
-      limit(Math.min(janela, teto))
-    );
+    const colecao = conversaId
+      ? colecaoDeMensagensDiretas(salaId, conversaId)
+      : colecaoDeChat(salaId);
+
+    const consulta = query(colecao, orderBy('horario', 'desc'), limit(Math.min(janela, teto)));
 
     const cancelar = onSnapshot(consulta, (snapshot) => {
       const lista = snapshot.docs.map((documento) => ({
@@ -84,7 +92,7 @@ export function useMensagens(salaId, opcoes = {}) {
     });
 
     return () => cancelar();
-  }, [salaId, janela, teto]);
+  }, [salaId, conversaId, janela, teto]);
 
   /**
    * Há mensagem anterior à janela.
