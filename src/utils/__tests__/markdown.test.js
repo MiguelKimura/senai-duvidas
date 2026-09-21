@@ -11,7 +11,13 @@
 // de `<SCRIPT>`, de `<scr<script>ipt>` e de uma entidade que o parser desfaz
 // depois. Montar o HTML num elemento e perguntar ao navegador o que sobrou é a
 // única pergunta que corresponde ao que acontece em produção.
-import { FORMATO_MARKDOWN, FORMATO_TEXTO, formatoDoTexto, paraHtmlSeguro } from '../markdown';
+import {
+  FORMATO_MARKDOWN,
+  FORMATO_TEXTO,
+  formatoDoTexto,
+  paraHtmlDeMensagem,
+  paraHtmlSeguro,
+} from '../markdown';
 
 /** O HTML devolvido, montado como o navegador o montaria. */
 function montar(markdown) {
@@ -185,5 +191,134 @@ describe('formatoDoTexto — a chave da compatibilidade retroativa', () => {
 
   it('não quebra com documento nenhum', () => {
     expect(formatoDoTexto(null)).toBe(FORMATO_TEXTO);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A variante do chat — AC-CHAT-12.
+//
+// O card do chamado não tem links por decisão da task 05: `<a>` ficou fora da
+// lista de permissão porque uma sublinha azul não valia abrir phishing dentro
+// de um card que a turma inteira vê. No chat a conta é outra — "alguém tem o
+// link?" é literalmente a mensagem mais enviada da sala —, e a resposta certa
+// não é um sanitizador novo. Um segundo sanitizador é como as duas versões
+// divergem: uma ganha um vetor corrigido que a outra nunca recebe.
+//
+// `paraHtmlDeMensagem` é a MESMA tranca com uma tag a mais, e essa tag sai de
+// lá com `rel="noopener noreferrer"` gravado pelo sanitizador, não pelo autor
+// do markdown.
+// ---------------------------------------------------------------------------
+describe('paraHtmlDeMensagem — links clicáveis (AC-CHAT-12)', () => {
+  /** O HTML da mensagem, montado como o navegador o montaria. */
+  function montarMensagem(texto) {
+    const raiz = document.createElement('div');
+    raiz.innerHTML = paraHtmlDeMensagem(texto);
+    return raiz;
+  }
+
+  it('transforma uma URL solta em link clicável', () => {
+    const link = montarMensagem('o repositório é https://github.com/senai/duvidas').querySelector(
+      'a'
+    );
+
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('href')).toBe('https://github.com/senai/duvidas');
+  });
+
+  it('grava rel="noopener noreferrer" em todo link', () => {
+    const link = montarMensagem('https://exemplo.com').querySelector('a');
+
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('grava o rel mesmo quando o autor tentou escrever outro', () => {
+    // Quem escreve markdown não escolhe o `rel`: quem escolhe é o sanitizador,
+    // depois. Sem isto, `rel="opener"` num link abriria a aba com acesso a
+    // `window.opener` — e de lá se troca a página de origem.
+    const link = montarMensagem('<a href="https://exemplo.com" rel="opener">ir</a>');
+
+    expect(link.querySelector('a').getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('abre o link em outra aba, para não tirar o aluno da sala', () => {
+    const link = montarMensagem('https://exemplo.com').querySelector('a');
+
+    expect(link.getAttribute('target')).toBe('_blank');
+  });
+
+  it('mantém o texto do link legível em vez de trocá-lo pela URL', () => {
+    const link = montarMensagem('[a documentação](https://exemplo.com)').querySelector('a');
+
+    expect(link.textContent).toBe('a documentação');
+  });
+
+  it('NÃO cria link para esquema executável', () => {
+    const raiz = montarMensagem(`[clique](${ESQUEMA_EXECUTAVEL}alert(1))`);
+
+    const hrefs = [...raiz.querySelectorAll('a')].map((link) => link.getAttribute('href') || '');
+    expect(hrefs.some((href) => href.toLowerCase().includes('script:'))).toBe(false);
+  });
+
+  it('NÃO cria link para data:, que embute uma página inteira', () => {
+    const raiz = montarMensagem('[clique](data:text/html,<h1>oi</h1>)');
+
+    const hrefs = [...raiz.querySelectorAll('a')].map((link) => link.getAttribute('href') || '');
+    expect(hrefs.some((href) => href.toLowerCase().startsWith('data:'))).toBe(false);
+  });
+
+  it('continua sem deixar <script> virar markup', () => {
+    const raiz = montarMensagem('<script>alert(1)</script>Bom dia');
+
+    expect(raiz.querySelector('script')).toBeNull();
+    expect(raiz.textContent).not.toContain('alert(1)');
+  });
+
+  it('continua sem deixar <img> e seus manipuladores de evento entrarem', () => {
+    const raiz = montarMensagem('<img src=x onerror="alert(1)">');
+
+    expect(raiz.querySelector('img')).toBeNull();
+    expect(atributos(raiz)).not.toContain('onerror');
+  });
+
+  it('não deixa passar nenhum atributo além de href, rel e target', () => {
+    const raiz = montarMensagem(
+      '<a href="https://exemplo.com" onclick="alert(1)" style="color:red" id="x">ir</a>'
+    );
+
+    expect(atributos(raiz).sort()).toEqual(['href', 'rel', 'target']);
+  });
+
+  it('texto vazio devolve string vazia, sem parágrafo fantasma', () => {
+    expect(paraHtmlDeMensagem('   ')).toBe('');
+    expect(paraHtmlDeMensagem(null)).toBe('');
+  });
+});
+
+describe('paraHtmlSeguro — o card não herdou os links do chat', () => {
+  it('a permissão de <a> é do chat, e não vazou para o card do chamado', () => {
+    // A garantia é de isolamento: `paraHtmlDeMensagem` mexe na configuração do
+    // DOMPurify para o seu próprio uso, e o card não pode sentir isso.
+    const raiz = montar('[clique](https://exemplo.com)');
+
+    expect(raiz.querySelector('a')).toBeNull();
+    expect(raiz.textContent).toContain('clique');
+  });
+
+  it('o card continua sem <a> mesmo DEPOIS de o chat sanitizar uma mensagem', () => {
+    // O caso que pega o gancho global esquecido: se `paraHtmlDeMensagem`
+    // registrasse um hook no DOMPurify e não o removesse, a chamada seguinte
+    // do card carregaria o comportamento do chat.
+    paraHtmlDeMensagem('https://exemplo.com');
+
+    const raiz = montar('[clique](https://exemplo.com)');
+    expect(raiz.querySelector('a')).toBeNull();
+  });
+
+  it('e o chat continua com <a> depois de o card sanitizar (nos dois sentidos)', () => {
+    montar('[clique](https://exemplo.com)');
+
+    const raiz = document.createElement('div');
+    raiz.innerHTML = paraHtmlDeMensagem('[clique](https://exemplo.com)');
+    expect(raiz.querySelector('a')).not.toBeNull();
   });
 });
