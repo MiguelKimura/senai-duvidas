@@ -9,6 +9,40 @@ Todas as mudanças relevantes deste projeto são registradas aqui, no formato
 > intervalo e os agrupa. Escrever à mão é escrever de memória no fim do trabalho, e o que
 > fica de fora é justamente o que ninguém lembrou.
 
+> node scripts/gerarChangelog.js a95c1b7..HEAD --versao 0.7.0 --data 2026-09-21
+
+## [0.7.0] - 2026-09-21
+
+### Adicionado
+
+- **chamados:** dá ao card uma paleta com contraste verificado
+- **chamados:** renderiza markdown basico com lista de permissao
+- **chamados:** rende a descricao conforme o formato gravado nela
+- **chamados:** oferece a paleta como radiogroup com tabindex rotativo
+- **chamados:** esconde cor e markdown atras de uma setinha cinza
+- **chamados:** lembra a ultima cor escolhida, validando os dois lados
+- **chamados:** liga o painel avancado ao modal, abaixo do anexo
+- **chamados:** grava a cor escolhida e rende markdown nos dois cards
+
+### Alterado
+
+- **chamados:** exige paleta verificada por contraste no lugar do sorteio
+- **chamados:** exige markdown basico e a lista de vetores de XSS
+- **chamados:** monta o esquema executavel em pedacos no teste de XSS
+- **chamados:** exige um lugar so que decide como a descricao vira pixel
+- **chamados:** exige radiogroup navegavel por setas na paleta
+- **chamados:** exige a setinha cinza fechada por padrao, com previa
+- **chamados:** alcanca o DOM pelo documento, e nao pelo container
+- **chamados:** exige lembrar a cor e desconfiar do que volta do storage
+- **chamados:** exige o painel abaixo do anexo, com previa e cor lembrada
+- **chamados:** passa os testes novos pelo prettier do projeto
+- **chamados:** exige cor e markdown nos dois cards, sem tocar no legado
+- **chamados:** prova a compatibilidade futura do campo formato
+
+### Corrigido
+
+- **chamados:** escreve o caminho do Windows como caminho do Windows no teste
+
 > node scripts/gerarChangelog.js origin/dev..HEAD --versao 0.6.0 --data 2026-09-21
 
 ## [0.6.0] - 2026-09-21

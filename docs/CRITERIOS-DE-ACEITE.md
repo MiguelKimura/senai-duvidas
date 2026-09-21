@@ -82,16 +82,16 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-COR-01 | O modal de novo chamado exibe uma **setinha cinza discreta** (disclosure) abaixo dos campos principais, fechada por padrão. | [MVP] |
-| AC-COR-02 | Ao clicar na setinha, um painel se expande com animação suave revelando as opções avançadas. | [MVP] |
-| AC-COR-03 | O painel oferece uma **paleta de cores predefinidas** para o card, com contraste de texto garantido (WCAG AA, ≥ 4.5:1). | [MVP] |
-| AC-COR-04 | A cor escolhida é persistida no chamado e usada como fundo do card para todos que o visualizam. | [MVP] |
+| AC-COR-01 ✅ | O modal de novo chamado exibe uma **setinha cinza discreta** (disclosure) abaixo dos campos principais, fechada por padrão. | [MVP] |
+| AC-COR-02 ✅ | Ao clicar na setinha, um painel se expande com animação suave revelando as opções avançadas. | [MVP] |
+| AC-COR-03 ✅ | O painel oferece uma **paleta de cores predefinidas** para o card, com contraste de texto garantido (WCAG AA, ≥ 4.5:1). | [MVP] |
+| AC-COR-04 ✅ | A cor escolhida é persistida no chamado e usada como fundo do card para todos que o visualizam. | [MVP] |
 | AC-COR-05 ✅ | Se o aluno não escolher cor, o sistema mantém o comportamento atual (cor automática) — sem regressão. | [MVP] [REG] |
-| AC-COR-06 | A setinha é acessível por teclado (`Tab` + `Enter`/`Espaço`), tem `aria-expanded` correto e rótulo audível por leitor de tela. | [MVP] |
-| AC-COR-07 | O painel avançado aceita **markdown básico** na descrição (negrito, itálico, listas, `código`) com renderização sanitizada no card. | [MVP] |
-| AC-COR-08 | O markdown é sanitizado: nenhuma tag `<script>`, `<iframe>`, handler `on*` ou URL `javascript:` chega ao DOM. | [MVP] |
-| AC-COR-09 | O painel mostra um **preview ao vivo** do card com a cor e o markdown aplicados. | [POS] |
-| AC-COR-10 | A preferência de cor do aluno é lembrada como padrão do próximo chamado. | [POS] |
+| AC-COR-06 ✅ | A setinha é acessível por teclado (`Tab` + `Enter`/`Espaço`), tem `aria-expanded` correto e rótulo audível por leitor de tela. | [MVP] |
+| AC-COR-07 ✅ | O painel avançado aceita **markdown básico** na descrição (negrito, itálico, listas, `código`) com renderização sanitizada no card. | [MVP] |
+| AC-COR-08 ✅ | O markdown é sanitizado: nenhuma tag `<script>`, `<iframe>`, handler `on*` ou URL `javascript:` chega ao DOM. | [MVP] |
+| AC-COR-09 ✅ | O painel mostra um **preview ao vivo** do card com a cor e o markdown aplicados. | [POS] |
+| AC-COR-10 ✅ | A preferência de cor do aluno é lembrada como padrão do próximo chamado. | [POS] |
 
 ## 6. Imagens e Anexos (`IMG`)
 
@@ -223,7 +223,7 @@
 | AC-SEC-01 ✅ | As Firestore Rules negam tudo por padrão e liberam explicitamente cada caminho. | [MVP] |
 | AC-SEC-02 ✅ | Nenhum usuário lê ou escreve dados de sala à qual não pertence, validado por teste de rules. | [MVP] |
 | AC-SEC-03 ✅ | Escalada de privilégio de aluno para professor é impossível pelo cliente. | [MVP] |
-| AC-SEC-04 | Todo texto do usuário é escapado ou sanitizado antes de ser renderizado (proteção contra XSS). | [MVP] |
+| AC-SEC-04 ✅ | Todo texto do usuário é escapado ou sanitizado antes de ser renderizado (proteção contra XSS). | [MVP] |
 | AC-SEC-05 ✅ | PINs de sala não são expostos a quem não é dono da sala em nenhuma resposta do banco. | [MVP] |
 | AC-SEC-06 🟡 | O app roda apenas sob HTTPS; domínios autorizados do Firebase Auth estão restritos aos domínios reais. | [MVP] |
 | AC-SEC-07 | Dados de menores de idade: nenhum dado pessoal além de nome e e-mail institucional é coletado. | [MVP] |
@@ -531,3 +531,53 @@ Cloud Function agora. Está registrado no ADR 0007, em "Consequências".
 A validação por magic bytes **não é antivírus**: ela garante que o arquivo
 começa como imagem. Um PNG válido com dado escondido depois dos primeiros bytes
 passa. Varredura de conteúdo é serviço pago e está fora do escopo declarado.
+
+---
+
+### v0.7.0 — Opções avançadas do card: cor escolhida e markdown sanitizado
+
+**Atendidos (✅)**
+
+| AC | Prova |
+|---|---|
+| AC-COR-01 | `src/components/__tests__/PainelAvancado.test.js:50` — o painel não nasce aberto e o `aria-expanded` nasce `false`; `src/components/__tests__/Modal.test.js:217` — ele fica **abaixo** da seção de anexo, e `:227` — nasce fechado dentro do modal |
+| AC-COR-02 | `src/components/__tests__/PainelAvancado.test.js:74` — clicar abre e o `aria-expanded` acompanha; `:111` — a animação usa `var(--duracao-transicao)`, e não uma duração inventada; `:117` — em `prefers-reduced-motion: reduce` a transição é `none` |
+| AC-COR-03 | `src/utils/__tests__/paleta.test.js:79` — `it.each` sobre a paleta **inteira** exigindo ≥ 4,5:1; `:20` a `:46` — a fórmula verificada nos extremos (21 para preto/branco) e na fronteira do AA (#767676 passa, #777777 não); `src/components/__tests__/TelaAluno.caracterizacao.test.js:623` — o card usa a cor de texto que a paleta garante |
+| AC-COR-04 | `src/components/__tests__/TelaAluno.caracterizacao.test.js:604` — a cor escolhida é gravada no chamado, e `:614` — pinta o card; `src/components/__tests__/TelaProfessor.caracterizacao.test.js:354` — o card do professor mostra a mesma cor; `src/components/__tests__/Modal.test.js:243` |
+| AC-COR-05 | `src/components/__tests__/TelaAluno.caracterizacao.test.js:219` — cor automática quando o aluno não escolhe (caso da v0.2.0, intacto); `:632` — o card de cor sorteada **não** recebe cor de texto nova; `src/utils/__tests__/paleta.test.js:111` — `corAutomatica` devolve exatamente o `hsl(x, 70%, 80%)` da v0.1.0; `src/components/__tests__/Modal.test.js:260` |
+| AC-COR-06 | `src/components/__tests__/PainelAvancado.test.js:93` — `Enter` aciona a setinha, e `:101` — `Tab` a alcança; `:57` — rótulo audível "Opções avançadas"; `src/components/__tests__/SeletorDeCor.test.js:29` — radiogroup nomeado, `:100` — tabindex rotativo, `:108` a `:170` — setas, `Home`, `End` e volta nas pontas |
+| AC-COR-07 | `src/utils/__tests__/markdown.test.js:40` a `:77` — negrito, itálico, lista, lista ordenada, `código`, bloco cercado e quebra de linha; `src/components/__tests__/TelaAluno.caracterizacao.test.js:655` e `src/components/__tests__/TelaProfessor.caracterizacao.test.js:364` — renderizado nos dois cards |
+| AC-COR-08 | `src/utils/__tests__/markdown.test.js:134`, `:147` e `:151` — os doze vetores da task verificados **no DOM** (nenhum elemento executável, nenhum handler `on*`, nenhuma URL executável); `:163` — nada executa ao montar o vetor no documento; `src/components/__tests__/TelaAluno.caracterizacao.test.js:665` e `src/components/__tests__/TelaProfessor.caracterizacao.test.js:374` — na fila de verdade |
+| AC-COR-09 | `src/components/__tests__/PainelAvancado.test.js:152` — a prévia mostra o markdown aplicado, `:159` — a cor escolhida, `:165` — a automática enquanto não há escolha; `src/components/__tests__/Modal.test.js:274` — a cor entregue ao gravar é **a mesma** que a prévia mostrou |
+| AC-COR-10 | `src/components/__tests__/Modal.test.js:311` — a escolha é guardada ao concluir, `:322` — o próximo modal abre com ela marcada, `:344` — voltar para a automática esquece; `src/utils/__tests__/preferenciaDeCor.test.js:43` e `:55` — valor fora da paleta é recusado na leitura **e** na escrita, `:88` — storage que lança vira "sem preferência" |
+| AC-SEC-04 | `src/utils/__tests__/markdown.test.js:118` — a lista de vetores inteira; `src/components/__tests__/TextoMarkdown.test.js:42` — o HTML digitado no formato antigo continua sendo escapado por React; `src/components/__tests__/TelaAluno.caracterizacao.test.js:706` — a descrição antiga com `<script>` aparece como texto |
+| Retroativa | `src/components/__tests__/TelaAluno.caracterizacao.test.js:682` — chamado sem `formato`, com caminho do Windows e `_log_` na descrição, continua aparecendo como foi escrito; `src/components/__tests__/TelaProfessor.caracterizacao.test.js:389` — o mesmo no card do professor, com `style.color` vazio; `src/components/__tests__/TextoMarkdown.test.js:21` — texto puro é o padrão quando ninguém diz o formato; `src/utils/__tests__/paleta.test.js:98` — a cor `hsl()` sorteada não é confundida com a paleta |
+| Futura | `src/__tests__/compatibilidadeFutura.test.js:409` — o leitor da v0.6.0 lê o chamado da v0.7.0 sem lançar, `:418` — `cor` continua sendo string CSS que qualquer versão pinta, `:428` — quem ignora `formato` vê o markdown como texto cru; `src/utils/__tests__/markdown.test.js:182` — formato desconhecido cai em texto |
+
+**Continuam não atendidos, de propósito**
+
+| AC | Por quê | Task que resolve |
+|---|---|---|
+| AC-ANIM-05 | O painel avançado respeita `prefers-reduced-motion`, mas o restante da interface ainda não. A regra vale por ora só em `PainelAvancado.css`. | 08 |
+| AC-ANIM-09 | Inalterado por esta versão: o ícone 👁️ dos cards continua sendo uma `<div>` com `onClick`, e as duas regras de lint continuam desligadas com `TODO(task-08)`. O que esta versão acrescentou — setinha, radiogroup e prévia — já nasceu acessível. | 08 |
+| AC-CHAMADO-06 | Sem mudança nesta versão: marcar como atendido continua sem interface. | 07 |
+
+**Limites conhecidos**
+
+**A rule não valida `formato` nem `cor`.** A regra de criação de chamado confere
+autor, tamanho da descrição e o carimbo do servidor, e aceita os dois campos
+novos sem olhar. Uma escrita feita fora do app pode gravar
+`formato: "markdown"` com qualquer descrição — e é exatamente esse caso que a
+sanitização **na leitura** cobre, para todo leitor, inclusive para os documentos
+que a migração da task 03 copiou da coleção global. Validar os dois campos na
+rule é endurecimento barato e fica para a task 09.
+
+**Markdown é surpresa para quem não o conhece.** Um aluno que escreva `2 * 3 * 4`
+numa descrição nova verá itálico onde não pediu. O painel avançado explica a
+sintaxe aceita e a prévia mostra o resultado antes do envio; um editor com
+botões de formatação está fora do escopo desta versão.
+
+**Links e imagens não são interpretados.** `[texto](url)` vira só o texto e
+`![x](url)` desaparece. É decisão desta versão, registrada no ADR 0008: a imagem
+do chamado é o anexo validado do ADR 0007, e uma `<img>` na descrição entregaria
+o IP de toda a turma ao servidor do outro lado.
