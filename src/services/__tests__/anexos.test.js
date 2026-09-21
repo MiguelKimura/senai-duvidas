@@ -7,7 +7,16 @@
 // para `print.png` leva três segundos e engana qualquer `endsWith('.png')`.
 // O que prova é o começo do conteúdo — os *magic bytes*, que todo formato de
 // imagem carrega nos primeiros bytes e que nenhum renomeio altera (AC-SEC-08).
-import { LIMITE_DE_BYTES, comprimirImagem, validarArquivo } from '../anexos';
+import {
+  __arquivosEnviados,
+  __avancarUploads,
+  __concluirUploads,
+  __falharUploads,
+  __resetarStorage,
+  __segurarUploads,
+  __uploadsPendentes,
+} from 'firebase/storage';
+import { LIMITE_DE_BYTES, comprimirImagem, enviarAnexo, validarArquivo } from '../anexos';
 import {
   comDimensoes,
   desenhosFeitos,
@@ -273,5 +282,236 @@ describe('comprimirImagem — quando o navegador não dá conta', () => {
 
     expect(resultado.blob).toBe(original);
     expect(resultado.recomprimida).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// O upload — AC-IMG-02, AC-IMG-08, AC-IMG-09, AC-IMG-11.
+//
+// O anexo mora em `salas/{salaId}/chamados/{chamadoId}/{arquivo}`. O escopo
+// por sala não é organização: é o que permite que a Storage Rule pergunte
+// "quem está enviando é membro desta sala?" — pergunta impossível de fazer no
+// `imagens/{nome}` global da v0.1.0, onde dois alunos que mandassem
+// `print.png` se sobrescreviam.
+// ---------------------------------------------------------------------------
+describe('enviarAnexo — onde o arquivo vai parar (AC-IMG-11)', () => {
+  beforeEach(() => {
+    __resetarStorage();
+    instalarCanvasFalso();
+  });
+  afterEach(() => restaurarCanvas());
+
+  function print() {
+    return comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 800, 600);
+  }
+
+  it('grava dentro da pasta da sala e do chamado', async () => {
+    await enviarAnexo(print(), { salaId: 'sala-3b', chamadoId: 'chamado-9' });
+
+    expect(__arquivosEnviados()).toEqual([
+      expect.stringMatching(/^salas\/sala-3b\/chamados\/chamado-9\/[^/]+\.png$/),
+    ]);
+  });
+
+  it('devolve a URL, o caminho, as dimensões e o tamanho do que subiu', async () => {
+    const resultado = await enviarAnexo(print(), { salaId: 'sala-3b', chamadoId: 'chamado-9' });
+
+    expect(resultado).toMatchObject({
+      url: expect.stringContaining('salas/sala-3b/chamados/chamado-9/'),
+      caminho: expect.stringContaining('salas/sala-3b/chamados/chamado-9/'),
+      largura: 800,
+      altura: 600,
+      tipo: 'image/png',
+      origem: 'upload',
+    });
+    expect(resultado.bytes).toBeGreaterThan(0);
+  });
+
+  it('nomeia o arquivo com a extensão do conteúdo, não com a do nome original', async () => {
+    const disfarcado = comDimensoes(arquivoComBytes(PNG, 'print.txt', 'text/plain'), 800, 600);
+
+    const { caminho } = await enviarAnexo(disfarcado, { salaId: 's1', chamadoId: 'c1' });
+
+    expect(caminho.endsWith('.png')).toBe(true);
+  });
+
+  it('dois alunos que enviem "print.png" não se sobrescrevem', async () => {
+    await enviarAnexo(print(), { salaId: 's1', chamadoId: 'c1' });
+    await enviarAnexo(print(), { salaId: 's1', chamadoId: 'c1' });
+
+    expect(__arquivosEnviados()).toHaveLength(2);
+  });
+
+  it('o nome do arquivo não carrega o relógio da máquina do aluno', async () => {
+    const agora = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(agora);
+
+    const { caminho } = await enviarAnexo(print(), { salaId: 's1', chamadoId: 'c1' });
+
+    expect(caminho).not.toContain(String(agora));
+    Date.now.mockRestore();
+  });
+
+  it('recusa antes de subir um byte quando o arquivo não é imagem', async () => {
+    const exe = arquivoComBytes(EXE, 'print.png', 'image/png');
+
+    await expect(enviarAnexo(exe, { salaId: 's1', chamadoId: 'c1' })).rejects.toThrow(
+      /não é uma imagem/i
+    );
+    expect(__arquivosEnviados()).toEqual([]);
+  });
+
+  it('sobe a versão comprimida, e não o original de 3000px (AC-IMG-07)', async () => {
+    const grande = comTamanho(
+      comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 3000, 2000),
+      3 * 1024 * 1024
+    );
+
+    const resultado = await enviarAnexo(grande, { salaId: 's1', chamadoId: 'c1' });
+
+    expect(resultado).toMatchObject({ largura: 1600, altura: 1067 });
+    expect(resultado.bytes).toBeLessThan(grande.size);
+  });
+});
+
+/** Espera o upload chegar ao Storage — validação e compressão são assíncronas. */
+async function aguardarUpload() {
+  for (let volta = 0; volta < 50 && __uploadsPendentes().length === 0; volta += 1) {
+    await new Promise((resolver) => setTimeout(resolver, 0));
+  }
+}
+
+describe('enviarAnexo — progresso e cancelamento (AC-IMG-08)', () => {
+  beforeEach(() => {
+    __resetarStorage();
+    instalarCanvasFalso();
+    __segurarUploads();
+  });
+  afterEach(() => restaurarCanvas());
+
+  function print() {
+    return comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 800, 600);
+  }
+
+  it('informa o progresso como fração entre 0 e 1', async () => {
+    const progressos = [];
+    const envio = enviarAnexo(print(), {
+      salaId: 's1',
+      chamadoId: 'c1',
+      onProgresso: (fracao) => progressos.push(fracao),
+    });
+
+    await aguardarUpload();
+    __avancarUploads(0.5);
+    __concluirUploads();
+    await envio;
+
+    expect(progressos).toContain(0.5);
+    expect(progressos[progressos.length - 1]).toBe(1);
+    expect(Math.min(...progressos)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('cancela o upload em andamento quando o sinal é abortado', async () => {
+    const controle = new AbortController();
+    const envio = enviarAnexo(print(), {
+      salaId: 's1',
+      chamadoId: 'c1',
+      sinal: controle.signal,
+    });
+
+    await aguardarUpload();
+    const [tarefa] = __uploadsPendentes();
+    const cancelar = jest.spyOn(tarefa, 'cancel');
+
+    controle.abort();
+
+    await expect(envio).rejects.toMatchObject({ cancelado: true });
+    expect(cancelar).toHaveBeenCalled();
+  });
+
+  it('o cancelamento não deixa arquivo no Storage', async () => {
+    const controle = new AbortController();
+    const envio = enviarAnexo(print(), {
+      salaId: 's1',
+      chamadoId: 'c1',
+      sinal: controle.signal,
+    });
+
+    await aguardarUpload();
+    controle.abort();
+    await expect(envio).rejects.toThrow();
+
+    expect(__arquivosEnviados()).toEqual([]);
+  });
+
+  it('um sinal já abortado nem chega a começar o upload', async () => {
+    const controle = new AbortController();
+    controle.abort();
+
+    await expect(
+      enviarAnexo(print(), { salaId: 's1', chamadoId: 'c1', sinal: controle.signal })
+    ).rejects.toMatchObject({ cancelado: true });
+    expect(__uploadsPendentes()).toHaveLength(0);
+  });
+
+  it('depois de cancelar, a mesma tela consegue enviar de novo', async () => {
+    const controle = new AbortController();
+    const cancelado = enviarAnexo(print(), {
+      salaId: 's1',
+      chamadoId: 'c1',
+      sinal: controle.signal,
+    });
+    await aguardarUpload();
+    controle.abort();
+    await expect(cancelado).rejects.toThrow();
+
+    const segundo = enviarAnexo(print(), { salaId: 's1', chamadoId: 'c1' });
+    await aguardarUpload();
+    __concluirUploads();
+
+    await expect(segundo).resolves.toMatchObject({ origem: 'upload' });
+  });
+});
+
+describe('enviarAnexo — a falha de rede é acionável (AC-IMG-09)', () => {
+  beforeEach(() => {
+    __resetarStorage();
+    instalarCanvasFalso();
+    __segurarUploads();
+  });
+  afterEach(() => restaurarCanvas());
+
+  function envioEmAndamento() {
+    return enviarAnexo(comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 800, 600), {
+      salaId: 's1',
+      chamadoId: 'c1',
+    });
+  }
+
+  it('traduz a falha do Storage numa frase que diz o que fazer', async () => {
+    const envio = envioEmAndamento();
+
+    await aguardarUpload();
+    __falharUploads('storage/retry-limit-exceeded');
+
+    await expect(envio).rejects.toThrow(/tente de novo/i);
+  });
+
+  it('a recusa da rule chega como "você não faz parte desta sala"', async () => {
+    const envio = envioEmAndamento();
+
+    await aguardarUpload();
+    __falharUploads('storage/unauthorized');
+
+    await expect(envio).rejects.toThrow(/sala/i);
+  });
+
+  it('a falha não é marcada como cancelamento — a tela trata os dois diferente', async () => {
+    const envio = envioEmAndamento();
+
+    await aguardarUpload();
+    __falharUploads('storage/retry-limit-exceeded');
+
+    await expect(envio).rejects.toMatchObject({ cancelado: false });
   });
 });
