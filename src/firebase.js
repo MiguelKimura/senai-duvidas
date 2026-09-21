@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // Importando o Firebase Storage
+import { getStorage } from 'firebase/storage';
 
 // Configuração do Firebase (AC-AUTH-10).
 //
@@ -81,24 +81,20 @@ const firebaseConfig = montarConfiguracao();
 // `AuthProvider`, onde há ciclo de vida para cuidar delas.
 const app = initializeApp(firebaseConfig);
 
-// Inicializa o Auth, Firestore e Storage
+// Inicializa o Auth, Firestore e Storage.
+//
+// A task 04 tirou daqui a última regra de negócio que restava: `uploadImage`,
+// que gravava em `imagens/{nome}`. O caminho era global — sem sala e sem uid —
+// e dois alunos que enviassem `print.png` se sobrescreviam. Ela era órfã:
+// ninguém a chamava, e a interface nunca ofereceu upload de arquivo.
+//
+// Quem sobe anexo agora é `services/anexos.js`, que confere o conteúdo por
+// magic bytes, comprime no cliente e grava em
+// `salas/{salaId}/chamados/{chamadoId}/{nome-sorteado}` — o caminho que a
+// Storage Rule consegue fechar por sala. Este módulo voltou a fazer uma coisa
+// só: montar e expor o SDK.
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app); // Inicializando o Storage
+const storage = getStorage(app);
 
-// Função para fazer upload de imagens para o Firebase Storage
-const uploadImage = async (imageFile) => {
-  const imageRef = ref(storage, `imagens/${imageFile.name}`); // Defina o caminho da imagem
-  try {
-    // Envia a imagem para o Firebase Storage
-    await uploadBytes(imageRef, imageFile);
-    // Obtém a URL pública da imagem após o upload
-    const imageUrl = await getDownloadURL(imageRef);
-    return imageUrl; // Retorna a URL pública
-  } catch (error) {
-    console.error('Erro ao fazer upload da imagem:', error);
-    throw error;
-  }
-};
-
-export { app, auth, db, storage, uploadImage };
+export { app, auth, db, storage };

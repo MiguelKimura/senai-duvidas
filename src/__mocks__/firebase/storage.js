@@ -1,9 +1,9 @@
 // Fake do `firebase/storage`, aplicado automaticamente pelo Jest.
 //
 // Até a v0.5.0 este fake guardava o mínimo: `uploadBytes` e `getDownloadURL`,
-// porque o único cliente era a `uploadImage` órfã de `src/firebase.js`. A task
-// 04 traz o upload de verdade, e com ele três coisas que o fake precisa saber
-// imitar para que os critérios possam ser provados sem navegador:
+// porque o único cliente era um helper órfão de `src/firebase.js`, que a task
+// 04 aposentou. O upload de verdade trouxe três coisas que o fake precisa
+// saber imitar para que os critérios possam ser provados sem navegador:
 //
 //   * **progresso** — o `UploadTask` emite `state_changed` enquanto sobe, e é
 //     disso que a barra do AC-IMG-08 vive;
