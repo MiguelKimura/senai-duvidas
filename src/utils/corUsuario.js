@@ -14,6 +14,8 @@
 // `razaoContraste()` vem de `utils/paleta.js` (task 05), a mesma conta que
 // protege a paleta do card — duas implementações de contraste divergiriam, e a
 // que divergisse em silêncio seria a do chat.
+import { CONTRASTE_MINIMO, razaoContraste } from './paleta';
+
 /** O quase-preto da paleta do card. Mesma tinta, mesma conta de contraste. */
 export const TEXTO_ESCURO = '#1a1a1a';
 
@@ -25,8 +27,27 @@ export const TEXTO_ESCURO = '#1a1a1a';
  */
 const SATURACAO = 0.62;
 
-/** A luminosidade do fundo. Fixa nesta etapa; o ciclo 2 a torna verificada. */
-const LUMINOSIDADE_INICIAL = 0.78;
+/**
+ * Onde a busca de luminosidade começa, e como ela anda.
+ *
+ * Começa **escuro de propósito**. A busca sobe até o primeiro tom que passa no
+ * contraste, então o ponto de partida baixo é o que garante a cor mais saturada
+ * que ainda se lê. Partir claro entregaria mil tons de quase-branco, todos
+ * aprovados no contraste e nenhum distinguível do vizinho — que é o mesmo que
+ * não ter cor por usuário.
+ */
+const LUMINOSIDADE_INICIAL = 0.58;
+const PASSO_DE_LUMINOSIDADE = 0.02;
+
+/**
+ * O teto da busca.
+ *
+ * Hoje nenhum matiz chega perto dele: contra `TEXTO_ESCURO`, o pior caso passa
+ * bem antes. Ele existe porque a alternativa é um `while` sem saída — e o dia
+ * em que alguém trocar a cor do texto, o laço sem teto trava o navegador da
+ * turma inteira em vez de entregar uma cor feia.
+ */
+const LUMINOSIDADE_MAXIMA = 0.96;
 
 /**
  * Resumo FNV-1a de 32 bits.
@@ -93,6 +114,45 @@ function hslParaHexadecimal(matiz, saturacao, luminosidade) {
 }
 
 /**
+ * A cor de um matiz, clareada até o texto se ler por cima dela.
+ *
+ * A paleta do card (task 05) resolveu o contraste com nove cores escolhidas à
+ * mão e verificadas uma a uma no teste. Aqui não existe lista para revisar: o
+ * matiz sai de um hash, e qualquer um dos 360 pode aparecer. Então a
+ * verificação **é** a busca — a função não devolve nenhum tom que ela própria
+ * não tenha medido.
+ *
+ * Sobe de baixo para cima e para no primeiro que passa. Isso não é detalhe de
+ * implementação: é o que mantém as cores saturadas. Descer do branco pararia
+ * no primeiro tom claro, e a conversa inteira ficaria pastel.
+ *
+ * @param {number} matiz 0–360.
+ * @param {{luminosidadeInicial?: number, passos?: number, texto?: string}} [opcoes]
+ *   `passos` limita a busca; `0` devolve o ponto de partida sem procurar, que é
+ *   como o teste prova que o tom escolhido é mesmo o primeiro aprovado.
+ * @returns {{fundo: string, texto: string, matiz: number, luminosidade: number}}
+ */
+export function corDeMatiz(matiz, opcoes = {}) {
+  const {
+    luminosidadeInicial = LUMINOSIDADE_INICIAL,
+    passos = Math.ceil((LUMINOSIDADE_MAXIMA - luminosidadeInicial) / PASSO_DE_LUMINOSIDADE),
+    texto = TEXTO_ESCURO,
+  } = opcoes;
+
+  let luminosidade = luminosidadeInicial;
+  let fundo = hslParaHexadecimal(matiz, SATURACAO, luminosidade);
+
+  for (let passo = 0; passo < passos; passo += 1) {
+    if (razaoContraste(fundo, texto) >= CONTRASTE_MINIMO) break;
+
+    luminosidade = Math.min(luminosidade + PASSO_DE_LUMINOSIDADE, LUMINOSIDADE_MAXIMA);
+    fundo = hslParaHexadecimal(matiz, SATURACAO, luminosidade);
+  }
+
+  return { fundo, texto, matiz, luminosidade };
+}
+
+/**
  * A cor estável de uma pessoa, a partir de uma semente qualquer.
  *
  * @param {string|null|undefined} semente UID de preferência; e-mail no legado.
@@ -100,12 +160,9 @@ function hslParaHexadecimal(matiz, saturacao, luminosidade) {
  */
 export function corUsuario(semente) {
   const valor = typeof semente === 'string' && semente !== '' ? semente : 'sem-identidade';
-  const matiz = resumo(valor) % 360;
+  const { fundo, texto } = corDeMatiz(resumo(valor) % 360);
 
-  return {
-    fundo: hslParaHexadecimal(matiz, SATURACAO, LUMINOSIDADE_INICIAL),
-    texto: TEXTO_ESCURO,
-  };
+  return { fundo, texto };
 }
 
 /**
