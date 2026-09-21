@@ -9,7 +9,7 @@
 // de toda frase é ruído: ninguém escreve 500 caracteres num chat de sala por
 // acidente. Ele entra quando o limite deixa de ser teórico.
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CampoMensagem from '../CampoMensagem';
 import { TAMANHO_MAXIMO_DA_MENSAGEM } from '../../../services/chat';
@@ -62,7 +62,9 @@ describe('CampoMensagem — envio', () => {
     await userEvent.type(campo(), 'Bom dia');
     await userEvent.click(botaoEnviar());
 
-    expect(campo()).toHaveValue('');
+    // O envio virou assíncrono nesta versão — e precisava virar: é o `await`
+    // que permite manter o texto no campo quando a escrita falha.
+    await waitFor(() => expect(campo()).toHaveValue(''));
   });
 
   it('não envia mensagem vazia nem só com espaços', async () => {
@@ -120,8 +122,7 @@ describe('CampoMensagem — o limite de 500 caracteres (AC-CHAT-09)', () => {
   it('texto colado acima do limite é cortado, não descartado em silêncio', async () => {
     render(<CampoMensagem aoEnviar={jest.fn()} />);
 
-    await userEvent.click(campo());
-    await userEvent.paste(textoDe(600));
+    await userEvent.paste(campo(), textoDe(600));
 
     expect(campo().value).toHaveLength(TAMANHO_MAXIMO_DA_MENSAGEM);
     expect(screen.getByText(`500/${TAMANHO_MAXIMO_DA_MENSAGEM}`)).toBeInTheDocument();
@@ -197,6 +198,8 @@ describe('CampoMensagem — indicador de digitando (AC-CHAT-11)', () => {
   it('funciona sem ninguém ouvindo: o aviso é opcional', async () => {
     render(<CampoMensagem aoEnviar={jest.fn()} />);
 
-    await expect(userEvent.type(campo(), 'Bom dia')).resolves.not.toThrow();
+    await userEvent.type(campo(), 'Bom dia');
+
+    expect(campo()).toHaveValue('Bom dia');
   });
 });
