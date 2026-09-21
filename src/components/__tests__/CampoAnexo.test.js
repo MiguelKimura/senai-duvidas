@@ -15,8 +15,9 @@ import {
   __arquivosEnviados,
   __avancarUploads,
   __concluirUploads,
-  __falharUploads,
+  __derrubarUploads,
   __resetarStorage,
+  __restaurarRede,
   __segurarUploads,
   __semearArquivos,
   __uploadsPendentes,
@@ -286,25 +287,26 @@ describe('CampoAnexo — progresso e cancelamento (AC-IMG-08)', () => {
 });
 
 describe('CampoAnexo — a falha de envio (AC-IMG-09)', () => {
-  beforeEach(() => __segurarUploads());
-
   it('mostra um erro que diz o que fazer', async () => {
+    // A rede cai antes de o arquivo sequer chegar ao Storage. Derrubar tudo de
+    // uma vez, em vez de esperar a tarefa existir, tira a corrida do teste: a
+    // barra aparece assim que o arquivo é escolhido, mas o upload só começa
+    // depois de ler os magic bytes e comprimir a imagem.
+    __derrubarUploads('storage/retry-limit-exceeded');
     montar();
-    userEvent.upload(screen.getByLabelText(/imagem do computador/i), print());
-    await screen.findByRole('progressbar');
 
-    __falharUploads('storage/retry-limit-exceeded');
+    userEvent.upload(screen.getByLabelText(/imagem do computador/i), print());
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/tente de novo/i);
   });
 
   it('a falha some quando o aluno escolhe outra imagem', async () => {
+    __derrubarUploads('storage/retry-limit-exceeded');
     montar();
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print('primeira.png'));
-    await aguardarEnvioComecar();
-    __falharUploads('storage/retry-limit-exceeded');
     await screen.findByRole('alert');
 
+    __restaurarRede();
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print('segunda.png'));
 
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());

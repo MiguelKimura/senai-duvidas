@@ -23,6 +23,17 @@ let tarefas = [];
 /** Quando ligado, o upload fica parado até o teste mandá-lo seguir. */
 let segurandoUploads = false;
 
+/**
+ * Código de erro que derruba todo upload, inclusive os que ainda não
+ * começaram.
+ *
+ * Existe para tirar a corrida dos testes de falha: a tela mostra "0%" assim
+ * que o arquivo é escolhido, mas o upload só chega ao Storage depois de ler os
+ * magic bytes e comprimir a imagem. Mandar falhar nesse intervalo não faria
+ * nada, e o teste passaria ou não conforme a carga da máquina.
+ */
+let modoDeFalha = null;
+
 export function getStorage() {
   return { __tipo: 'storage-fake' };
 }
@@ -176,9 +187,13 @@ export function uploadBytesResumable(referencia, dados, metadados = {}) {
 
   tarefas.push(tarefa);
 
-  // Sem `__segurarUploads()`, a subida termina sozinha na próxima volta do
-  // laço de eventos — que é o caminho feliz da maioria dos testes.
-  if (!segurandoUploads) setTimeout(() => tarefa.__concluir(), 0);
+  if (modoDeFalha) {
+    setTimeout(() => tarefa.__falhar(modoDeFalha), 0);
+  } else if (!segurandoUploads) {
+    // Sem `__segurarUploads()`, a subida termina sozinha na próxima volta do
+    // laço de eventos — que é o caminho feliz da maioria dos testes.
+    setTimeout(() => tarefa.__concluir(), 0);
+  }
 
   return tarefa;
 }
@@ -189,6 +204,7 @@ export function __resetarStorage() {
   arquivos = new Map();
   tarefas = [];
   segurandoUploads = false;
+  modoDeFalha = null;
 }
 
 export function __arquivosEnviados() {
@@ -225,4 +241,20 @@ export function __concluirUploads() {
 /** Faz todas as tarefas paradas falharem, como uma rede de laboratório faria. */
 export function __falharUploads(codigo) {
   [...tarefas].forEach((tarefa) => tarefa.__falhar(codigo));
+}
+
+/**
+ * Derruba todo upload, inclusive os que ainda nem começaram.
+ *
+ * É a rede de laboratório que caiu e continua caída — e é o que deixa o teste
+ * de falha independer de quando o arquivo terminou de ser comprimido.
+ */
+export function __derrubarUploads(codigo = 'storage/retry-limit-exceeded') {
+  modoDeFalha = codigo;
+  __falharUploads(codigo);
+}
+
+/** Devolve a rede: os próximos uploads voltam a terminar normalmente. */
+export function __restaurarRede() {
+  modoDeFalha = null;
 }

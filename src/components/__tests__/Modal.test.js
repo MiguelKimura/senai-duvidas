@@ -14,13 +14,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {
-  __arquivosEnviados,
-  __falharUploads,
-  __resetarStorage,
-  __segurarUploads,
-  __uploadsPendentes,
-} from 'firebase/storage';
+import { __arquivosEnviados, __derrubarUploads, __resetarStorage } from 'firebase/storage';
 import { __resetarFirestore } from 'firebase/firestore';
 import Modal from '../Modal';
 import { comDimensoes, instalarCanvasFalso, restaurarCanvas } from '../../test-utils';
@@ -141,27 +135,23 @@ describe('Modal — o que ele entrega ao gravar', () => {
 
 describe('Modal — a falha de upload não custa o texto digitado (AC-IMG-09)', () => {
   it('a descrição continua no campo depois do erro de envio', async () => {
-    __segurarUploads();
+    __derrubarUploads('storage/retry-limit-exceeded');
     montar();
     const campo = screen.getByPlaceholderText('Descreva o problema');
 
     userEvent.type(campo, 'O VS Code não abre no computador 12');
     userEvent.upload(seletorDeArquivo(), print());
-    await waitFor(() => expect(__uploadsPendentes().length).toBeGreaterThan(0));
-    __falharUploads('storage/retry-limit-exceeded');
 
     await screen.findByRole('alert');
     expect(campo).toHaveValue('O VS Code não abre no computador 12');
   });
 
   it('e dá para concluir o chamado sem o anexo, com o texto intacto', async () => {
-    __segurarUploads();
+    __derrubarUploads('storage/retry-limit-exceeded');
     const { aoEnviar } = montar();
 
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'Sem o print mesmo');
     userEvent.upload(seletorDeArquivo(), print());
-    await waitFor(() => expect(__uploadsPendentes().length).toBeGreaterThan(0));
-    __falharUploads('storage/retry-limit-exceeded');
     await screen.findByRole('alert');
 
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));

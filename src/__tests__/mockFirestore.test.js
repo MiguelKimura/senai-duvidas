@@ -68,7 +68,10 @@ describe('fake de Firestore', () => {
   });
 
   it('getDocs devolve todos os documentos da coleção com ref para exclusão', async () => {
-    __semearColecao('chat', [{ id: 'm1', texto: 'oi' }, { id: 'm2', texto: 'tudo bem?' }]);
+    __semearColecao('chat', [
+      { id: 'm1', texto: 'oi' },
+      { id: 'm2', texto: 'tudo bem?' },
+    ]);
 
     const snap = await getDocs(query(collection(db, 'chat')));
 
@@ -263,7 +266,10 @@ describe('fake de Firestore — where (AC-SALA-07)', () => {
   });
 
   it('filtra por igualdade', async () => {
-    const consulta = query(collection(db, 'salas/sala-a/chamados'), where('atendido', '==', false));
+    const consulta = query(
+      collection(db, 'salas/sala-a/chamados'),
+      where('atendido', '==', false)
+    );
 
     const encontrados = (await getDocs(consulta)).docs.map((documento) => documento.id);
 
@@ -271,7 +277,10 @@ describe('fake de Firestore — where (AC-SALA-07)', () => {
   });
 
   it('não entrega documento sem o campo, como o Firestore de verdade', async () => {
-    const consulta = query(collection(db, 'salas/sala-a/chamados'), where('atendido', '==', true));
+    const consulta = query(
+      collection(db, 'salas/sala-a/chamados'),
+      where('atendido', '==', true)
+    );
 
     const encontrados = (await getDocs(consulta)).docs.map((documento) => documento.id);
 
@@ -327,7 +336,11 @@ describe('fake de Firestore — limit (AC-PERF-03)', () => {
   });
 
   it('corta depois de ordenar, e não antes', async () => {
-    const consulta = query(collection(db, 'salas/sala-a/chat'), orderBy('horario', 'desc'), limit(2));
+    const consulta = query(
+      collection(db, 'salas/sala-a/chat'),
+      orderBy('horario', 'desc'),
+      limit(2)
+    );
 
     const textos = (await getDocs(consulta)).docs.map((documento) => documento.data().texto);
 
@@ -351,7 +364,9 @@ describe('fake de Firestore — recusa de escrita', () => {
   it('faz a escrita no caminho marcado falhar com permission-denied', async () => {
     __recusarEscritaEm('indicePins/123456');
 
-    await expect(setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })).rejects.toMatchObject({
+    await expect(
+      setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })
+    ).rejects.toMatchObject({
       code: 'permission-denied',
     });
   });
@@ -359,21 +374,29 @@ describe('fake de Firestore — recusa de escrita', () => {
   it('recusa uma vez só, como a colisão que some quando o PIN muda', async () => {
     __recusarEscritaEm('indicePins/123456');
 
-    await expect(setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })).rejects.toBeDefined();
-    await expect(setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })).resolves.toBeUndefined();
+    await expect(
+      setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })
+    ).rejects.toBeDefined();
+    await expect(
+      setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })
+    ).resolves.toBeUndefined();
   });
 
   it('não recusa escrita em outro caminho', async () => {
     __recusarEscritaEm('indicePins/123456');
 
-    await expect(setDoc(doc(db, 'indicePins', '654321'), { salaId: 's1' })).resolves.toBeUndefined();
+    await expect(
+      setDoc(doc(db, 'indicePins', '654321'), { salaId: 's1' })
+    ).resolves.toBeUndefined();
   });
 
   it('a recusa não atravessa de um teste para o outro', async () => {
     __recusarEscritaEm('indicePins/123456');
     __resetarFirestore();
 
-    await expect(setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })).resolves.toBeUndefined();
+    await expect(
+      setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })
+    ).resolves.toBeUndefined();
   });
 
   it('também recusa leitura quando o caminho é marcado para leitura', async () => {
@@ -384,7 +407,6 @@ describe('fake de Firestore — recusa de escrita', () => {
     });
   });
 });
-
 
 describe('fake de Firestore — recusa repetida', () => {
   it('recusa quantas vezes forem pedidas, e só', async () => {

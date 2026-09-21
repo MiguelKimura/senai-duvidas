@@ -169,7 +169,9 @@ describe('CriarSala — o PIN (AC-SALA-02, AC-SALA-03, AC-SEC-05)', () => {
 
     await criarSala();
 
-    expect(await screen.findByText(/anote agora|uma única vez|só aparece/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/anote agora|uma única vez|só aparece/i)
+    ).toBeInTheDocument();
   });
 
   it('leva o professor para a sala recém-criada quando ele termina', async () => {

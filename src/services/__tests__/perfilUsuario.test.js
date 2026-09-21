@@ -89,7 +89,9 @@ describe('primeiro acesso — o documento é criado (AC-AUTH-03, AC-AUTH-04)', (
     const resultado = await garantirPerfil(ANA_DO_GOOGLE);
 
     expect(resultado.papel).toBe('aluno');
-    expect(resultado.perfil).toEqual(expect.objectContaining({ uid: 'uid-ana', tipo: 'aluno' }));
+    expect(resultado.perfil).toEqual(
+      expect.objectContaining({ uid: 'uid-ana', tipo: 'aluno' })
+    );
     expect(resultado.criado).toBe(true);
   });
 
@@ -140,7 +142,13 @@ describe('resolução do papel — as duas fontes precisam concordar (AC-AUTH-06
 
   it('é professor quando usuarios/{uid}.tipo e autorizados/{email}.Tipo concordam', async () => {
     __semearColecao('usuarios', [
-      { id: 'uid-carlos', uid: 'uid-carlos', nome: 'Carlos Lima', email: 'carlos@senai.br', tipo: 'professor' },
+      {
+        id: 'uid-carlos',
+        uid: 'uid-carlos',
+        nome: 'Carlos Lima',
+        email: 'carlos@senai.br',
+        tipo: 'professor',
+      },
     ]);
     __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'professor' }]);
 
@@ -229,7 +237,13 @@ describe('conta legada de professor cujo e-mail saiu de autorizados', () => {
   beforeEach(() => {
     // Documento no formato antigo: sem `criadoEm` e sem `provedor`.
     __semearColecao('usuarios', [
-      { id: 'uid-marta', uid: 'uid-marta', nome: 'Marta Reis', email: 'marta@senai.br', tipo: 'professor' },
+      {
+        id: 'uid-marta',
+        uid: 'uid-marta',
+        nome: 'Marta Reis',
+        email: 'marta@senai.br',
+        tipo: 'professor',
+      },
     ]);
   });
 
@@ -250,7 +264,13 @@ describe('conta legada de professor cujo e-mail saiu de autorizados', () => {
     await garantirPerfil(PROFESSORA_LEGADA);
 
     expect(await usuariosGravados()).toEqual([
-      { id: 'uid-marta', uid: 'uid-marta', nome: 'Marta Reis', email: 'marta@senai.br', tipo: 'professor' },
+      {
+        id: 'uid-marta',
+        uid: 'uid-marta',
+        nome: 'Marta Reis',
+        email: 'marta@senai.br',
+        tipo: 'professor',
+      },
     ]);
   });
 

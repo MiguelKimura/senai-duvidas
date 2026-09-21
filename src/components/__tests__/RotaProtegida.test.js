@@ -175,9 +175,7 @@ describe('sem sessão (AC-AUTH-08)', () => {
 
     window.history.back();
 
-    await waitFor(() =>
-      expect(screen.queryByText('Tela do aluno')).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.queryByText('Tela do aluno')).not.toBeInTheDocument());
   });
 });
 
@@ -190,7 +188,9 @@ describe('falha ao resolver o papel', () => {
     montar('/aluno');
 
     expect(await screen.findByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível confirmar seu acesso');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Não foi possível confirmar seu acesso'
+    );
     expect(screen.queryByText('Tela do aluno')).not.toBeInTheDocument();
   });
 

@@ -1,7 +1,7 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Importando o Firebase Storage
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // Importando o Firebase Storage
 
 // Configuração do Firebase (AC-AUTH-10).
 //
@@ -14,27 +14,27 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 // Cada variável é lida de forma estática, e não por `process.env[nome]`, para
 // não depender de como o empacotador substitui `process.env` no build.
 const CONFIG_DE_FALLBACK = {
-  apiKey: "AIzaSyA2fYSQknvMEeqlxMEwMjq49IrnazOGqkQ",
-  authDomain: "senai-duvidas.firebaseapp.com",
-  projectId: "senai-duvidas",
-  storageBucket: "senai-duvidas.appspot.com",
-  messagingSenderId: "212239446381",
-  appId: "1:212239446381:web:a16be214f6f54014a2ea64"
+  apiKey: 'AIzaSyA2fYSQknvMEeqlxMEwMjq49IrnazOGqkQ',
+  authDomain: 'senai-duvidas.firebaseapp.com',
+  projectId: 'senai-duvidas',
+  storageBucket: 'senai-duvidas.appspot.com',
+  messagingSenderId: '212239446381',
+  appId: '1:212239446381:web:a16be214f6f54014a2ea64',
 };
 
 const VALORES_DO_AMBIENTE = {
-  apiKey: ["REACT_APP_FIREBASE_API_KEY", process.env.REACT_APP_FIREBASE_API_KEY],
-  authDomain: ["REACT_APP_FIREBASE_AUTH_DOMAIN", process.env.REACT_APP_FIREBASE_AUTH_DOMAIN],
-  projectId: ["REACT_APP_FIREBASE_PROJECT_ID", process.env.REACT_APP_FIREBASE_PROJECT_ID],
+  apiKey: ['REACT_APP_FIREBASE_API_KEY', process.env.REACT_APP_FIREBASE_API_KEY],
+  authDomain: ['REACT_APP_FIREBASE_AUTH_DOMAIN', process.env.REACT_APP_FIREBASE_AUTH_DOMAIN],
+  projectId: ['REACT_APP_FIREBASE_PROJECT_ID', process.env.REACT_APP_FIREBASE_PROJECT_ID],
   storageBucket: [
-    "REACT_APP_FIREBASE_STORAGE_BUCKET",
-    process.env.REACT_APP_FIREBASE_STORAGE_BUCKET
+    'REACT_APP_FIREBASE_STORAGE_BUCKET',
+    process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
   ],
   messagingSenderId: [
-    "REACT_APP_FIREBASE_MESSAGING_SENDER_ID",
-    process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID
+    'REACT_APP_FIREBASE_MESSAGING_SENDER_ID',
+    process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
   ],
-  appId: ["REACT_APP_FIREBASE_APP_ID", process.env.REACT_APP_FIREBASE_APP_ID]
+  appId: ['REACT_APP_FIREBASE_APP_ID', process.env.REACT_APP_FIREBASE_APP_ID],
 };
 
 /**
@@ -60,8 +60,8 @@ const montarConfiguracao = () => {
 
   if (faltantes.length > 0) {
     console.warn(
-      "[firebase] Configuração incompleta: usando os valores embutidos no código para " +
-        `${faltantes.join(", ")}. Defina essas variáveis no .env (veja .env.example).`
+      '[firebase] Configuração incompleta: usando os valores embutidos no código para ' +
+        `${faltantes.join(', ')}. Defina essas variáveis no .env (veja .env.example).`
     );
   }
 
@@ -96,7 +96,7 @@ const uploadImage = async (imageFile) => {
     const imageUrl = await getDownloadURL(imageRef);
     return imageUrl; // Retorna a URL pública
   } catch (error) {
-    console.error("Erro ao fazer upload da imagem:", error);
+    console.error('Erro ao fazer upload da imagem:', error);
     throw error;
   }
 };

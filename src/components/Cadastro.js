@@ -1,33 +1,33 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"; 
-import { db, auth } from "../firebase"; 
-import { verificarPermissao } from "../utils/permissoes"; // Importa a função de verificação
-import { traduzirErroDeAuth } from "../utils/errosAuth";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { db, auth } from '../firebase';
+import { verificarPermissao } from '../utils/permissoes'; // Importa a função de verificação
+import { traduzirErroDeAuth } from '../utils/errosAuth';
 
 import '../styles/Cadastro.css';
 
 const Cadastro = () => {
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
-  const [tipo, setTipo] = useState("aluno");
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [tipo, setTipo] = useState('aluno');
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrorMessage("");
+    setErrorMessage('');
 
     try {
       // Verifica permissão antes de cadastrar como professor
-      if (tipo === "professor") {
+      if (tipo === 'professor') {
         const podeCadastrar = await verificarPermissao(email.trim().toLowerCase()); // Normaliza o e-mail
         if (!podeCadastrar) {
-          setErrorMessage("Apenas usuários autorizados podem se cadastrar como professores.");
+          setErrorMessage('Apenas usuários autorizados podem se cadastrar como professores.');
           setIsLoading(false);
           return;
         }
@@ -47,19 +47,19 @@ const Cadastro = () => {
       // cliente seria inventada. `criadoEm` e `provedor` são aditivos — um
       // leitor da versão anterior, que não os conhece, continua lendo `nome`,
       // `email`, `tipo` e `uid` como sempre leu.
-      const usuarioRef = doc(db, "usuarios", user.uid);
+      const usuarioRef = doc(db, 'usuarios', user.uid);
       await setDoc(usuarioRef, {
         nome,
         email,
         tipo,
         uid: user.uid, // Armazena o ID do usuário para referência
         criadoEm: serverTimestamp(),
-        provedor: "password",
+        provedor: 'password',
       });
 
       // A confirmação é a própria tela que abre. O `alert()` que ficava aqui
       // bloqueava a aba e sumia sem deixar texto nenhum na página.
-      navigate(tipo === "aluno" ? "/aluno" : "/professor");
+      navigate(tipo === 'aluno' ? '/aluno' : '/professor');
     } catch (error) {
       // Um único tradutor para todo o projeto (AC-AUTH-05). A cadeia de `if`
       // que vivia aqui tinha um ramo final que despejava `error.message` na
@@ -117,7 +117,7 @@ const Cadastro = () => {
 
           <div className="button-container">
             <button type="submit" disabled={isLoading}>
-              {isLoading ? "Cadastrando..." : "Cadastrar"}
+              {isLoading ? 'Cadastrando...' : 'Cadastrar'}
             </button>
           </div>
         </form>

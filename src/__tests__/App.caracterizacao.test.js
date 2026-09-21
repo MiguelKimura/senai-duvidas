@@ -14,11 +14,7 @@
 // envolvido pelo `AuthProvider`.
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import {
-  __definirUsuarioAtual,
-  __definirUsuarioDoPopup,
-  __resetarAuth,
-} from 'firebase/auth';
+import { __definirUsuarioAtual, __definirUsuarioDoPopup, __resetarAuth } from 'firebase/auth';
 import { __resetarFirestore, __semearColecao } from 'firebase/firestore';
 import App from '../App';
 import { __esquecerPersistencia } from '../services/auth';
@@ -41,7 +37,13 @@ async function montarApp() {
 /** Carlos é professor de verdade: as duas fontes do Firestore concordam. */
 function semearProfessorDeVerdade() {
   __semearColecao('usuarios', [
-    { id: 'uid-carlos', uid: 'uid-carlos', nome: 'Carlos Lima', email: 'carlos@senai.br', tipo: 'professor' },
+    {
+      id: 'uid-carlos',
+      uid: 'uid-carlos',
+      nome: 'Carlos Lima',
+      email: 'carlos@senai.br',
+      tipo: 'professor',
+    },
   ]);
   __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'professor' }]);
 }
@@ -159,7 +161,13 @@ describe('App — o papel NÃO vem mais do localStorage (AC-AUTH-06, AC-SEC-03)'
     // segunda fonte (`autorizados`) é o que desarma isso do lado do app; a
     // task 03 fecha o lado do servidor.
     __semearColecao('usuarios', [
-      { id: 'uid-ana', uid: 'uid-ana', nome: 'Ana Souza', email: 'ana@senai.br', tipo: 'professor' },
+      {
+        id: 'uid-ana',
+        uid: 'uid-ana',
+        nome: 'Ana Souza',
+        email: 'ana@senai.br',
+        tipo: 'professor',
+      },
     ]);
     __definirUsuarioAtual(ANA);
     irPara('/professor');

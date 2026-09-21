@@ -84,13 +84,12 @@ describe('garantirHttps — ambientes esquisitos', () => {
 describe('a aplicação chama o guarda antes de montar', () => {
   const fs = require('fs');
   const path = require('path');
-  const indexJs = fs.readFileSync(
-    path.join(__dirname, '..', '..', 'index.js'),
-    'utf8'
-  );
+  const indexJs = fs.readFileSync(path.join(__dirname, '..', '..', 'index.js'), 'utf8');
 
   it('src/index.js importa garantirHttps', () => {
-    expect(indexJs).toMatch(/import\s*\{\s*garantirHttps\s*\}\s*from\s*'\.\/utils\/httpsObrigatorio'/);
+    expect(indexJs).toMatch(
+      /import\s*\{\s*garantirHttps\s*\}\s*from\s*'\.\/utils\/httpsObrigatorio'/
+    );
   });
 
   it('chama garantirHttps antes do createRoot, e não depois', () => {

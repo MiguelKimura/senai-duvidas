@@ -104,7 +104,9 @@ describe('MinhasSalas — o aluno (AC-SALA-06)', () => {
     await montar();
 
     const cartao = await screen.findByRole('listitem');
-    expect(within(cartao).getByRole('heading', { name: 'Mecânica 2º ano' })).toBeInTheDocument();
+    expect(
+      within(cartao).getByRole('heading', { name: 'Mecânica 2º ano' })
+    ).toBeInTheDocument();
     expect(within(cartao).getByText(/Mecânica — Turma B/)).toBeInTheDocument();
     expect(within(cartao).getByText(/2026/)).toBeInTheDocument();
   });
@@ -205,7 +207,9 @@ describe('MinhasSalas — o professor dono (AC-SALA-08)', () => {
     await montar();
     const cartao = await screen.findByRole('listitem');
 
-    expect(within(cartao).queryByRole('button', { name: /gerar novo pin/i })).not.toBeInTheDocument();
+    expect(
+      within(cartao).queryByRole('button', { name: /gerar novo pin/i })
+    ).not.toBeInTheDocument();
     expect(within(cartao).queryByRole('button', { name: /arquivar/i })).not.toBeInTheDocument();
   });
 });

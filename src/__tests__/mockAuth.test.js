@@ -70,7 +70,9 @@ describe('fake de Auth', () => {
   });
 
   it('signInWithEmailAndPassword rejeita credencial inválida com código do Firebase', async () => {
-    await expect(signInWithEmailAndPassword(auth, 'ana@senai.br', 'errada')).rejects.toMatchObject({
+    await expect(
+      signInWithEmailAndPassword(auth, 'ana@senai.br', 'errada')
+    ).rejects.toMatchObject({
       code: 'auth/invalid-credential',
     });
   });

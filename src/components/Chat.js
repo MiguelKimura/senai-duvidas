@@ -1,8 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { auth } from '../firebase';
-import { FaArrowRight, FaComments } from 'react-icons/fa'; 
+import { FaArrowRight, FaComments } from 'react-icons/fa';
 import '../styles/Chat.css';
-import { addDoc, deleteDoc, getDocs, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
+import {
+  addDoc,
+  deleteDoc,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+} from 'firebase/firestore';
 import { LIMITE_DE_MENSAGENS, colecaoDeChat } from '../services/salas';
 import {
   carimboServidor,
@@ -10,7 +18,6 @@ import {
   criarComparadorPorHorario,
   msAteProximaMeiaNoiteBrasilia,
 } from '../services/tempo';
-
 
 // Função para gerar uma cor única para o usuário com base em um valor único (email)
 const gerarCorParaUsuario = (valorUnico) => {
@@ -41,7 +48,7 @@ function Chat({ salaId = null }) {
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
-      setUsuarioNome(user.displayName || "Aluno");
+      setUsuarioNome(user.displayName || 'Aluno');
       setUsuarioEmail(user.email);
     }
   }, []);
@@ -106,7 +113,7 @@ function Chat({ salaId = null }) {
       nome: usuarioNome,
       // AC-TEMPO-01: o horário da mensagem é o do servidor, como o do chamado.
       horario: carimboServidor(),
-      email: user.email
+      email: user.email,
     };
 
     try {
@@ -164,14 +171,11 @@ function Chat({ salaId = null }) {
               const isMinhaMensagem = mensagem.email === usuarioEmail;
 
               return (
-                <div 
-                  key={mensagem.id} 
+                <div
+                  key={mensagem.id}
                   className={`mensagem-card ${isMinhaMensagem ? 'minha-mensagem' : 'mensagem-outro-usuario'}`}
                 >
-                  <div 
-                    className="fala-box" 
-                    style={{ backgroundColor: corUsuario }}
-                  >
+                  <div className="fala-box" style={{ backgroundColor: corUsuario }}>
                     <strong>{mensagem.autorNome || mensagem.nome}</strong>: {mensagem.texto}
                   </div>
                 </div>

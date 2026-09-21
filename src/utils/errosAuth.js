@@ -9,16 +9,14 @@
 // v0.2.0 saiu de cena: ele bloqueia a aba e some sem deixar rastro na tela.
 
 /** Mensagem usada quando o código não é conhecido — ou nem existe. */
-const MENSAGEM_GENERICA =
-  'Não foi possível concluir a operação. Tente novamente em instantes.';
+const MENSAGEM_GENERICA = 'Não foi possível concluir a operação. Tente novamente em instantes.';
 
 /**
  * Credencial recusada. Os três códigos abaixo distinguem "e-mail não existe" de
  * "senha errada"; repassar essa distinção ao usuário entregaria de graça a
  * informação de quais e-mails têm conta, então os três dizem a mesma coisa.
  */
-const CREDENCIAL_INVALIDA =
-  'E-mail ou senha incorretos. Confira os dados e tente novamente.';
+const CREDENCIAL_INVALIDA = 'E-mail ou senha incorretos. Confira os dados e tente novamente.';
 
 const MENSAGENS = {
   'auth/popup-closed-by-user':

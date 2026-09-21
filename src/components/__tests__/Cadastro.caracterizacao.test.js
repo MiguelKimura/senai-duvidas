@@ -198,7 +198,9 @@ describe('Cadastro — erros do Firebase traduzidos (AC-AUTH-05)', () => {
     enviar();
 
     expect(
-      await screen.findByText('Este e-mail já está em uso. Entre com ele ou cadastre-se com outro.')
+      await screen.findByText(
+        'Este e-mail já está em uso. Entre com ele ou cadastre-se com outro.'
+      )
     ).toBeInTheDocument();
     expect(mockNavegar).not.toHaveBeenCalled();
   });
@@ -234,10 +236,7 @@ describe('Cadastro — erros do Firebase traduzidos (AC-AUTH-05)', () => {
   it('nunca mostra o código nem a mensagem crua do Firebase', async () => {
     // Código que o tradutor não conhece: é justamente aqui que a v0.2.0
     // despejava `error.message` na tela do aluno.
-    recusarCadastroCom(
-      'auth/tenant-id-mismatch',
-      'Firebase: Error (auth/tenant-id-mismatch).'
-    );
+    recusarCadastroCom('auth/tenant-id-mismatch', 'Firebase: Error (auth/tenant-id-mismatch).');
     renderComProvedores(<Cadastro />);
 
     preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });

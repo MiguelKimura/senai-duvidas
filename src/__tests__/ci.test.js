@@ -70,7 +70,9 @@ describe('.github/workflows/ci.yml', () => {
 
     for (const [nome, job] of Object.entries(jobs)) {
       const passos = job.steps;
-      const node = passos.find((passo) => String(passo.uses || '').includes('actions/setup-node'));
+      const node = passos.find((passo) =>
+        String(passo.uses || '').includes('actions/setup-node')
+      );
 
       // O job de commits só lê o histórico do git: não instala nada.
       if (nome === 'commits') continue;
@@ -94,9 +96,9 @@ describe('.github/workflows/ci.yml', () => {
   it('dá Java ao job de rules, sem o qual o emulador do Firestore não sobe', () => {
     const passos = lerCi().jobs['test-rules'].steps;
 
-    expect(passos.some((passo) => String(passo.uses || '').includes('actions/setup-java'))).toBe(
-      true
-    );
+    expect(
+      passos.some((passo) => String(passo.uses || '').includes('actions/setup-java'))
+    ).toBe(true);
   });
 
   it('publica a cobertura como artefato', () => {

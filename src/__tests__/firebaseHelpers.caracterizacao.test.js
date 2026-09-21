@@ -21,11 +21,7 @@ import { __arquivosEnviados, __resetarStorage } from 'firebase/storage';
 import { __definirUsuarioDoPopup, __resetarAuth } from 'firebase/auth';
 import * as firebase from '../firebase';
 import { auth, db, storage as storageExportado, uploadImage } from '../firebase';
-import {
-  entrarComGithub,
-  entrarComGoogle,
-  __esquecerPersistencia,
-} from '../services/auth';
+import { entrarComGithub, entrarComGoogle, __esquecerPersistencia } from '../services/auth';
 
 // Import normal, e nao `jest.isolateModules`: os helpers precisam enxergar a
 // MESMA instancia dos fakes que o teste manipula. Cada escopo isolado cria um

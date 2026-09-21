@@ -17,7 +17,8 @@ import { TAMANHO_DO_PIN } from '../services/pin';
 import BotaoSair from './BotaoSair';
 import '../styles/Salas.css';
 
-const ERRO_INESPERADO = 'Não foi possível entrar na sala agora. Tente de novo em alguns instantes.';
+const ERRO_INESPERADO =
+  'Não foi possível entrar na sala agora. Tente de novo em alguns instantes.';
 
 export default function EntrarComPin() {
   const { usuario, perfil } = useAuth();

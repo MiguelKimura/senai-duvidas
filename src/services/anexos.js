@@ -503,6 +503,12 @@ export async function removerAnexo(caminho) {
  * @returns {Promise<{apagados: number}>}
  */
 export async function removerAnexosDoChamado(salaId, chamadoId) {
+  // Sem sala não há pasta: `caminhoDoAnexo(null, ...)` cai em `imagens/`, o
+  // caminho global da v0.1.0, que não tem dono. Varrer aquele prefixo ao
+  // excluir um chamado apagaria o anexo de todos os outros chamados da escola
+  // de uma vez — e ninguém saberia por quê.
+  if (!salaId) return { apagados: 0 };
+
   const pasta = caminhoDoAnexo(salaId, chamadoId, '').replace(/\/$/, '');
 
   try {
@@ -521,4 +527,36 @@ export async function removerAnexosDoChamado(salaId, chamadoId) {
   } catch (_erro) {
     return { apagados: 0 };
   }
+}
+
+/**
+ * Apaga o que um chamado excluído deixa para trás no Storage (AC-CHAMADO-08).
+ *
+ * Duas frentes, porque uma só não cobre os dois casos reais:
+ *
+ *   * **o caminho gravado no documento** — é a única pista que sobra quando o
+ *     chamado vive na fila global da v0.4.0, onde não há pasta por sala;
+ *   * **a pasta do chamado** — pega o arquivo que sobrou de uma troca de
+ *     imagem interrompida no meio, cujo caminho não ficou gravado em lugar
+ *     nenhum porque o chamado guardou só o último anexo.
+ *
+ * Nunca lança: excluir o chamado é o que a pessoa pediu, e um arquivo que
+ * resistiu vira custo de cota, não erro na tela.
+ *
+ * @param {string|null} salaId
+ * @param {{id: string, anexo?: object|null, imagem?: string|null}} chamado
+ * @returns {Promise<{apagados: number}>}
+ */
+export async function removerAnexoDoChamado(salaId, chamado) {
+  if (!chamado) return { apagados: 0 };
+
+  const anexo = normalizarAnexo(chamado.anexo);
+
+  // O formato antigo — `imagem` em string — nunca tem caminho: aquela URL
+  // aponta para fora, para um servidor que não é nosso. Não há o que apagar.
+  if (anexo && anexo.caminho) await removerAnexo(anexo.caminho);
+
+  const { apagados } = await removerAnexosDoChamado(salaId, chamado.id);
+
+  return { apagados: apagados + (anexo && anexo.caminho ? 1 : 0) };
 }

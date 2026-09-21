@@ -227,11 +227,16 @@ describe('usuarios com campos que a v0.2.0 não conhece', () => {
       providerData: [{ providerId: 'google.com' }],
     });
 
-    expect(Object.keys(perfil)).toEqual(expect.arrayContaining(['nome', 'email', 'tipo', 'uid']));
+    expect(Object.keys(perfil)).toEqual(
+      expect.arrayContaining(['nome', 'email', 'tipo', 'uid'])
+    );
   });
 
   it('o leitor novo lê o documento da v0.2.0, sem criadoEm nem provedor', async () => {
-    const { __resetarFirestore: resetar, __semearColecao: semear } = require('firebase/firestore');
+    const {
+      __resetarFirestore: resetar,
+      __semearColecao: semear,
+    } = require('firebase/firestore');
     resetar();
     semear('usuarios', [{ id: 'uid-ana', ...PERFIL_DA_V020 }]);
     const { garantirPerfil } = require('../services/perfilUsuario');
@@ -310,7 +315,10 @@ describe('horario: a forma de dado que mudou na v0.4.0', () => {
     renderComProvedores(<TelaAluno />);
 
     await userEvent.click(screen.getByRole('button', { name: '+' }));
-    await userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'O VS Code não abre');
+    await userEvent.type(
+      screen.getByPlaceholderText('Descreva o problema'),
+      'O VS Code não abre'
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
 
     const chamados = async () =>
@@ -334,12 +342,19 @@ describe('horario: a forma de dado que mudou na v0.4.0', () => {
   it('o leitor da v0.4.0 ordena uma fila que mistura os dois formatos', () => {
     __semearColecao('chamados', [
       { ...CHAMADO_DA_V040, descricao: 'mais novo' },
-      { ...CHAMADO_DE_HOJE, id: 'antigo', descricao: 'mais antigo', horario: INSTANTE_ANTERIOR },
+      {
+        ...CHAMADO_DE_HOJE,
+        id: 'antigo',
+        descricao: 'mais antigo',
+        horario: INSTANTE_ANTERIOR,
+      },
     ]);
 
     renderComProvedores(<TelaProfessor />);
 
-    const textos = [...document.querySelectorAll('.problema-card')].map((card) => card.textContent);
+    const textos = [...document.querySelectorAll('.problema-card')].map(
+      (card) => card.textContent
+    );
 
     expect(textos[0]).toContain('mais antigo');
     expect(textos[1]).toContain('mais novo');

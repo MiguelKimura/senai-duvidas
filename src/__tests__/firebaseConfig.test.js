@@ -112,9 +112,7 @@ describe('firebase.js — configuração por REACT_APP_* (AC-AUTH-10)', () => {
   it('avisa em console.warn quando usa o fallback', () => {
     carregarFirebase();
 
-    expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining('REACT_APP_FIREBASE_')
-    );
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('REACT_APP_FIREBASE_'));
   });
 
   it('nomeia no aviso quais variáveis faltaram', () => {
