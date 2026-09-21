@@ -64,6 +64,20 @@ async function aguardarEnvioComecar() {
   await waitFor(() => expect(__uploadsPendentes().length).toBeGreaterThan(0));
 }
 
+/**
+ * Deixa passar voltas do laço de eventos suficientes para um upload inteiro.
+ *
+ * Serve às asserções **negativas**: "não subiu nada" só vale alguma coisa se o
+ * teste tiver dado ao upload a chance de acontecer. O caminho feliz atravessa
+ * `FileReader`, `createImageBitmap` e o `setTimeout` do fake — quatro voltas,
+ * com folga. Vinte é folga de sobra, e não depende do relógio.
+ */
+async function deixarOUploadAcontecer() {
+  for (let volta = 0; volta < 20; volta += 1) {
+    await new Promise((resolver) => setTimeout(resolver, 0));
+  }
+}
+
 /** A zona de soltar é o próprio corpo do campo. */
 function zonaDeSoltar() {
   return screen.getByTestId('zona-de-anexo');
@@ -375,7 +389,66 @@ describe('CampoAnexo — sala arquivada', () => {
     montar({ desabilitado: true });
 
     fireEvent.drop(zonaDeSoltar(), { dataTransfer: transferencia([print()]) });
+    await deixarOUploadAcontecer();
 
-    await waitFor(() => expect(__arquivosEnviados()).toEqual([]));
+    expect(__arquivosEnviados()).toEqual([]);
+  });
+});
+
+describe('CampoAnexo — fora de uma sala (fallback da v0.4.0)', () => {
+  // As rotas `/aluno` e `/professor` ainda existem e leem a fila global, sem
+  // sala. Lá o upload não tem para onde ir: o caminho do Storage é por sala, e
+  // a rule que autoriza a escrita pergunta se quem envia é membro *daquela*
+  // sala. Sem sala, a resposta é sempre não — e oferecer o botão seria
+  // prometer ao aluno algo que o servidor vai recusar depois de ele esperar o
+  // upload inteiro.
+  it('não oferece o seletor de arquivo quando não há sala', () => {
+    montar({ salaId: null });
+
+    expect(screen.queryByLabelText(/imagem do computador/i)).toBeNull();
+  });
+
+  it('o campo de link continua lá — é o que a v0.1.0 sempre ofereceu', () => {
+    const { aoMudar } = montar({ salaId: null });
+
+    userEvent.paste(
+      screen.getByPlaceholderText('Cole o link da imagem'),
+      'https://exemplo.br/erro.png'
+    );
+
+    expect(aoMudar).toHaveBeenLastCalledWith({
+      url: 'https://exemplo.br/erro.png',
+      origem: 'url',
+    });
+  });
+
+  it('explica por que só há link ali', () => {
+    montar({ salaId: null });
+
+    expect(screen.getByText(/entre em uma sala/i)).toBeInTheDocument();
+  });
+
+  it('arrastar um arquivo não sobe nada fora de uma sala', async () => {
+    montar({ salaId: null });
+
+    fireEvent.drop(zonaDeSoltar(), { dataTransfer: transferencia([print()]) });
+    await deixarOUploadAcontecer();
+
+    expect(__arquivosEnviados()).toEqual([]);
+  });
+
+  it('colar uma imagem não sobe nada fora de uma sala', async () => {
+    const colado = print('imagem-colada.png');
+    montar({ salaId: null });
+
+    fireEvent.paste(document, {
+      clipboardData: {
+        items: [{ kind: 'file', type: 'image/png', getAsFile: () => colado }],
+        files: [colado],
+      },
+    });
+    await deixarOUploadAcontecer();
+
+    expect(__arquivosEnviados()).toEqual([]);
   });
 });
