@@ -38,7 +38,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { carimboServidor } from './tempo';
+import { FUSO_BRASILIA, carimboServidor } from './tempo';
 import {
   ERRO_DE_LIMITE,
   ERRO_DE_PIN,
@@ -135,6 +135,23 @@ export function validarDadosDaSala({ nome, curso, anoLetivo } = {}) {
   }
 
   return { nome: nomeLimpo, curso: cursoLimpo, anoLetivo: ano };
+}
+
+/**
+ * O ano letivo corrente, pelo calendário de Brasília (AC-SALA-05).
+ *
+ * `new Date().getFullYear()` usaria o fuso da máquina — e o problema que a
+ * task 02 documentou é justamente que o fuso das máquinas de laboratório não é
+ * confiável. Na virada do ano, um Windows configurado em Tóquio ofereceria
+ * 2027 para uma sala criada em 31 de dezembro à noite no Brasil.
+ *
+ * @param {Date} [agora]
+ * @returns {number}
+ */
+export function anoLetivoCorrente(agora = new Date()) {
+  return Number(
+    new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO_BRASILIA, year: 'numeric' }).format(agora)
+  );
 }
 
 // --- caminhos ---------------------------------------------------------------

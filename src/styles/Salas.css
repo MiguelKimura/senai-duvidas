@@ -1,0 +1,143 @@
+/*
+ * As telas de sala — lista, criação, entrada por PIN.
+ *
+ * Nasceram depois de `styles/tokens.css`, então já usam `var(--token)` em vez
+ * dos literais que os CSS da v0.1.0 ainda repetem. É o formato para onde os
+ * antigos vão migrar; aqui ele já é o ponto de partida.
+ */
+
+.tela-salas {
+  font-family: var(--fonte-base);
+  background-color: var(--cor-fundo-tela);
+  min-height: 100vh;
+  padding: var(--espaco-4);
+  box-sizing: border-box;
+}
+
+.tela-salas h1 {
+  color: var(--cor-texto-titulo);
+  margin-bottom: var(--espaco-3);
+}
+
+.salas-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  max-width: 420px;
+  background-color: var(--cor-superficie);
+  padding: var(--espaco-4);
+  border-radius: var(--raio-2);
+  box-shadow: var(--sombra-caixa);
+}
+
+.salas-formulario label {
+  color: var(--cor-texto-rotulo);
+  margin-top: var(--espaco-2);
+}
+
+.salas-formulario input {
+  padding: var(--espaco-campo);
+  border: 1px solid var(--cor-borda-campo);
+  border-radius: var(--raio-1);
+  font-family: var(--fonte-base);
+}
+
+.salas-acao {
+  margin-top: var(--espaco-3);
+  padding: var(--espaco-campo);
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
+  border: none;
+  border-radius: var(--raio-1);
+  cursor: pointer;
+  transition: background-color var(--duracao-transicao) var(--aceleracao-padrao);
+}
+
+.salas-acao:hover {
+  background-color: var(--cor-primaria-hover);
+}
+
+.salas-acao:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.salas-acao-discreta {
+  background-color: var(--cor-fundo-caixa);
+  color: var(--cor-texto-titulo);
+  border: 1px solid var(--cor-borda);
+}
+
+.salas-acao-discreta:hover {
+  background-color: var(--cor-fundo-chat);
+}
+
+.salas-erro {
+  color: var(--cor-erro);
+  margin-top: var(--espaco-2);
+}
+
+.salas-vazio {
+  color: var(--cor-texto-discreto);
+}
+
+/* ---- Lista de salas ---------------------------------------------------- */
+
+.salas-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-3);
+  margin-top: var(--espaco-4);
+  padding: 0;
+  list-style: none;
+}
+
+.sala-cartao {
+  background-color: var(--cor-superficie);
+  border-radius: var(--raio-2);
+  box-shadow: var(--sombra-caixa);
+  padding: var(--espaco-4);
+  min-width: 260px;
+}
+
+.sala-cartao h2 {
+  color: var(--cor-texto-titulo);
+  margin: 0 0 var(--espaco-1);
+}
+
+.sala-cartao-dados {
+  color: var(--cor-texto-rotulo);
+  margin: var(--espaco-minimo) 0;
+}
+
+.sala-cartao-arquivada {
+  color: var(--cor-texto-discreto);
+}
+
+/* ---- PIN em destaque --------------------------------------------------- */
+
+.painel-do-pin {
+  background-color: var(--cor-superficie);
+  border-radius: var(--raio-2);
+  box-shadow: var(--sombra-elevada);
+  padding: var(--espaco-4);
+  max-width: 420px;
+}
+
+.painel-do-pin-numero {
+  font-size: 3rem;
+  letter-spacing: var(--espaco-2);
+  color: var(--cor-primaria);
+  margin: var(--espaco-2) 0;
+  user-select: all;
+}
+
+.painel-do-pin-copiado {
+  margin-left: var(--espaco-2);
+  color: var(--cor-mensagem-recebida);
+}
+
+.painel-do-pin-aviso {
+  color: var(--cor-texto-rotulo);
+  margin-top: var(--espaco-3);
+}
