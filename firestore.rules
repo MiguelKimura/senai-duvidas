@@ -1,33 +1,36 @@
 rules_version = '2';
 
-// Security Rules do Firestore — ENDURECIMENTO EM ANDAMENTO.
+// Security Rules do Firestore — ENDURECIDAS PELA TASK 03.
 //
-// A task 00 versionou este arquivo deliberadamente frouxo: um baseline escrito
-// e testável do que a v0.1.0 precisava para funcionar. Sem esse baseline não
-// haveria como provar que uma task apertou alguma coisa. Cada permissão
-// excessiva tem um teste em `tests/rules/firestore.rules.test.js` que a
-// demonstra explorada; quando uma task a fecha, o teste inverte de sinal — de
-// "consegue" para "é negado" — e é essa inversão que comprova a correção.
+// Até a v0.4.0 este arquivo era, por decisão explícita da task 00, um baseline
+// frouxo: cada permissão excessiva tinha um teste que a demonstrava explorada,
+// para que a task que a fechasse precisasse INVERTER o teste. É o que esta
+// versão faz — `chamados` e `chat` saem de coleções globais abertas para
+// subcoleções de sala com dono, papel e validação de campo.
 //
 // Situação por coleção:
 //
-//   usuarios     ENDURECIDA pela task 01. Era onde a escalada de privilégio
-//                acontecia, então veio primeiro, antes de qualquer feature.
-//   autorizados  Escrita já era negada desde a v0.1.0, e continua.
-//   chamados     Aberta, com UMA exceção: o `horario` gravado precisa ser o
-//                carimbo do servidor (task 02). O resto é a task 03.
-//   chat         Idem.
+//   salas              NOVA. Nega por padrão; cada caminho é liberado um a um.
+//   indicePins         NOVA. Só `get` de documento específico, nunca `list`,
+//                      e só depois de uma tentativa contada.
+//   tentativasPin      NOVA. O limite de força bruta do PIN (AC-SALA-12).
+//   usuarios           ENDURECIDA pela task 01, e mais aqui: a leitura deixa
+//                      de ser de qualquer autenticado.
+//   autorizados        Escrita negada desde a v0.1.0, e continua.
+//   chamados / chat    LEGADO. Continuam legíveis — é o fallback de leitura da
+//                      migração —, agora só para quem tem sessão, e com a
+//                      exclusão restrita ao autor ou ao professor.
 //
-// Apertar `chamados` e `chat` agora quebraria o app em produção antes das
-// tasks que o adaptam — e ele roda em laboratório, com turma em aula.
+// A ideia central do PIN: quem confere o número digitado é o **servidor**. O
+// resumo mora em `salas/{salaId}/segredo/pin`, que o aluno não lê, e a rule
+// refaz `hashing.sha256(sal + pin)` para comparar. Por isso o cliente nunca
+// precisa do segredo, e por isso regerar o PIN invalida o anterior sem que
+// ninguém guarde o número antigo em lugar nenhum (AC-SEC-05, AC-SALA-09).
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // ----------------------------------------------------------------------
-    // Funções auxiliares (task 01).
-    //
-    // A task 03 vai reusá-las para escopar `chamados` e `chat` por sala. Aqui
-    // elas valem só em `usuarios`, que é onde o papel do usuário é gravado.
+    // Identidade (task 01)
     // ----------------------------------------------------------------------
 
     /// Existe sessão do Firebase Auth.
@@ -52,43 +55,13 @@ service cloud.firestore {
 
     /// Está em `autorizados/{email}` com `Tipo: "professor"`.
     ///
-    /// `autorizados` é mantida à mão no console e tem escrita negada abaixo,
-    /// então é a única autoridade que o cliente não consegue forjar.
+    /// É o papel **global** no SENAI: diz quem pode criar sala. Não diz nada
+    /// sobre a sala de outro professor — isso é `ehDonoDaSala` (AC-SEC-02).
     function ehProfessor() {
       return ehAutenticado()
         && exists(/databases/$(database)/documents/autorizados/$(emailDoToken()))
         && get(/databases/$(database)/documents/autorizados/$(emailDoToken()))
              .data.Tipo.lower() == 'professor';
-    }
-
-    /// O `horario` gravado é o carimbo do servidor (task 02, AC-TEMPO-01).
-    ///
-    /// `request.time` é o instante em que o servidor processa a escrita, e é
-    /// exatamente o valor que `serverTimestamp()` resolve. Um Timestamp
-    /// escolhido pelo cliente nunca bate com ele — e é isso que impede furar a
-    /// fila pelo horário, com o app novo instalado e tudo, escrevendo direto
-    /// no Firestore pelo DevTools.
-    ///
-    /// Três saídas, nesta ordem:
-    ///
-    ///   1. a escrita não mexe em `horario`. A validação de campos
-    ///      obrigatórios é da task 03, junto com o escopo de sala;
-    ///   2. o valor é o carimbo do servidor — o caminho comum;
-    ///   3. o valor é o mesmo que já estava no documento. Este é o que deixa
-    ///      `horarioIso` ser preenchido num chamado antigo sem que a rule
-    ///      exija recarimbar — e reescrever o `horario` de um documento já
-    ///      gravado é justamente o que não pode acontecer.
-    function horarioEhDoServidor() {
-      return !('horario' in request.resource.data)
-        || request.resource.data.horario == request.time
-        || horarioNaoMudou();
-    }
-
-    /// O `horario` da escrita é igual ao que já está gravado no documento.
-    function horarioNaoMudou() {
-      return resource != null
-        && 'horario' in resource.data
-        && request.resource.data.horario == resource.data.horario;
     }
 
     /// A escrita está tentando marcar o documento como professor.
@@ -98,76 +71,399 @@ service cloud.firestore {
         && request.resource.data.tipo.lower() == 'professor';
     }
 
-    // Chamados: coleção global, sem escopo de sala e sem dono.
-    //
-    // A interface mostra "Excluir" só para o autor, mas isso é decoração de
-    // front-end: nada no servidor confere autoria. Qualquer cliente com a
-    // config do projeto apaga o chamado de qualquer aluno.
-    //
-    // ENDURECIDO PARCIALMENTE pela task 02: `horario` agora só entra vindo do
-    // servidor. É o único vetor que esta task fecha, e o fecha por inteiro —
-    // corrigir só o cliente não adiantaria, porque a escrita vai direto ao
-    // Firestore.
-    //
-    // TODO(task-03): endurecer o resto. Escopar por `salaId`, exigir
-    // request.auth, restringir delete ao autor ou ao professor da sala, e
-    // validar os demais campos na escrita.
-    match /chamados/{chamadoId} {
-      allow read, delete: if true;
-      allow create, update: if horarioEhDoServidor();
+    // ----------------------------------------------------------------------
+    // Tempo (task 02)
+    // ----------------------------------------------------------------------
+
+    /// O `horario` gravado é o carimbo do servidor (AC-TEMPO-01).
+    ///
+    /// `request.time` é o instante em que o servidor processa a escrita, e é
+    /// exatamente o valor que `serverTimestamp()` resolve. Um Timestamp
+    /// escolhido pelo cliente nunca bate com ele — e é isso que impede furar a
+    /// fila pelo horário, escrevendo direto no Firestore pelo DevTools.
+    function horarioEhDoServidor() {
+      return !('horario' in request.resource.data)
+        || request.resource.data.horario == request.time
+        || horarioNaoMudou();
     }
 
-    // Chat: mesma história, e pior — o comando `!clear` apaga a conversa
-    // inteira da turma, e qualquer aluno pode dispará-lo.
-    //
-    // ENDURECIDO PARCIALMENTE pela task 02, pelo mesmo motivo de `chamados`.
-    //
-    // TODO(task-03): endurecer o resto. Escopar por sala, exigir request.auth e
-    // restringir a exclusão em massa ao professor (AC-CHAT-*, task 06).
-    match /chat/{mensagemId} {
-      allow read, delete: if true;
-      allow create, update: if horarioEhDoServidor();
+    /// O `horario` da escrita é igual ao que já está gravado no documento.
+    ///
+    /// É o que deixa `horarioIso` ser preenchido num chamado antigo sem que a
+    /// rule exija recarimbar.
+    function horarioNaoMudou() {
+      return resource != null
+        && 'horario' in resource.data
+        && request.resource.data.horario == resource.data.horario;
     }
 
-    // Usuários: criado por `Cadastro` e por `services/perfilUsuario.js` logo
-    // após a autenticação.
+    // ----------------------------------------------------------------------
+    // Salas (task 03)
+    // ----------------------------------------------------------------------
+
+    function caminhoDaSala(salaId) {
+      return /databases/$(database)/documents/salas/$(salaId);
+    }
+
+    function salaExiste(salaId) {
+      return exists(caminhoDaSala(salaId));
+    }
+
+    function dadosDaSala(salaId) {
+      return get(caminhoDaSala(salaId)).data;
+    }
+
+    /// É o professor que criou esta sala. Ser professor no SENAI não basta.
+    function ehDonoDaSala(salaId) {
+      return ehAutenticado()
+        && salaExiste(salaId)
+        && dadosDaSala(salaId).professorUid == request.auth.uid;
+    }
+
+    /// Tem vínculo com a sala — a autoridade sobre quem vê o quê (AC-SEC-02).
+    function ehMembroDaSala(salaId) {
+      return ehAutenticado()
+        && exists(/databases/$(database)/documents/salas/$(salaId)/membros/$(request.auth.uid));
+    }
+
+    /// A sala aceita escrita. Arquivada é somente-leitura (AC-SALA-10).
+    function salaEstaAtiva(salaId) {
+      return salaExiste(salaId) && dadosDaSala(salaId).ativa == true;
+    }
+
+    function salaBemFormada() {
+      return request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0
+        && request.resource.data.nome.size() <= 80
+        && request.resource.data.curso is string
+        && request.resource.data.curso.size() > 0
+        && request.resource.data.curso.size() <= 80
+        && request.resource.data.anoLetivo is int
+        && request.resource.data.anoLetivo >= 2000
+        && request.resource.data.anoLetivo <= 2100
+        && request.resource.data.professorNome is string
+        && request.resource.data.ativa is bool;
+    }
+
+    // ----------------------------------------------------------------------
+    // PIN: tentativa contada e prova de conhecimento (AC-SALA-12, AC-SEC-05)
+    // ----------------------------------------------------------------------
+
+    function caminhoDaTentativa(uid) {
+      return /databases/$(database)/documents/tentativasPin/$(uid);
+    }
+
+    function temTentativa() {
+      return ehAutenticado() && exists(caminhoDaTentativa(request.auth.uid));
+    }
+
+    function tentativaAtual() {
+      return get(caminhoDaTentativa(request.auth.uid)).data;
+    }
+
+    /// A tentativa registrada ainda vale como prova de "digitou agora".
+    ///
+    /// Os 30 segundos cobrem uma rede ruim de laboratório sem abrir uma janela
+    /// de varredura útil: cada consulta ao índice exige uma tentativa contada,
+    /// e a contagem para no quinto erro da janela.
+    function tentativaEstaFresca() {
+      return tentativaAtual().tentativas is int
+        && tentativaAtual().tentativas <= 5
+        && tentativaAtual().ultimaTentativaEm > request.time - duration.value(30, 's');
+    }
+
+    function caminhoDoSegredo(salaId) {
+      return /databases/$(database)/documents/salas/$(salaId)/segredo/pin;
+    }
+
+    /// O PIN digitado confere com o resumo guardado da sala.
+    ///
+    /// O `get()` de rule enxerga um documento que o cliente não pode ler: é
+    /// exatamente por isso que o segredo não precisa sair do servidor.
+    function pinConfere(salaId, pin) {
+      return exists(caminhoDoSegredo(salaId))
+        && get(caminhoDoSegredo(salaId)).data.hash.lower()
+           == hashing.sha256(get(caminhoDoSegredo(salaId)).data.sal + pin)
+                .toHexString().lower();
+    }
+
+    /// Provou conhecer o PIN desta sala, agora, gastando uma tentativa.
+    function provouOPin(salaId) {
+      return temTentativa()
+        && tentativaEstaFresca()
+        && pinConfere(salaId, tentativaAtual().pinTentado);
+    }
+
+    // ----------------------------------------------------------------------
+    // salas/{salaId}
+    // ----------------------------------------------------------------------
+
+    match /salas/{salaId} {
+      // `list` é negado: ninguém varre as salas do SENAI. Cada pessoa chega às
+      // suas pelo espelho em `usuarios/{uid}/salas`.
+      allow get: if ehMembroDaSala(salaId) || ehDonoDaSala(salaId);
+      allow list: if false;
+
+      allow create: if ehProfessor()
+        && request.resource.data.professorUid == request.auth.uid
+        && salaBemFormada()
+        && request.resource.data.ativa == true
+        && request.resource.data.arquivadaEm == null
+        && request.resource.data.criadaEm == request.time;
+
+      // Renomear, arquivar e recarimbar o PIN são updates. Trocar de dono e
+      // reescrever a data de criação, não.
+      allow update: if ehDonoDaSala(salaId)
+        && salaBemFormada()
+        && request.resource.data.professorUid == resource.data.professorUid
+        && request.resource.data.criadaEm == resource.data.criadaEm;
+
+      // Apagar a sala apagaria a conversa e a fila da turma inteira, e ninguém
+      // precisa disso: o fim do ano é `arquivarSala` (AC-SALA-10).
+      allow delete: if false;
+
+      // O resumo e o sal do PIN. Documento separado porque as rules não
+      // escondem campo: dentro de `salas/{salaId}`, os 40 alunos da turma
+      // leriam o resumo junto com o nome da sala (AC-SEC-05).
+      match /segredo/{documento} {
+        allow read: if ehDonoDaSala(salaId);
+        allow create, update: if ehDonoDaSala(salaId)
+          && request.resource.data.hash is string
+          && request.resource.data.hash.size() == 64
+          && request.resource.data.sal is string
+          && request.resource.data.sal.size() >= 16
+          && request.resource.data.atualizadoEm == request.time;
+        allow delete: if false;
+      }
+
+      // O vínculo com a sala. É este documento que `ehMembroDaSala` consulta,
+      // então criá-lo é o ato que dá acesso a tudo o mais.
+      match /membros/{uid} {
+        allow get: if ehDono(uid) || ehDonoDaSala(salaId);
+        allow list: if ehMembroDaSala(salaId) || ehDonoDaSala(salaId);
+
+        allow create: if ehDono(uid)
+          && salaEstaAtiva(salaId)
+          && request.resource.data.keys().hasOnly(['nome', 'email', 'papel', 'entrouEm'])
+          && request.resource.data.nome is string
+          && request.resource.data.entrouEm == request.time
+          && (
+            (request.resource.data.papel == 'professor' && ehDonoDaSala(salaId))
+            || (request.resource.data.papel == 'aluno' && provouOPin(salaId))
+          );
+
+        // Ninguém se promove a professor da sala depois de entrar.
+        allow update: if false;
+
+        // O professor remove o aluno (AC-SALA-09); o aluno pode sair sozinho.
+        allow delete: if ehDono(uid) || ehDonoDaSala(salaId);
+      }
+
+      // A fila da turma. Era `chamados`, global, com `allow read, delete: if
+      // true` — qualquer pessoa, logada ou não, lia e apagava o chamado de
+      // qualquer aluno de qualquer curso.
+      match /chamados/{chamadoId} {
+        allow get, list: if ehMembroDaSala(salaId);
+
+        allow create: if ehMembroDaSala(salaId)
+          && salaEstaAtiva(salaId)
+          && request.resource.data.autorUid == request.auth.uid
+          && request.resource.data.autorNome is string
+          && request.resource.data.descricao is string
+          && request.resource.data.descricao.size() > 0
+          && request.resource.data.descricao.size() <= 1000
+          && horarioEhDoServidor();
+
+        // Marcar como atendido é do professor; completar `horarioIso` é do
+        // autor. Nenhum dos dois troca a autoria.
+        allow update: if ehMembroDaSala(salaId)
+          && salaEstaAtiva(salaId)
+          && (resource.data.autorUid == request.auth.uid || ehDonoDaSala(salaId))
+          && request.resource.data.autorUid == resource.data.autorUid
+          && horarioEhDoServidor();
+
+        allow delete: if salaEstaAtiva(salaId)
+          && (resource.data.autorUid == request.auth.uid || ehDonoDaSala(salaId));
+      }
+
+      // A conversa da turma. Mesma história do `chamados`, e pior: o `!clear`
+      // apagava a conversa inteira, disparado por qualquer aluno. Aqui cada um
+      // só apaga a própria mensagem — o professor apaga qualquer uma.
+      match /chat/{mensagemId} {
+        allow get, list: if ehMembroDaSala(salaId);
+
+        allow create: if ehMembroDaSala(salaId)
+          && salaEstaAtiva(salaId)
+          && request.resource.data.autorUid == request.auth.uid
+          && request.resource.data.autorNome is string
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() > 0
+          && request.resource.data.texto.size() <= 500
+          && horarioEhDoServidor();
+
+        allow update: if ehMembroDaSala(salaId)
+          && salaEstaAtiva(salaId)
+          && resource.data.autorUid == request.auth.uid
+          && request.resource.data.autorUid == resource.data.autorUid
+          && horarioEhDoServidor();
+
+        allow delete: if salaEstaAtiva(salaId)
+          && (resource.data.autorUid == request.auth.uid || ehDonoDaSala(salaId));
+      }
+    }
+
+    // ----------------------------------------------------------------------
+    // indicePins/{pin} — o PIN aponta para a sala
+    // ----------------------------------------------------------------------
     //
-    // ENDURECIDO pela task 01. Era `if true`, e era ali que a escalada de
-    // privilégio acontecia: o cliente escolhia o próprio `tipo` e o servidor
-    // aceitava. Agora só o dono escreve o próprio documento, e só vira
-    // professor quem `autorizados` confirma (AC-AUTH-07, AC-SEC-03).
+    // O documento não guarda segredo nenhum: o id é o PIN, e o conteúdo é o
+    // identificador da sala. O que protege a sala é que conhecer o PIN não
+    // basta para entrar — a rule de `membros` ainda confere o resumo.
     //
-    // A leitura exige sessão porque a coleção guarda nome e e-mail de aluno
-    // menor de idade. Os dois únicos leitores do app — `garantirPerfil` e a
-    // resolução de papel — já rodam autenticados.
+    // `list` é negado: com ele, uma consulta só devolveria o mapa de todos os
+    // PINs do SENAI. `get` exige uma tentativa contada e do mesmo PIN, o que
+    // amarra cada consulta a uma unidade do limite de força bruta.
+    match /indicePins/{pin} {
+      allow get: if temTentativa()
+        && tentativaEstaFresca()
+        && tentativaAtual().pinTentado == pin;
+      allow list: if false;
+
+      allow create: if ehDonoDaSala(request.resource.data.salaId)
+        && pin.matches('^[0-9]{6}$')
+        && request.resource.data.keys().hasOnly(['salaId', 'ativo', 'criadoEm'])
+        && request.resource.data.ativo == true
+        && request.resource.data.criadoEm == request.time;
+
+      // Imutável de propósito: é o que garante o PIN único entre salas ativas
+      // (AC-SALA-02). Sem isto, o professor dono da outra sala poderia
+      // sobrescrever o índice e roubar o PIN dela.
+      allow update, delete: if false;
+    }
+
+    // ----------------------------------------------------------------------
+    // tentativasPin/{uid} — o limite de força bruta (AC-SALA-12)
+    // ----------------------------------------------------------------------
     //
-    // TODO(task-03): restringir a leitura ao próprio documento e aos
-    // professores da sala, quando `salas/{id}/membros` existir. Hoje qualquer
-    // pessoa autenticada lê qualquer perfil.
-    match /usuarios/{uid} {
-      allow read: if ehAutenticado();
-      allow create, update: if ehDono(uid) && (!gravaTipoProfessor() || ehProfessor());
-      // Nenhuma tela apaga perfil. Quando precisar existir, é operação de
-      // administrador pelo console, não do cliente.
+    // Seis dígitos são um milhão de combinações: um script faria isso numa
+    // tarde se pudesse tentar à vontade. Aqui cada consulta ao índice exige um
+    // registro deste documento, e o documento só aceita cinco registros por
+    // janela de cinco minutos. O relógio é o do servidor, `request.time`.
+    match /tentativasPin/{uid} {
+      allow get: if ehDono(uid);
+      allow list: if false;
+
+      allow create: if ehDono(uid)
+        && tentativaBemFormada()
+        && request.resource.data.tentativas == 1
+        && request.resource.data.janelaIniciadaEm == request.time;
+
+      allow update: if ehDono(uid)
+        && tentativaBemFormada()
+        && (incrementoNaJanela() || janelaReiniciada());
+
+      // Apagar o próprio contador zeraria o limite. É a primeira coisa que
+      // alguém tentaria.
       allow delete: if false;
     }
 
-    // Autorizados: a lista que diz quem pode se cadastrar como professor.
-    // `utils/permissoes.js` a lê ANTES de existir sessão, então a leitura
-    // precisa ser pública enquanto o fluxo de cadastro for esse.
+    function tentativaBemFormada() {
+      return request.resource.data.keys()
+          .hasOnly(['pinTentado', 'tentativas', 'janelaIniciadaEm', 'ultimaTentativaEm'])
+        && request.resource.data.pinTentado is string
+        && request.resource.data.pinTentado.matches('^[0-9]{6}$')
+        && request.resource.data.tentativas is int
+        && request.resource.data.ultimaTentativaEm == request.time;
+    }
+
+    /// Mais uma tentativa dentro da janela corrente, até o teto.
+    function incrementoNaJanela() {
+      return request.resource.data.janelaIniciadaEm == resource.data.janelaIniciadaEm
+        && request.resource.data.tentativas == resource.data.tentativas + 1
+        && request.resource.data.tentativas <= 5;
+    }
+
+    /// Janela nova, e só depois que a anterior venceu de verdade.
+    function janelaReiniciada() {
+      return resource.data.janelaIniciadaEm < request.time - duration.value(5, 'm')
+        && request.resource.data.tentativas == 1
+        && request.resource.data.janelaIniciadaEm == request.time;
+    }
+
+    // ----------------------------------------------------------------------
+    // usuarios/{uid}
+    // ----------------------------------------------------------------------
+
+    match /usuarios/{uid} {
+      // ENDURECIDO pela task 03: era `ehAutenticado()`, e qualquer aluno lia o
+      // nome e o e-mail de qualquer outro. A coleção guarda dado pessoal de
+      // menor de idade; os leitores do app são o próprio dono e o professor.
+      allow read: if ehDono(uid) || ehProfessor();
+
+      // ENDURECIDO pela task 01: só o dono escreve, e só vira professor quem
+      // `autorizados` confirma (AC-AUTH-07, AC-SEC-03).
+      allow create, update: if ehDono(uid) && (!gravaTipoProfessor() || ehProfessor());
+
+      allow delete: if false;
+
+      // O espelho das salas da pessoa. É o que torna possível perguntar "de
+      // quais salas eu sou membro?" sem varrer as salas de todo mundo.
+      // Não dá acesso a nada: quem decide é `salas/{salaId}/membros/{uid}`.
+      match /salas/{salaId} {
+        allow read, write: if ehDono(uid);
+      }
+    }
+
+    // ----------------------------------------------------------------------
+    // autorizados/{email}
+    // ----------------------------------------------------------------------
     //
-    // Escrita nunca: esta coleção é mantida à mão no console. Esta é a única
-    // restrição que já vale hoje, e ela precisa continuar valendo.
+    // A lista que diz quem pode ser professor. `utils/permissoes.js` a lê
+    // ANTES de existir sessão, então a leitura continua pública enquanto o
+    // fluxo de cadastro for esse.
     //
-    // TODO(task-03): endurecer a leitura, movendo a checagem de professor para
-    // um custom claim — aí esta coleção deixa de ser lida pelo cliente.
+    // TODO(task-09): mover a checagem para um custom claim e fechar a leitura.
     match /autorizados/{email} {
       allow read: if true;
       allow write: if false;
     }
 
+    // ----------------------------------------------------------------------
+    // chamados e chat globais — LEGADO, em leitura de compatibilidade
+    // ----------------------------------------------------------------------
+    //
+    // Estas duas coleções são o banco da v0.4.0. Não são apagadas nesta versão
+    // de propósito: `scripts/migrar-para-salas.js` copia os documentos para
+    // dentro da sala e deixa os originais como backup vivo até a 1.0.0, e o
+    // app cai para elas enquanto a pessoa não tem sala (fallback de leitura).
+    //
+    // O que muda aqui é o que dava para fazer sem sessão nenhuma e o que
+    // qualquer pessoa podia apagar. O resto some junto com as coleções.
+    match /chamados/{chamadoId} {
+      allow read: if ehAutenticado();
+      allow create, update: if ehAutenticado() && horarioEhDoServidor();
+      allow delete: if ehAutenticado() && (ehAutorLegado() || ehProfessor());
+    }
+
+    match /chat/{mensagemId} {
+      allow read: if ehAutenticado();
+      allow create, update: if ehAutenticado() && horarioEhDoServidor();
+      allow delete: if ehAutenticado() && (ehAutorLegado() || ehProfessor());
+    }
+
+    /// O documento legado é de quem está pedindo.
+    ///
+    /// Compara por e-mail porque é o que a v0.1.0 gravava: aqueles documentos
+    /// não têm `autorUid`, e inventar um agora não os tornaria rastreáveis.
+    function ehAutorLegado() {
+      return resource != null
+        && 'email' in resource.data
+        && resource.data.email is string
+        && resource.data.email.lower() == emailDoToken();
+    }
+
     // Nada mais existe no banco. Negar o resto evita que uma coleção nova
-    // nasça aberta por descuido.
+    // nasça aberta por descuido (AC-SEC-01).
     match /{documento=**} {
       allow read, write: if false;
     }

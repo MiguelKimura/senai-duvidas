@@ -10,6 +10,10 @@ module.exports = {
   root: true,
   extends: ['react-app', 'react-app/jest', 'plugin:jsx-a11y/recommended', 'prettier'],
   plugins: ['jsx-a11y'],
+  // `globalThis` é a forma padrão de alcançar `crypto` — a mesma expressão no
+  // navegador, no jsdom e no Node. O preset `react-app` ainda declara o
+  // ambiente de linguagem em ES6, de antes de ele existir (task 03).
+  globals: { globalThis: 'readonly' },
   rules: {
     'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     'prefer-const': 'error',

@@ -263,7 +263,67 @@ transição, com data de morte marcada na 1.0.0.
 
 ## v0.5.0 — Salas com PIN
 
-*(a preencher pela task 03)*
+**O que existia**
+
+Duas coleções globais, desde a primeira versão: `chamados` e `chat`. Todo mundo escrevia nas
+mesmas duas, e todo mundo lia as mesmas duas. O professor de mecânica recebia as dúvidas de
+informática na mesma fila; o aluno do noturno lia a conversa do matutino, incluindo o que tinha
+sido falado sobre prova. Um aluno digitava `!clear` e apagava a conversa da escola inteira.
+
+As rules não tinham como impedir nada disso. Negar leitura exigiria que o banco soubesse o que é
+uma turma, e ele não sabia — o máximo que dava para escrever era "precisa estar logado", e era
+isso que estava escrito.
+
+**O que foi decidido, e por quê**
+
+A sala virou uma coleção de verdade, e os dados passaram a morar **dentro** dela:
+`salas/{salaId}/chamados` e `salas/{salaId}/chat`. A alternativa era um campo `salaId` nos
+documentos globais, com `where` na consulta — e foi descartada porque, com campo, o isolamento
+depende de alguém lembrar de filtrar. Com subcoleção, o caminho **é** o escopo: uma consulta à
+sala A não tem como devolver um documento da sala B, nem por descuido de quem escreve a query.
+O raciocínio inteiro está no ADR 0005.
+
+O PIN foi a parte delicada. Seis dígitos são um milhão de combinações: pouco para um script,
+muito para alguém adivinhar de primeira. Três decisões saíram daí (ADR 0006):
+
+1. **O PIN nunca é gravado em claro.** O banco guarda só um resumo SHA-256 com sal, e guarda
+   num documento separado — porque as rules do Firestore **não escondem campo**: se o resumo
+   morasse no documento da sala, os quarenta alunos da turma o leriam junto com o nome dela.
+2. **Quem confere o PIN é o servidor.** O cliente propõe a entrada e a rule refaz o resumo. O
+   aluno nunca lê o segredo, e um cliente adulterado não ganha nada com isso.
+3. **A recusa é sempre a mesma frase.** PIN que não existe, PIN de sala arquivada e PIN
+   regerado produzem a mesma mensagem. Qualquer diferença transformaria a tela num oráculo
+   respondendo "este número é PIN de alguém?".
+
+O que foi **descartado** pelo caminho:
+
+- **Um contador de membros no documento da sala.** Estava no modelo da task e saiu: mantê-lo
+  honesto exigiria que todo aluno pudesse escrever no documento da sala, e quem pode somar 1
+  pode somar 500. A contagem passou a ser uma consulta com teto.
+- **Gerar o PIN no script de migração.** Ele teria que imprimir o número em algum lugar, e esse
+  lugar é o histórico do terminal, o log do CI e o print que alguém manda no grupo. A sala
+  migrada nasce sem PIN, e o professor gera o dele no app.
+- **Apagar as coleções globais na mesma versão.** Elas ficam como backup vivo até a 1.0.0, e o
+  app cai nelas quando a pessoa não está em sala nenhuma. É o que impede a tela vazia para quem
+  abrir o app no meio da migração.
+
+**O limite que ficou registrado**
+
+O teto de tentativas de PIN é por usuário. Quem criar contas novas contorna o limite, e as
+rules não conseguem manter contador por IP nem por sala sozinhas. A causa e a proposta — uma
+Cloud Function que faça a conferência e mantenha os contadores — estão em `docs/BLOQUEIOS.md`.
+
+**O que o usuário sente na prática**
+
+- **O professor** cria a sala em três campos, vê o PIN em letra grande e copia com um clique.
+  Ele dita o número para a turma uma vez, em fevereiro. Na lista de salas ele vê quantos
+  entraram e quantos chamados estão abertos em cada uma. Se um aluno sair da turma, ele clica em
+  remover — e o PIN é trocado no mesmo gesto, porque o aluno removido tem o número anotado no
+  caderno. Em dezembro, arquiva a sala: ela vira somente leitura, e ninguém mais entra.
+- **O aluno** digita o PIN uma vez. Depois disso, abre o app e clica no nome da sala — de março
+  a novembro. A fila que ele vê é a da turma dele, e o chat também.
+- **Os dois** continuam vendo exatamente as mesmas duas telas de antes. Nada foi repaginado: o
+  que mudou foi de onde vêm os dados.
 
 ## v0.6.0 — Imagens do computador
 

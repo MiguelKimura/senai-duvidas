@@ -71,3 +71,42 @@ describe('caminhos fora de imagens/ nascem fechados', () => {
     await assertFails(uploadString(ref(storage, 'outro/lugar.png'), 'conteudo'));
   });
 });
+
+// Caminho escopado por sala, aberto pela task 03 para a task 04 usar.
+// `services/salas.js#caminhoDoAnexo` monta exatamente este caminho.
+describe('anexos escopados por sala (AC-SALA-07)', () => {
+  const CAMINHO = 'salas/sala-a/chamados/c1/print.png';
+
+  it('o aluno autenticado envia uma imagem para o chamado da sala', async () => {
+    const storage = ambiente.authenticatedContext('uid-ana').storage();
+
+    await assertSucceeds(
+      uploadString(ref(storage, CAMINHO), 'conteudo', 'raw', { contentType: 'image/png' })
+    );
+  });
+
+  it('quem não está logado NÃO envia nada para a sala', async () => {
+    const storage = ambiente.unauthenticatedContext().storage();
+
+    await assertFails(
+      uploadString(ref(storage, CAMINHO), 'conteudo', 'raw', { contentType: 'image/png' })
+    );
+  });
+
+  it('recusa arquivo que não é imagem', async () => {
+    const storage = ambiente.authenticatedContext('uid-ana').storage();
+
+    await assertFails(
+      uploadString(ref(storage, 'salas/sala-a/chamados/c1/planilha.csv'), 'a;b', 'raw', {
+        contentType: 'text/csv',
+      })
+    );
+  });
+
+  it('a leitura do anexo é pública, como o card espera', async () => {
+    const storage = ambiente.authenticatedContext('uid-ana').storage();
+    await uploadString(ref(storage, CAMINHO), 'conteudo', 'raw', { contentType: 'image/png' });
+
+    await assertSucceeds(getDownloadURL(ref(ambiente.unauthenticatedContext().storage(), CAMINHO)));
+  });
+});

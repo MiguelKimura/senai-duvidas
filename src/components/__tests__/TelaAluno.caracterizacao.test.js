@@ -215,15 +215,23 @@ describe('TelaAluno — criação de chamado (AC-CHAMADO-01)', () => {
     await waitFor(async () => expect(await chamadosGravados()).toHaveLength(1));
     __confirmarCarimbos();
 
+    // A task 03 acrescentou três campos **aditivos**, e a igualdade exata
+    // continua sendo exata: `nome` não saiu de cena, `autorNome` entrou ao
+    // lado dele com o mesmo conteúdo (escrita dupla da seção 4 do protocolo),
+    // `autorUid` amarra o chamado ao dono para as rules, e `atendido` nasce
+    // falso. O `nome` só é removido na 1.0.0, quando nenhum leitor o procurar.
     expect(await chamadosGravados()).toEqual([
       {
         nome: 'Ana Souza',
+        autorNome: 'Ana Souza',
+        autorUid: 'uid-ana',
         email: 'ana@senai.br',
         descricao: 'O VS Code não abre',
         horario: expect.any(Timestamp),
         horarioIso: HORARIO_DO_SERVIDOR,
         cor: expect.stringMatching(/^hsl\(/),
         imagem: null,
+        atendido: false,
       },
     ]);
   });

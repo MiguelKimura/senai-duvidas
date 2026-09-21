@@ -9,6 +9,65 @@ Todas as mudanças relevantes deste projeto são registradas aqui, no formato
 > intervalo e os agrupa. Escrever à mão é escrever de memória no fim do trabalho, e o que
 > fica de fora é justamente o que ninguém lembrou.
 
+> node scripts/gerarChangelog.js origin/dev..HEAD --versao 0.5.0 --data 2026-09-21
+
+## [0.5.0] - 2026-09-21
+
+### Adicionado
+
+- **salas:** gera o PIN de 6 dígitos com Web Crypto e o resume com sal por sala
+- **salas:** ensina o fake de Firestore a filtrar, paginar e recusar escrita
+- **salas:** cria a sala com PIN sorteado, resumido e único entre as ativas
+- **salas:** entra na sala pelo PIN, com recusa genérica e tentativa contada
+- **salas:** regera PIN, remove aluno, arquiva a sala e lista as salas de cada um
+- **rules:** endurece o banco por caminho e escopa chamados e chat por sala
+- **salas:** monta a tela de criação com o PIN em destaque e cópia num clique
+- **salas:** monta a tela de entrada por PIN, sem ramo que denuncie a sala
+- **salas:** lista as salas de cada um, com contagens só para o dono
+- **salas:** prende chamados e chat à sala, com teto e fallback para o legado
+- **salas:** abre a sala pelo vínculo e dá ao dono o painel da turma
+- **salas:** põe as quatro rotas de sala no mapa, ao lado das duas antigas
+- **migracao:** copia o acervo global para a Turma Geral, sem apagar nada
+
+### Alterado
+
+- **salas:** exige PIN de 6 dígitos sorteado por Web Crypto e resumido com sal
+- **lint:** declara globalThis, que o preset react-app ainda não conhece
+- **salas:** exige where, limit e recusa de escrita do fake de Firestore
+- **salas:** exige sala criada com PIN único e sem o PIN em claro no banco
+- **salas:** exige entrada por PIN com erro genérico e limite de tentativas
+- **salas:** exige regeração de PIN, remoção de aluno, arquivamento e lista paginada
+- **salas:** exige a tela de criação com PIN em destaque e cópia num clique
+- **salas:** nomeia o retorno de render como o lint do projeto exige
+- **salas:** exige entrada por PIN com recusa que não revela nada
+- **salas:** exige a lista de salas com contagens, PIN novo e arquivamento
+- **salas:** exige chamados e chat presos à sala, com fallback para o legado
+- **salas:** exige que a porta da sala decida pelo vínculo, não pelo papel global
+- **salas:** exige as quatro rotas novas sem aposentar as duas antigas
+- **migracao:** exige migração idempotente, reversível e não destrutiva
+
+### Descontinuado
+
+- **salas:** as coleções globais `chamados` e `chat` continuam existindo e continuam sendo
+  lidas quando a pessoa não está em sala nenhuma — é o **fallback de leitura** que impede a
+  tela vazia no meio da migração. Elas, as rotas `/aluno` e `/professor` e o campo `nome`
+  dos documentos (hoje gravado junto com `autorNome`) saem na **1.0.0**.
+
+### Segurança
+
+- **BREAKING (dado, não API)** **salas:** `chamados` e `chat` passam a viver em
+  `salas/{salaId}/...`. Um aluno da sala A não lê nem escreve nada da sala B, e isso é
+  provado por teste de rules em `tests/rules/salas.rules.test.js`, caminho a caminho, com o
+  par concedido/negado.
+- **salas:** o PIN **nunca** é gravado em claro. O documento da sala não tem segredo nenhum;
+  o resumo SHA-256 e o sal moram em `salas/{salaId}/segredo/pin`, que só o dono lê. O
+  professor vê o número uma vez, na criação ou na regeração (AC-SEC-05).
+- **salas:** `indicePins/{pin}` permite apenas `get` de documento específico, nunca `list`:
+  varrer o índice para descobrir PINs válidos é impossível pela rule, não por obscuridade.
+- **salas:** tentativas de PIN limitadas a 5 em 5 minutos por usuário, com a janela validada
+  pelo servidor (AC-SALA-12).
+- **rules:** o banco passa a negar tudo por padrão e a liberar caminho a caminho (AC-SEC-01).
+
 > node scripts/gerarChangelog.js origin/dev..HEAD --versao 0.4.0 --data 2026-09-20
 
 ## [0.4.0] - 2026-09-20

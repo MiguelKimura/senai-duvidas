@@ -112,8 +112,12 @@ describe('chamados — estado atual', () => {
     await assertSucceeds(getDocs(collection(db, 'chamados')));
   });
 
-  // TODO(task-03): endurecer. Depois da task 03 isto deve ser assertFails.
-  it('INSEGURO: Bruno apaga o chamado de Ana, e o servidor deixa', async () => {
+  // INVERTIDO pela task 03. Nasceu como `assertSucceeds`, documentando que
+  // qualquer cliente apagava o chamado de qualquer aluno. A coleção global
+  // continua existindo como backup da migração, mas a exclusão passou a ser do
+  // autor — identificado pelo e-mail do token, que é o que aqueles documentos
+  // têm — ou do professor (AC-CHAMADO-05).
+  it('Bruno NÃO apaga mais o chamado de Ana', async () => {
     await ambiente.withSecurityRulesDisabled(async (contexto) => {
       await setDoc(doc(contexto.firestore(), 'chamados/da-ana'), {
         email: 'ana@senai.br',
@@ -121,26 +125,46 @@ describe('chamados — estado atual', () => {
       });
     });
 
-    await assertSucceeds(deleteDoc(doc(como(BRUNO), 'chamados/da-ana')));
+    await assertFails(
+      deleteDoc(doc(comoUsuarioComEmail(BRUNO, 'bruno@senai.br'), 'chamados/da-ana'))
+    );
   });
 
-  // TODO(task-03): endurecer. Depois da task 03 isto deve ser assertFails.
-  it('INSEGURO: quem nem está logado lê e escreve chamados', async () => {
-    const db = comoVisitante();
-
-    await assertSucceeds(getDocs(collection(db, 'chamados')));
-    await assertSucceeds(setDoc(doc(db, 'chamados/anonimo'), { descricao: 'sem sessão' }));
-  });
-
-  // TODO(task-03): endurecer. Sem escopo de sala, toda turma divide a fila.
-  it('INSEGURO: não existe escopo de sala — a fila é global', async () => {
+  it('a própria Ana continua apagando o chamado dela', async () => {
     await ambiente.withSecurityRulesDisabled(async (contexto) => {
-      await setDoc(doc(contexto.firestore(), 'chamados/de-outra-turma'), {
-        descricao: 'chamado da turma da tarde',
+      await setDoc(doc(contexto.firestore(), 'chamados/da-ana'), {
+        email: 'ana@senai.br',
+        descricao: 'chamado da Ana',
       });
     });
 
-    const lido = await getDoc(doc(como(ANA), 'chamados/de-outra-turma'));
+    await assertSucceeds(
+      deleteDoc(doc(comoUsuarioComEmail(ANA, 'ana@senai.br'), 'chamados/da-ana'))
+    );
+  });
+
+  // INVERTIDO pela task 03: era `assertSucceeds` nos dois.
+  it('quem não está logado NÃO lê nem escreve chamados', async () => {
+    const db = comoVisitante();
+
+    await assertFails(getDocs(collection(db, 'chamados')));
+    await assertFails(setDoc(doc(db, 'chamados/anonimo'), { descricao: 'sem sessão' }));
+  });
+
+  // Esta coleção continua global DE PROPÓSITO nesta versão: ela é o banco da
+  // v0.4.0, e `scripts/migrar-para-salas.js` a copia para dentro da sala sem
+  // apagá-la. Enquanto a pessoa não tem sala, o app lê daqui — é o fallback de
+  // leitura da migração. O escopo por turma está em `salas/{salaId}/chamados`,
+  // provado em `tests/rules/salas.rules.test.js`; aqui a fila global some só
+  // na 1.0.0.
+  it('a fila global continua legível para quem tem sessão, como backup da migração', async () => {
+    await ambiente.withSecurityRulesDisabled(async (contexto) => {
+      await setDoc(doc(contexto.firestore(), 'chamados/de-antes-da-migracao'), {
+        descricao: 'chamado da v0.4.0',
+      });
+    });
+
+    const lido = await getDoc(doc(como(ANA), 'chamados/de-antes-da-migracao'));
     expect(lido.exists()).toBe(true);
   });
 });
@@ -159,8 +183,10 @@ describe('chat — estado atual', () => {
     );
   });
 
-  // TODO(task-03): endurecer. É o `!clear` visto do lado do servidor.
-  it('INSEGURO: um aluno apaga a mensagem de outro — o !clear da turma inteira', async () => {
+  // INVERTIDO pela task 03. Era o `!clear` visto do lado do servidor: um aluno
+  // apagava a conversa inteira da turma. A coleção global continua como backup
+  // da migração, mas cada um só apaga a própria mensagem.
+  it('um aluno NÃO apaga mais a mensagem de outro — o !clear visto do servidor', async () => {
     await ambiente.withSecurityRulesDisabled(async (contexto) => {
       await setDoc(doc(contexto.firestore(), 'chat/do-bruno'), {
         texto: 'mensagem do Bruno',
@@ -168,7 +194,22 @@ describe('chat — estado atual', () => {
       });
     });
 
-    await assertSucceeds(deleteDoc(doc(como(ANA), 'chat/do-bruno')));
+    await assertFails(
+      deleteDoc(doc(comoUsuarioComEmail(ANA, 'ana@senai.br'), 'chat/do-bruno'))
+    );
+  });
+
+  it('cada um continua apagando a própria mensagem', async () => {
+    await ambiente.withSecurityRulesDisabled(async (contexto) => {
+      await setDoc(doc(contexto.firestore(), 'chat/do-bruno'), {
+        texto: 'mensagem do Bruno',
+        email: 'bruno@senai.br',
+      });
+    });
+
+    await assertSucceeds(
+      deleteDoc(doc(comoUsuarioComEmail(BRUNO, 'bruno@senai.br'), 'chat/do-bruno'))
+    );
   });
 });
 
@@ -235,6 +276,14 @@ describe('usuarios — dono e autorização exigidos pelo servidor (AC-AUTH-07, 
       await semearComoAdministrador(`usuarios/${ANA}`, { email: 'ana@senai.br', tipo: 'aluno' });
 
       await assertFails(getDoc(doc(comoVisitante(), `usuarios/${ANA}`)));
+    });
+
+    // ENDURECIDO pela task 03: era `ehAutenticado()`, e qualquer aluno lia o
+    // nome e o e-mail de qualquer outro (AC-SEC-01).
+    it('nega a leitura do documento alheio, mesmo com sessão', async () => {
+      await semearComoAdministrador(`usuarios/${ANA}`, { email: 'ana@senai.br', tipo: 'aluno' });
+
+      await assertFails(getDoc(doc(comoUsuarioComEmail(BRUNO, 'bruno@senai.br'), `usuarios/${ANA}`)));
     });
 
     it('permite que a pessoa autenticada leia o próprio documento', async () => {

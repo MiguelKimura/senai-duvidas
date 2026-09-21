@@ -12,7 +12,7 @@ compartilhadas, relógios de sistema frequentemente errados, rede instável. Tod
 deste repositório assume esse cenário — e assume que uma falha em produção interrompe uma turma
 inteira.
 
-**Versão atual:** 0.2.0 · [CHANGELOG](CHANGELOG.md) · [Histórico e decisões](docs/HISTORICO.md)
+**Versão atual:** 0.5.0 · [CHANGELOG](CHANGELOG.md) · [Histórico e decisões](docs/HISTORICO.md)
 
 ---
 
@@ -137,6 +137,9 @@ emuladores — está em [`CONTRIBUTING.md`](CONTRIBUTING.md).
 | [`docs/HISTORICO.md`](docs/HISTORICO.md) | A memória do projeto: por que cada decisão foi tomada |
 | [`docs/CRITERIOS-DE-ACEITE.md`](docs/CRITERIOS-DE-ACEITE.md) | Todos os critérios, com ID estável e prioridade |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | O caminho da 0.1.0 até a 1.0.0, versão por versão |
+| [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) | O modelo de dados por sala, o fluxo do PIN e o custo de leitura |
+| [`docs/MIGRACOES.md`](docs/MIGRACOES.md) | Como rodar e como reverter cada migração de dados |
+| [`docs/BLOQUEIOS.md`](docs/BLOQUEIOS.md) | Limites técnicos conhecidos, com causa e proposta |
 | [`docs/adr/`](docs/adr/) | Decisões arquiteturais, uma por arquivo |
 | [`docs/PROTECAO-BRANCHES.md`](docs/PROTECAO-BRANCHES.md) | Configuração de proteção a aplicar no GitHub |
 | [`docs/AUTOMACAO.md`](docs/AUTOMACAO.md) | A fila automatizada que executa as tasks |

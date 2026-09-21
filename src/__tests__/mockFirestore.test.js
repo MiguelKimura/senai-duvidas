@@ -10,6 +10,7 @@ import {
   getDoc,
   getDocs,
   getFirestore,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -17,9 +18,12 @@ import {
   setDoc,
   Timestamp,
   updateDoc,
+  where,
   __carimbosPendentes,
   __confirmarCarimbos,
   __definirRelogioDoServidor,
+  __recusarEscritaEm,
+  __recusarLeituraEm,
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
@@ -242,5 +246,154 @@ describe('fake de Firestore — updateDoc', () => {
     await updateDoc(doc(db, 'chamados', 'c1'), { horarioIso: '2026-09-19T17:32:00.000Z' });
 
     expect(ouvinte).toHaveBeenCalledTimes(2);
+  });
+});
+
+// A task 03 escopa chamados e chat em subcoleções de `salas/{salaId}` e passa
+// a paginar todo listener (AC-PERF-03). Nenhuma das duas coisas dá para provar
+// num fake que ignora `where` e `limit`: a consulta devolveria a coleção
+// inteira e o teste passaria sem que o código filtrasse nada.
+describe('fake de Firestore — where (AC-SALA-07)', () => {
+  beforeEach(() => {
+    __semearColecao('salas/sala-a/chamados', [
+      { id: 'c1', descricao: 'aberto', atendido: false },
+      { id: 'c2', descricao: 'resolvido', atendido: true },
+      { id: 'c3', descricao: 'antigo sem o campo' },
+    ]);
+  });
+
+  it('filtra por igualdade', async () => {
+    const consulta = query(collection(db, 'salas/sala-a/chamados'), where('atendido', '==', false));
+
+    const encontrados = (await getDocs(consulta)).docs.map((documento) => documento.id);
+
+    expect(encontrados).toEqual(['c1']);
+  });
+
+  it('não entrega documento sem o campo, como o Firestore de verdade', async () => {
+    const consulta = query(collection(db, 'salas/sala-a/chamados'), where('atendido', '==', true));
+
+    const encontrados = (await getDocs(consulta)).docs.map((documento) => documento.id);
+
+    expect(encontrados).toEqual(['c2']);
+  });
+
+  it('aceita mais de um filtro, e eles se somam', async () => {
+    const consulta = query(
+      collection(db, 'salas/sala-a/chamados'),
+      where('atendido', '==', false),
+      where('descricao', '==', 'aberto')
+    );
+
+    expect((await getDocs(consulta)).size).toBe(1);
+  });
+
+  it('vale também para o onSnapshot, e não só para o getDocs', () => {
+    const ouvinte = jest.fn();
+
+    onSnapshot(
+      query(collection(db, 'salas/sala-a/chamados'), where('atendido', '==', false)),
+      ouvinte
+    );
+
+    expect(ouvinte.mock.calls[0][0].docs.map((documento) => documento.id)).toEqual(['c1']);
+  });
+
+  it('separa as subcoleções de duas salas (AC-SALA-07)', async () => {
+    __semearColecao('salas/sala-b/chamados', [{ id: 'c9', descricao: 'da outra turma' }]);
+
+    const daSalaA = await getDocs(collection(db, 'salas/sala-a/chamados'));
+
+    expect(daSalaA.docs.map((documento) => documento.id)).not.toContain('c9');
+  });
+});
+
+describe('fake de Firestore — limit (AC-PERF-03)', () => {
+  beforeEach(() => {
+    __semearColecao(
+      'salas/sala-a/chat',
+      Array.from({ length: 10 }, (_, indice) => ({
+        id: `m${indice}`,
+        texto: `mensagem ${indice}`,
+        horario: new Date(2025, 2, 10, 8, indice),
+      }))
+    );
+  });
+
+  it('corta a consulta no tamanho pedido', async () => {
+    const consulta = query(collection(db, 'salas/sala-a/chat'), limit(3));
+
+    expect((await getDocs(consulta)).size).toBe(3);
+  });
+
+  it('corta depois de ordenar, e não antes', async () => {
+    const consulta = query(collection(db, 'salas/sala-a/chat'), orderBy('horario', 'desc'), limit(2));
+
+    const textos = (await getDocs(consulta)).docs.map((documento) => documento.data().texto);
+
+    expect(textos).toEqual(['mensagem 9', 'mensagem 8']);
+  });
+
+  it('vale para o onSnapshot', () => {
+    const ouvinte = jest.fn();
+
+    onSnapshot(query(collection(db, 'salas/sala-a/chat'), limit(4)), ouvinte);
+
+    expect(ouvinte.mock.calls[0][0].size).toBe(4);
+  });
+});
+
+// O servidor recusa escritas o tempo todo: PIN já usado, sala de outro
+// professor, sala arquivada. Sem uma forma de provocar a recusa, o caminho de
+// erro do cliente — o que regera o PIN depois de uma colisão, por exemplo —
+// só seria exercitado contra o emulador, e nunca no teste unitário.
+describe('fake de Firestore — recusa de escrita', () => {
+  it('faz a escrita no caminho marcado falhar com permission-denied', async () => {
+    __recusarEscritaEm('indicePins/123456');
+
+    await expect(setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+  });
+
+  it('recusa uma vez só, como a colisão que some quando o PIN muda', async () => {
+    __recusarEscritaEm('indicePins/123456');
+
+    await expect(setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })).rejects.toBeDefined();
+    await expect(setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })).resolves.toBeUndefined();
+  });
+
+  it('não recusa escrita em outro caminho', async () => {
+    __recusarEscritaEm('indicePins/123456');
+
+    await expect(setDoc(doc(db, 'indicePins', '654321'), { salaId: 's1' })).resolves.toBeUndefined();
+  });
+
+  it('a recusa não atravessa de um teste para o outro', async () => {
+    __recusarEscritaEm('indicePins/123456');
+    __resetarFirestore();
+
+    await expect(setDoc(doc(db, 'indicePins', '123456'), { salaId: 's1' })).resolves.toBeUndefined();
+  });
+
+  it('também recusa leitura quando o caminho é marcado para leitura', async () => {
+    __recusarLeituraEm('salas/sala-a/segredo/pin');
+
+    await expect(getDoc(doc(db, 'salas/sala-a/segredo/pin'))).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+  });
+});
+
+
+describe('fake de Firestore — recusa repetida', () => {
+  it('recusa quantas vezes forem pedidas, e só', async () => {
+    __recusarEscritaEm('tentativasPin/uid-ana', 2);
+
+    const escrever = () => setDoc(doc(db, 'tentativasPin', 'uid-ana'), { tentativas: 1 });
+
+    await expect(escrever()).rejects.toBeDefined();
+    await expect(escrever()).rejects.toBeDefined();
+    await expect(escrever()).resolves.toBeUndefined();
   });
 });
