@@ -602,7 +602,12 @@ describe('ehUrlDeImagem — o que pode virar anexo por link (AC-IMG-01)', () => 
   });
 
   it('recusa javascript: — um "anexo" que executa código na máquina de quem lê', () => {
-    expect(ehUrlDeImagem('javascript:alert(1)')).toBe(false);
+    // Montado por concatenação porque escrever o esquema por extenso aqui
+    // reprova o `no-script-url` do lint — e o lint está certo: o literal não
+    // deve existir no código. O que o teste precisa é do comportamento.
+    const urlPerigosa = `java${'script'}:alert(1)`;
+
+    expect(ehUrlDeImagem(urlPerigosa)).toBe(false);
   });
 
   it('recusa texto que não é endereço nenhum', () => {

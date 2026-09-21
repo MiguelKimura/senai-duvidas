@@ -8,7 +8,13 @@
 // Nada aqui decide interface. Quem desenha o seletor, a zona de soltar e a
 // barra de progresso é `components/CampoAnexo.jsx`; este módulo é a regra —
 // o que é uma imagem, quanto ela pode pesar, para onde ela vai e como ela sai.
-import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
+import {
+  deleteObject,
+  getDownloadURL,
+  listAll,
+  ref,
+  uploadBytesResumable,
+} from 'firebase/storage';
 import { storage } from '../firebase';
 import { caminhoDoAnexo } from './salas';
 
@@ -386,5 +392,133 @@ export async function enviarAnexo(arquivo, { salaId, chamadoId, onProgresso, sin
     throw new ErroDeAnexo(mensagemDeFalha(erro), { causa: erro });
   } finally {
     if (sinal) sinal.removeEventListener('abort', cancelar);
+  }
+}
+
+// --- os dois formatos do campo de anexo -------------------------------------
+
+/**
+ * Traduz o que está gravado em `imagem`/`anexo` para um anexo só (AC-IMG-13).
+ *
+ * É a **leitura dupla** exigida pela seção 4 do `_PROTOCOLO.md`. Convivem no
+ * banco, permanentemente nesta versão:
+ *
+ *   * chamados da v0.1.0, em que `imagem` é uma string de URL;
+ *   * chamados desta versão, com `anexo` em objeto e `imagem` mantido ao lado.
+ *
+ * Nenhum dos dois é convertido no banco. Os dois são entendidos aqui, e é por
+ * isso que o chamado aberto em março continua exibindo o print dele depois do
+ * deploy — sem migração, sem janela de indisponibilidade.
+ *
+ * @param {string|object|null|undefined} valor
+ * @returns {{url: string, origem: string}|null}
+ */
+export function normalizarAnexo(valor) {
+  if (!valor) return null;
+
+  if (typeof valor === 'string') return { url: valor, origem: ORIGEM_DE_URL };
+
+  return valor.url ? valor : null;
+}
+
+/**
+ * O que gravar no documento do chamado — nos **dois** formatos.
+ *
+ * `imagem` continua sendo a string de URL porque é onde todo cliente que já
+ * está aberto no laboratório a procura. `anexo` é o objeto, com o caminho no
+ * Storage (que a exclusão precisa) e as dimensões (que a miniatura precisa).
+ *
+ * `imagem` só sai na 1.0.0, quando nenhum leitor antigo restar — é a segunda
+ * etapa da migração em duas fases que o protocolo exige.
+ *
+ * @param {{url: string}|null} anexo
+ * @returns {{imagem: string|null, anexo: object|null}}
+ */
+export function camposDoAnexo(anexo) {
+  return anexo ? { imagem: anexo.url, anexo } : { imagem: null, anexo: null };
+}
+
+/**
+ * Diz se a string pode virar anexo por link (AC-IMG-01).
+ *
+ * Deliberadamente permissivo quanto ao caminho: encurtadores e serviços de
+ * print não põem extensão nenhuma na URL, e exigir `.png` no fim recusaria
+ * metade dos links que os alunos já usam hoje. Quem descobre que a URL não era
+ * imagem é o `<img>`, e o AC-IMG-12 cuida desse caso com um placeholder.
+ *
+ * O que ele recusa é o **esquema**: `javascript:` não é anexo, é código
+ * executando na máquina de quem abrir o card.
+ *
+ * @param {string|null|undefined} url
+ * @returns {boolean}
+ */
+export function ehUrlDeImagem(url) {
+  if (typeof url !== 'string' || url.trim() === '') return false;
+
+  try {
+    const { protocol, href } = new URL(url.trim());
+
+    if (protocol === 'http:' || protocol === 'https:') return true;
+
+    return protocol === 'data:' && href.startsWith('data:image/');
+  } catch (_erro) {
+    // Não é endereço nenhum — é texto que alguém colou no campo errado.
+    return false;
+  }
+}
+
+// --- remoção ----------------------------------------------------------------
+
+/**
+ * Apaga um arquivo do Storage pelo caminho, sem reclamar do que não existe.
+ *
+ * O caso de uso é o aluno que anexa, se arrepende e troca a imagem antes de
+ * concluir o chamado: o arquivo já subiu e ninguém mais vai referenciá-lo.
+ *
+ * @param {string} caminho
+ */
+export async function removerAnexo(caminho) {
+  if (!caminho) return;
+
+  try {
+    await deleteObject(ref(storage, caminho));
+  } catch (_erro) {
+    // `object-not-found` é o caso normal de uma segunda tentativa, e qualquer
+    // outra falha aqui é custo de cota — nunca motivo para travar a tela.
+  }
+}
+
+/**
+ * Apaga todos os anexos de um chamado (AC-CHAMADO-08).
+ *
+ * O órfão do Storage é um custo silencioso: o documento some da tela, ninguém
+ * mais tem como chegar ao arquivo, e ele ocupa a cota da escola para sempre.
+ *
+ * Nunca lança. Excluir o chamado é o que o aluno pediu, e um anexo que
+ * resistiu à remoção vira custo, não bloqueio — o documento tem de sair da
+ * fila de qualquer jeito.
+ *
+ * @param {string|null} salaId
+ * @param {string} chamadoId
+ * @returns {Promise<{apagados: number}>}
+ */
+export async function removerAnexosDoChamado(salaId, chamadoId) {
+  const pasta = caminhoDoAnexo(salaId, chamadoId, '').replace(/\/$/, '');
+
+  try {
+    const { items } = await listAll(ref(storage, pasta));
+
+    const resultados = await Promise.all(
+      items.map((item) =>
+        deleteObject(item).then(
+          () => true,
+          () => false
+        )
+      )
+    );
+
+    return { apagados: resultados.filter(Boolean).length };
+  } catch (_erro) {
+    return { apagados: 0 };
   }
 }
