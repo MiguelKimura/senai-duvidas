@@ -110,26 +110,26 @@ describe('Mensagem — cor estável (AC-CHAT-02)', () => {
   });
 
   it('dá a MESMA cor a duas mensagens da mesma pessoa', () => {
-    const { container } = render(
+    render(
       <>
         <Mensagem mensagem={mensagemDe({ id: 'a', texto: 'primeira' })} />
         <Mensagem mensagem={mensagemDe({ id: 'b', texto: 'segunda' })} />
       </>
     );
 
-    const [primeira, segunda] = container.querySelectorAll('.mensagem-balao');
+    const [primeira, segunda] = document.querySelectorAll('.mensagem-balao');
     expect(primeira.style.backgroundColor).toBe(segunda.style.backgroundColor);
   });
 
   it('dá cores diferentes a pessoas diferentes', () => {
-    const { container } = render(
+    render(
       <>
         <Mensagem mensagem={mensagemDe({ id: 'a', autorUid: 'uid-ana' })} />
         <Mensagem mensagem={mensagemDe({ id: 'b', autorUid: 'uid-bruno' })} />
       </>
     );
 
-    const [daAna, doBruno] = container.querySelectorAll('.mensagem-balao');
+    const [daAna, doBruno] = document.querySelectorAll('.mensagem-balao');
     expect(daAna.style.backgroundColor).not.toBe(doBruno.style.backgroundColor);
   });
 
@@ -138,9 +138,9 @@ describe('Mensagem — cor estável (AC-CHAT-02)', () => {
     // e sem email caía no e-mail do leitor.
     const semIdentidade = mensagemDe({ autorUid: undefined, email: undefined });
 
-    const primeira = render(<Mensagem mensagem={semIdentidade} ehMinha={false} />);
+    const view = render(<Mensagem mensagem={semIdentidade} ehMinha={false} />);
     const corLendoComoOutro = document.querySelector('.mensagem-balao').style.backgroundColor;
-    primeira.unmount();
+    view.unmount();
 
     render(<Mensagem mensagem={semIdentidade} ehMinha />);
 
