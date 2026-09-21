@@ -148,3 +148,102 @@ export async function validarArquivo(arquivo) {
 
   return { ok: true, erro: null, ...formato };
 }
+
+// --- compressão -------------------------------------------------------------
+
+/**
+ * O maior lado que um anexo pode ter depois de comprimido (AC-IMG-07).
+ *
+ * 1600px é o que basta para ler uma mensagem de erro de compilador num print
+ * de tela cheia, e é metade da largura de um monitor 4K. O que reduz o custo
+ * não é a qualidade do codec: é o número de pixels.
+ */
+export const LADO_MAXIMO = 1600;
+
+/** Qualidade do recodificador, para os formatos que têm perda. */
+export const QUALIDADE = 0.85;
+
+/**
+ * O tamanho de destino, com a proporção do original preservada.
+ *
+ * @param {number} largura
+ * @param {number} altura
+ * @returns {{largura: number, altura: number, precisaReduzir: boolean}}
+ */
+export function dimensionarPara(largura, altura, ladoMaximo = LADO_MAXIMO) {
+  const maiorLado = Math.max(largura, altura);
+
+  if (maiorLado <= ladoMaximo) return { largura, altura, precisaReduzir: false };
+
+  const fator = ladoMaximo / maiorLado;
+
+  return {
+    largura: Math.round(largura * fator),
+    altura: Math.round(altura * fator),
+    precisaReduzir: true,
+  };
+}
+
+/** Desenha o bitmap no tamanho pedido e devolve os bytes, ou `null`. */
+function recodificar(bitmap, largura, altura, tipo, qualidade) {
+  const canvas = document.createElement('canvas');
+  canvas.width = largura;
+  canvas.height = altura;
+
+  const contexto = canvas.getContext('2d');
+  if (!contexto) return Promise.resolve(null);
+
+  contexto.drawImage(bitmap, 0, 0, largura, altura);
+
+  return new Promise((resolver) => {
+    canvas.toBlob((blob) => resolver(blob), tipo, qualidade);
+  });
+}
+
+/**
+ * Reduz a imagem ao teto de 1600px antes do upload (AC-IMG-07).
+ *
+ * Devolve as dimensões junto com os bytes porque quem chama precisa das duas
+ * coisas: os bytes vão para o Storage e as dimensões vão para o documento do
+ * chamado, onde reservam o espaço da miniatura antes de a imagem carregar.
+ * Decodificar de novo só para medir custaria a imagem inteira na memória de
+ * uma máquina de laboratório, duas vezes.
+ *
+ * Três casos saem com o arquivo **original**, e nenhum deles é falha:
+ *
+ *   * GIF, sempre — um canvas desenha um quadro só, e recomprimir devolveria
+ *     a imagem parada, sem a animação que era o motivo de ela existir;
+ *   * imagem já dentro do teto — recodificar não ganharia bytes e perderia
+ *     nitidez no texto, que é o que o professor precisa ler;
+ *   * `toBlob` que volta `null`, o sintoma de falta de memória. Subir o
+ *     original é pior que subir o comprimido, e muito melhor que não subir.
+ *
+ * O formato de saída é o mesmo da entrada, de propósito: um print de código em
+ * PNG virando JPEG ganha exatamente os artefatos que borram a linha do erro.
+ *
+ * @param {File|Blob} arquivo
+ * @param {{tipo?: string, ladoMaximo?: number, qualidade?: number}} [opcoes]
+ * @returns {Promise<{blob: Blob, largura: number, altura: number,
+ *   recomprimida: boolean}>}
+ */
+export async function comprimirImagem(arquivo, opcoes = {}) {
+  const { tipo = arquivo.type, ladoMaximo = LADO_MAXIMO, qualidade = QUALIDADE } = opcoes;
+
+  const bitmap = await createImageBitmap(arquivo);
+  const original = { largura: bitmap.width, altura: bitmap.height };
+  const alvo = dimensionarPara(original.largura, original.altura, ladoMaximo);
+
+  const intacto = { blob: arquivo, ...original, recomprimida: false };
+
+  if (tipo === TIPO_ANIMADO || !alvo.precisaReduzir) {
+    if (bitmap.close) bitmap.close();
+    return intacto;
+  }
+
+  const blob = await recodificar(bitmap, alvo.largura, alvo.altura, tipo, qualidade);
+  if (bitmap.close) bitmap.close();
+
+  if (!blob) return intacto;
+
+  return { blob, largura: alvo.largura, altura: alvo.altura, recomprimida: true };
+}
