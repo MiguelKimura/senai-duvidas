@@ -14,13 +14,17 @@
 // módulo de configuração do Firebase não acumule regra de negócio. Os testes
 // que o cobriam acompanharam a mudança de endereço.
 //
-// `uploadImage` continua em `firebase.js` e continua como estava: quem mexe
-// nele é a task 04.
-import * as storage from 'firebase/storage';
+// A task 04 tirou daqui a terceira: `uploadImage`, que gravava em
+// `imagens/{nome}` — caminho global, sem sala e sem uid, em que dois alunos
+// que enviassem `print.png` se sobrescreviam. Ninguém a chamava, e ela nunca
+// chegou a ter interface. O upload de verdade mora em `services/anexos.js`,
+// escopado por sala e por chamado. As asserções que a descreviam foram
+// INVERTIDAS, não removidas.
 import { __arquivosEnviados, __resetarStorage } from 'firebase/storage';
 import { __definirUsuarioDoPopup, __resetarAuth } from 'firebase/auth';
 import * as firebase from '../firebase';
-import { auth, db, storage as storageExportado, uploadImage } from '../firebase';
+import { auth, db, storage as storageExportado } from '../firebase';
+import { comDimensoes, instalarCanvasFalso, restaurarCanvas } from '../test-utils';
 import { entrarComGithub, entrarComGoogle, __esquecerPersistencia } from '../services/auth';
 
 // Import normal, e nao `jest.isolateModules`: os helpers precisam enxergar a
@@ -90,32 +94,48 @@ describe('login com Google e GitHub — agora em services/auth.js', () => {
   });
 });
 
-describe('firebase.js — uploadImage (AC-IMG-02, ainda sem interface)', () => {
-  it('envia o arquivo para imagens/<nome> e devolve a URL pública', async () => {
-    const arquivo = new File(['conteudo'], 'erro-do-vscode.png', { type: 'image/png' });
+describe('firebase.js — uploadImage saiu de cena (AC-IMG-02, AC-IMG-11)', () => {
+  it('NÃO exporta mais uploadImage: o upload mora em services/anexos.js', () => {
+    // Era: "envia o arquivo para imagens/<nome> e devolve a URL pública".
+    // Aquele helper era órfão — ninguém o chamava — e o caminho dele não tinha
+    // sala nem uid. Agora o módulo de configuração só configura o SDK.
+    expect(firebase.uploadImage).toBeUndefined();
 
-    const url = await uploadImage(arquivo);
-
-    expect(__arquivosEnviados()).toEqual(['imagens/erro-do-vscode.png']);
-    expect(url).toBe('https://fake.storage/imagens/erro-do-vscode.png');
+    const servico = require('../services/anexos');
+    expect(servico.enviarAnexo).toBeDefined();
   });
 
-  it('usa o nome do arquivo como caminho, então dois alunos se sobrescrevem', async () => {
-    // Sem uid nem sala no caminho: o segundo upload de um `print.png` apaga o
-    // primeiro. A task 04 troca por um caminho com escopo.
-    await uploadImage(new File(['a'], 'print.png', { type: 'image/png' }));
-    await uploadImage(new File(['b'], 'print.png', { type: 'image/png' }));
+  it('o caminho novo tem sala e chamado, e dois print.png não se sobrescrevem', async () => {
+    // Era: "usa o nome do arquivo como caminho, então dois alunos se
+    // sobrescrevem". O nome agora é sorteado, e o caminho é por chamado.
+    const { enviarAnexo } = require('../services/anexos');
+    const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0];
+    const print = () =>
+      comDimensoes(
+        new File([new Uint8Array(png)], 'print.png', { type: 'image/png' }),
+        800,
+        600
+      );
 
-    expect(__arquivosEnviados()).toEqual(['imagens/print.png']);
+    instalarCanvasFalso();
+    await enviarAnexo(print(), { salaId: 'sala-3b', chamadoId: 'c1' });
+    await enviarAnexo(print(), { salaId: 'sala-3b', chamadoId: 'c1' });
+    restaurarCanvas();
+
+    expect(__arquivosEnviados()).toHaveLength(2);
+    __arquivosEnviados().forEach((caminho) =>
+      expect(caminho).toMatch(/^salas\/sala-3b\/chamados\/c1\//)
+    );
   });
 
-  it('propaga e registra a falha de upload', async () => {
-    jest.spyOn(storage, 'uploadBytes').mockRejectedValue(new Error('rede caiu'));
+  it('a falha de upload não vira console.error com dado de ninguém', async () => {
+    // Era: "propaga e registra a falha de upload" — e o `console.error` do
+    // helper antigo despejava o objeto de erro do SDK no console. Agora a
+    // falha volta traduzida para quem chamou, e é a tela que a exibe.
+    const { ErroDeAnexo } = require('../services/anexos');
 
-    await expect(
-      uploadImage(new File(['a'], 'print.png', { type: 'image/png' }))
-    ).rejects.toThrow('rede caiu');
-    expect(console.error).toHaveBeenCalled();
+    expect(new ErroDeAnexo('falhou').message).toBe('falhou');
+    expect(console.error).not.toHaveBeenCalled();
   });
 });
 

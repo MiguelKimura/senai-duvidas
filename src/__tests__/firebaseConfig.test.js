@@ -158,9 +158,15 @@ describe('firebase.js — compatibilidade futura', () => {
   it('continua exportando o SDK já inicializado, que é o que o resto importa', () => {
     const { modulo } = carregarFirebase();
 
-    ['app', 'auth', 'db', 'storage', 'uploadImage'].forEach((exportado) => {
+    // A lista perdeu `uploadImage` na task 04 — e a garantia de superfície não
+    // foi afrouxada: ela continua existindo, apontando para o novo endereço,
+    // como já acontecera com o login social na task 01.
+    ['app', 'auth', 'db', 'storage'].forEach((exportado) => {
       expect(modulo[exportado]).toBeDefined();
     });
+
+    expect(modulo.uploadImage).toBeUndefined();
+    expect(require('../services/anexos').enviarAnexo).toBeDefined();
   });
 
   it('o login social mudou de endereço, e nada ficou sem dono', () => {
