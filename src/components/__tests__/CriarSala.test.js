@@ -49,9 +49,9 @@ function semearProfessor() {
 
 /** Monta a tela já com a sessão do professor resolvida. */
 async function montar() {
-  const resultado = renderComProvedores(<CriarSala />, { rota: '/salas/nova' });
+  const view = renderComProvedores(<CriarSala />, { rota: '/salas/nova' });
   await screen.findByRole('heading', { name: /nova sala/i });
-  return resultado;
+  return view;
 }
 
 /** Preenche o formulário e envia. */
