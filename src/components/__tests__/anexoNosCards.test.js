@@ -176,7 +176,9 @@ describe('URL externa que saiu do ar (AC-IMG-12)', () => {
 
 describe('excluir o chamado apaga o anexo (AC-CHAMADO-08)', () => {
   it('o aluno que exclui o próprio chamado leva o anexo junto', async () => {
-    __semearArquivos(['chamados/meu/abc.png', 'imagens/de-outra-pessoa.png']);
+    // O caminho é o que está gravado em `anexo.caminho` do próprio chamado —
+    // é por ele que se sabe o que apagar, e não por adivinhação.
+    __semearArquivos([CHAMADO_NOVO.anexo.caminho, 'imagens/de-outra-pessoa.png']);
     __semearColecao('chamados', [
       { ...CHAMADO_NOVO, id: 'meu', email: 'ana@senai.br', autorUid: 'uid-ana' },
     ]);
@@ -189,7 +191,7 @@ describe('excluir o chamado apaga o anexo (AC-CHAMADO-08)', () => {
   });
 
   it('o professor que exclui o chamado de um aluno também limpa o Storage', async () => {
-    __semearArquivos(['chamados/c1/abc.png']);
+    __semearArquivos([CHAMADO_NOVO.anexo.caminho]);
     __semearColecao('chamados', [{ ...CHAMADO_NOVO, id: 'c1' }]);
     renderComProvedores(<TelaProfessor />);
 
@@ -199,7 +201,7 @@ describe('excluir o chamado apaga o anexo (AC-CHAMADO-08)', () => {
   });
 
   it('excluir chamado sem anexo não falha nem apaga nada de ninguém', async () => {
-    __semearArquivos(['chamados/outro/abc.png']);
+    __semearArquivos(['salas/s1/chamados/outro/abc.png']);
     __semearColecao('chamados', [
       { ...CHAMADO_ANTIGO, id: 'meu', email: 'ana@senai.br', imagem: null },
     ]);
@@ -208,7 +210,7 @@ describe('excluir o chamado apaga o anexo (AC-CHAMADO-08)', () => {
     userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
 
     await waitFor(() => expect(__documentosDe('chamados')).toHaveLength(0));
-    expect(__arquivosEnviados()).toEqual(['chamados/outro/abc.png']);
+    expect(__arquivosEnviados()).toEqual(['salas/s1/chamados/outro/abc.png']);
   });
 });
 

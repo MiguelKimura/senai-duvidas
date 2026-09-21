@@ -26,6 +26,7 @@ import {
   enviarAnexo,
   normalizarAnexo,
   removerAnexo,
+  removerAnexoDoChamado,
   removerAnexosDoChamado,
   validarArquivo,
 } from '../anexos';
@@ -697,5 +698,64 @@ describe('removerAnexo — o anexo abandonado antes de o chamado existir', () =>
 
   it('caminho vazio não chega a chamar o Storage', async () => {
     await expect(removerAnexo('')).resolves.toBeUndefined();
+  });
+});
+
+describe('removerAnexoDoChamado — o que a exclusão pode e não pode apagar', () => {
+  beforeEach(() => __resetarStorage());
+
+  const chamadoComAnexo = {
+    id: 'c1',
+    anexo: { url: 'https://fake.storage/x', caminho: 'salas/s1/chamados/c1/abc.png' },
+  };
+
+  it('apaga o arquivo que o próprio chamado aponta', async () => {
+    __semearArquivos(['salas/s1/chamados/c1/abc.png']);
+
+    await removerAnexoDoChamado('s1', chamadoComAnexo);
+
+    expect(__arquivosEnviados()).toEqual([]);
+  });
+
+  it('apaga o anexo mesmo sem sala — pelo caminho gravado no documento', async () => {
+    // A fila global da v0.4.0 ainda existe como fallback de leitura, e um
+    // chamado aberto ali também pode ter anexo. O caminho está no documento.
+    __semearArquivos(['salas/s1/chamados/c1/abc.png']);
+
+    await removerAnexoDoChamado(null, chamadoComAnexo);
+
+    expect(__arquivosEnviados()).toEqual([]);
+  });
+
+  it('NUNCA varre o caminho legado imagens/, que é de todo mundo', async () => {
+    // `caminhoDoAnexo(null, id, nome)` cai em `imagens/{nome}` — o caminho
+    // global da v0.1.0, sem sala e sem dono. Varrer aquele prefixo ao excluir
+    // um chamado apagaria o anexo de todos os outros, de toda a escola.
+    __semearArquivos(['imagens/de-outra-pessoa.png', 'imagens/de-mais-alguem.png']);
+
+    await removerAnexoDoChamado(null, { id: 'c1', anexo: null });
+
+    expect(__arquivosEnviados()).toHaveLength(2);
+  });
+
+  it('chamado no formato antigo, com imagem em string, não tem o que apagar', async () => {
+    __semearArquivos(['imagens/print.png']);
+
+    await removerAnexoDoChamado(null, { id: 'c1', imagem: 'https://exemplo.br/erro.png' });
+
+    expect(__arquivosEnviados()).toEqual(['imagens/print.png']);
+  });
+
+  it('varre a pasta da sala para pegar o anexo trocado antes de concluir', async () => {
+    // O aluno anexou, trocou de imagem e concluiu. A troca já apaga o antigo,
+    // mas se a aba fechou no meio, sobrou arquivo na pasta do chamado.
+    __semearArquivos([
+      'salas/s1/chamados/c1/abc.png',
+      'salas/s1/chamados/c1/sobrou-da-primeira-tentativa.png',
+    ]);
+
+    await removerAnexoDoChamado('s1', chamadoComAnexo);
+
+    expect(__arquivosEnviados()).toEqual([]);
   });
 });
