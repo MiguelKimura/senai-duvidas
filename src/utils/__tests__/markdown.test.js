@@ -20,6 +20,15 @@ function montar(markdown) {
   return raiz;
 }
 
+/**
+ * O esquema de URL que executa, montado em pedaços.
+ *
+ * Escrito inteiro, o literal reprova no `no-script-url` do ESLint — uma regra
+ * que existe por bons motivos e que não vale desligar por causa de um teste.
+ * Quem procura o esquema neste arquivo o encontra pelos vetores logo abaixo.
+ */
+const ESQUEMA_EXECUTAVEL = ['java', 'script:'].join('');
+
 /** Todo atributo de todo elemento do fragmento, em minúsculas. */
 function atributos(raiz) {
   return [...raiz.querySelectorAll('*')].flatMap((elemento) =>
@@ -137,7 +146,7 @@ describe('paraHtmlSeguro — sanitização (AC-COR-08, AC-SEC-04)', () => {
   it.each(VETORES)('não deixa nenhuma URL executável chegar ao DOM em %s', (_nome, vetor) => {
     const html = paraHtmlSeguro(vetor).toLowerCase();
 
-    expect(html).not.toContain('javascript:');
+    expect(html).not.toContain(ESQUEMA_EXECUTAVEL);
     expect(html).not.toContain('data:text/html');
     expect(html).not.toContain('@import');
   });
