@@ -600,6 +600,26 @@ export function __semearColecao(caminho, documentos) {
   notificar(caminho);
 }
 
+/**
+ * As consultas que estão inscritas agora, com a forma de cada uma.
+ *
+ * Existe para que um teste possa afirmar **o corte** de um listener, e não só
+ * quantos resultados ele devolveu. "A conversa carrega 50 mensagens"
+ * (AC-CHAT-06) é uma afirmação sobre a consulta: com 12 mensagens no banco,
+ * contar balões na tela dá 12 tanto com `limit(50)` quanto sem limite nenhum —
+ * e é justamente o "sem limite nenhum" que o AC-PERF-03 proíbe.
+ *
+ * @returns {Array<{caminho: string, quantidade: number|null, ordenacoes: Array, filtros: Array}>}
+ */
+export function __consultasAtivas() {
+  return ouvintes.map(({ caminho, quantidade, ordenacoes, filtros }) => ({
+    caminho,
+    quantidade,
+    ordenacoes,
+    filtros,
+  }));
+}
+
 /** Quantos ouvintes continuam inscritos — usado para provar o AC-PERF-04. */
 export function __ouvintesAtivos() {
   return ouvintes.length;
