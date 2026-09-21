@@ -687,7 +687,7 @@ describe('TelaAluno — o card de março continua o card de março (AC-COR-05)',
         email: 'b@senai.br',
         horario: '2025-03-10T10:00:00.000Z',
         cor: 'hsl(210, 70%, 80%)',
-        descricao: 'o arquivo C:\Users\*.log some e o _log_ fica vazio',
+        descricao: 'o arquivo C:\\Users\\*.log some e o _log_ fica vazio',
       },
     ]);
 
@@ -699,7 +699,7 @@ describe('TelaAluno — o card de março continua o card de março (AC-COR-05)',
     expect(cartao.querySelector('.texto-markdown em')).toBeNull();
     expect(cartao.querySelector('.texto-markdown strong')).toBeNull();
     expect(
-      within(cartao).getByText('o arquivo C:\Users\*.log some e o _log_ fica vazio')
+      within(cartao).getByText('o arquivo C:\\Users\\*.log some e o _log_ fica vazio')
     ).toBeInTheDocument();
   });
 
