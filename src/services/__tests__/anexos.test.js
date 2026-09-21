@@ -7,6 +7,7 @@
 // para `print.png` leva três segundos e engana qualquer `endsWith('.png')`.
 // O que prova é o começo do conteúdo — os *magic bytes*, que todo formato de
 // imagem carrega nos primeiros bytes e que nenhum renomeio altera (AC-SEC-08).
+import * as storageFake from 'firebase/storage';
 import {
   __arquivosEnviados,
   __avancarUploads,
@@ -14,9 +15,20 @@ import {
   __falharUploads,
   __resetarStorage,
   __segurarUploads,
+  __semearArquivos,
   __uploadsPendentes,
 } from 'firebase/storage';
-import { LIMITE_DE_BYTES, comprimirImagem, enviarAnexo, validarArquivo } from '../anexos';
+import {
+  LIMITE_DE_BYTES,
+  camposDoAnexo,
+  comprimirImagem,
+  ehUrlDeImagem,
+  enviarAnexo,
+  normalizarAnexo,
+  removerAnexo,
+  removerAnexosDoChamado,
+  validarArquivo,
+} from '../anexos';
 import {
   comDimensoes,
   desenhosFeitos,
@@ -513,5 +525,172 @@ describe('enviarAnexo — a falha de rede é acionável (AC-IMG-09)', () => {
     __falharUploads('storage/retry-limit-exceeded');
 
     await expect(envio).rejects.toMatchObject({ cancelado: false });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Os dois formatos do campo de anexo — AC-IMG-01, AC-IMG-13.
+//
+// Até a v0.5.0, `imagem` era uma string de URL (ou `null`). Trocar por objeto
+// de uma vez quebraria todo chamado já gravado, e é exatamente o que a seção 4
+// do `_PROTOCOLO.md` proíbe: mudança de forma de dado exige **leitura dupla**
+// antes de qualquer outra coisa.
+//
+// `normalizarAnexo` é essa leitura dupla. É por ela que passa tudo o que vem
+// do banco, e é ela que faz o chamado de março de 2025 continuar exibindo o
+// print dele depois do deploy.
+// ---------------------------------------------------------------------------
+describe('normalizarAnexo — lê o formato antigo e o novo (AC-IMG-13)', () => {
+  it('a string de URL da v0.1.0 vira um anexo de origem url', () => {
+    expect(normalizarAnexo('https://exemplo.br/erro.png')).toEqual({
+      url: 'https://exemplo.br/erro.png',
+      origem: 'url',
+    });
+  });
+
+  it('o objeto do formato novo passa inteiro, sem perder campo', () => {
+    const novo = {
+      url: 'https://fake.storage/salas/s1/chamados/c1/abc.png',
+      caminho: 'salas/s1/chamados/c1/abc.png',
+      origem: 'upload',
+      largura: 1600,
+      altura: 900,
+      bytes: 204800,
+    };
+
+    expect(normalizarAnexo(novo)).toEqual(novo);
+  });
+
+  it('ausência de anexo é null, nas três formas que o banco tem de dizer isso', () => {
+    expect(normalizarAnexo(null)).toBeNull();
+    expect(normalizarAnexo(undefined)).toBeNull();
+    expect(normalizarAnexo('')).toBeNull();
+  });
+
+  it('um objeto sem url não vira anexo — não há o que exibir', () => {
+    expect(normalizarAnexo({ caminho: 'salas/s1/chamados/c1/abc.png' })).toBeNull();
+  });
+});
+
+describe('camposDoAnexo — a escrita dupla desta versão', () => {
+  it('grava a string em imagem e o objeto em anexo, com a mesma URL', () => {
+    const anexo = { url: 'https://fake.storage/a.png', caminho: 'a.png', origem: 'upload' };
+
+    expect(camposDoAnexo(anexo)).toEqual({ imagem: 'https://fake.storage/a.png', anexo });
+  });
+
+  it('sem anexo, os dois campos saem nulos — como a v0.1.0 gravava', () => {
+    expect(camposDoAnexo(null)).toEqual({ imagem: null, anexo: null });
+  });
+
+  it('o que um cliente antigo lê em imagem é exatamente o que o novo lê em anexo.url', () => {
+    // A prova da compatibilidade futura: uma aba aberta desde antes do deploy
+    // continua achando a imagem onde sempre a procurou.
+    const anexo = { url: 'https://fake.storage/b.png', origem: 'upload' };
+    const { imagem, anexo: gravado } = camposDoAnexo(anexo);
+
+    expect(imagem).toBe(normalizarAnexo(gravado).url);
+  });
+});
+
+describe('ehUrlDeImagem — o que pode virar anexo por link (AC-IMG-01)', () => {
+  it('aceita http e https, com ou sem extensão no fim', () => {
+    expect(ehUrlDeImagem('https://exemplo.br/erro.png')).toBe(true);
+    expect(ehUrlDeImagem('http://exemplo.br/erro.jpg')).toBe(true);
+    // Encurtadores e serviços de print não põem extensão nenhuma na URL.
+    expect(ehUrlDeImagem('https://prnt.sc/abc123')).toBe(true);
+  });
+
+  it('recusa javascript: — um "anexo" que executa código na máquina de quem lê', () => {
+    expect(ehUrlDeImagem('javascript:alert(1)')).toBe(false);
+  });
+
+  it('recusa texto que não é endereço nenhum', () => {
+    expect(ehUrlDeImagem('o erro do vscode')).toBe(false);
+    expect(ehUrlDeImagem('')).toBe(false);
+    expect(ehUrlDeImagem(null)).toBe(false);
+  });
+
+  it('aceita a imagem embutida em data:, que é o que o "colar" produz', () => {
+    expect(ehUrlDeImagem('data:image/png;base64,iVBORw0KGgo=')).toBe(true);
+  });
+
+  it('recusa data: que não é imagem', () => {
+    expect(ehUrlDeImagem('data:text/html;base64,PHNjcmlwdD4=')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Excluir o chamado apaga também o anexo — AC-CHAMADO-08.
+//
+// O órfão do Storage é um custo silencioso: o documento some da tela, ninguém
+// mais tem como chegar ao arquivo, e ele continua ocupando a cota da escola
+// para sempre. Como o anexo mora numa pasta por chamado, apagar é varrer o
+// prefixo — e é isso que o caminho escopado comprou.
+// ---------------------------------------------------------------------------
+describe('removerAnexosDoChamado — sem órfãos no Storage (AC-CHAMADO-08)', () => {
+  beforeEach(() => __resetarStorage());
+
+  it('apaga todos os arquivos da pasta do chamado', async () => {
+    __semearArquivos([
+      'salas/s1/chamados/c1/um.png',
+      'salas/s1/chamados/c1/dois.png',
+      'salas/s1/chamados/c2/de-outro-chamado.png',
+    ]);
+
+    await removerAnexosDoChamado('s1', 'c1');
+
+    expect(__arquivosEnviados()).toEqual(['salas/s1/chamados/c2/de-outro-chamado.png']);
+  });
+
+  it('não toca no anexo de outra sala com o mesmo id de chamado', async () => {
+    __semearArquivos(['salas/s1/chamados/c1/um.png', 'salas/s2/chamados/c1/um.png']);
+
+    await removerAnexosDoChamado('s1', 'c1');
+
+    expect(__arquivosEnviados()).toEqual(['salas/s2/chamados/c1/um.png']);
+  });
+
+  it('chamado sem anexo nenhum não é erro', async () => {
+    await expect(removerAnexosDoChamado('s1', 'sem-anexo')).resolves.toEqual({ apagados: 0 });
+  });
+
+  it('diz quantos arquivos apagou', async () => {
+    __semearArquivos(['salas/s1/chamados/c1/um.png', 'salas/s1/chamados/c1/dois.png']);
+
+    await expect(removerAnexosDoChamado('s1', 'c1')).resolves.toEqual({ apagados: 2 });
+  });
+
+  it('a falha ao apagar não impede a exclusão do chamado', async () => {
+    // O chamado é do aluno e sair da tela é o que ele pediu. Um anexo que
+    // resistiu vira custo, não bloqueio: a exclusão do documento segue.
+    __semearArquivos(['salas/s1/chamados/c1/um.png']);
+    jest.spyOn(storageFake, 'listAll').mockRejectedValueOnce(new Error('rede caiu'));
+
+    await expect(removerAnexosDoChamado('s1', 'c1')).resolves.toEqual({ apagados: 0 });
+
+    storageFake.listAll.mockRestore();
+  });
+});
+
+describe('removerAnexo — o anexo abandonado antes de o chamado existir', () => {
+  beforeEach(() => __resetarStorage());
+
+  it('apaga o arquivo pelo caminho', async () => {
+    __semearArquivos(['salas/s1/chamados/c1/um.png']);
+
+    await removerAnexo('salas/s1/chamados/c1/um.png');
+
+    expect(__arquivosEnviados()).toEqual([]);
+  });
+
+  it('apagar o que já não existe não lança', async () => {
+    await expect(
+      removerAnexo('salas/s1/chamados/c1/nunca-existiu.png')
+    ).resolves.toBeUndefined();
+  });
+
+  it('caminho vazio não chega a chamar o Storage', async () => {
+    await expect(removerAnexo('')).resolves.toBeUndefined();
   });
 });
