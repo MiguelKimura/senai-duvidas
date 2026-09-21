@@ -11,12 +11,12 @@ import {
   criarComparadorPorHorario,
   formatarDataHora,
 } from '../services/tempo';
-import { LIMITE_DE_CHAMADOS, colecaoDeChamados } from '../services/salas';
+import { LIMITE_DE_CHAMADOS, PAPEL_DE_ALUNO, colecaoDeChamados } from '../services/salas';
 import { FORMATO_MARKDOWN, formatoDoTexto } from '../utils/markdown';
 import { corAutomatica } from '../utils/paleta';
 import { estiloDoCard } from '../utils/cardDoChamado';
 import '../styles/TelaAluno.css';
-import Chat from './Chat';
+import Chat from './chat/Chat';
 import BotaoSair from './BotaoSair';
 
 // A tela do aluno, agora dentro de uma sala (AC-SALA-07).
@@ -188,7 +188,10 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
         />
       )}
 
-      <Chat salaId={salaId} />
+      {/* O papel vai explícito: é ele que decide o selo do balão e quem pode
+          usar o `!clear` (AC-CHAT-04, AC-CHAT-08). Quem abre esta tela é aluno
+          na sala — a decisão de qual tela abrir é de `Sala.jsx`, pelo vínculo. */}
+      <Chat salaId={salaId} papelNaSala={PAPEL_DE_ALUNO} somenteLeitura={somenteLeitura} />
     </div>
   );
 }

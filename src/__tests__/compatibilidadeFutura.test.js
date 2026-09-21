@@ -32,9 +32,9 @@ import {
 import TelaAluno from '../components/TelaAluno';
 import TextoMarkdown from '../components/TextoMarkdown';
 import TelaProfessor from '../components/TelaProfessor';
-import Chat from '../components/Chat';
+import Chat from '../components/chat/Chat';
 import { PALETA } from '../utils/paleta';
-import { corDeFundo, renderComProvedores } from '../test-utils';
+import { corDeFundo, fixarRelogio, renderComProvedores, restaurarRelogio } from '../test-utils';
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -142,9 +142,24 @@ describe('mensagens de chat com campos que a v0.1.0 não conhece', () => {
     reacoes: { '👍': 2 },
   };
 
-  /** O painel do chat começa fechado; as mensagens só existem no DOM depois. */
+  // A aba da sala mostra a conversa **de hoje** (ADR 0009). A mensagem acima e
+  // de 10/03/2025; sem colocar o relogio do leitor no mesmo dia, ela seria
+  // filtrada por ser antiga, e o caso mediria o calendario em vez de medir a
+  // leitura de um documento com campos desconhecidos.
+  beforeEach(() => fixarRelogio(MENSAGEM_DO_FUTURO.horario));
+
+  afterEach(() => restaurarRelogio());
+
+  /**
+   * O painel do chat comeca fechado; as mensagens so existem no DOM depois.
+   *
+   * E a sessao resolve em outro tick: sem esperar a aba, o que se alcanca e o
+   * aviso de carregamento, e um `queryByText` nulo passaria por engano.
+   */
   async function abrirChat() {
     await userEvent.click(document.querySelector('.toggle-chat-btn'));
+
+    return screen.findByRole('tab', { name: 'Sala' });
   }
 
   it('o chat renderiza a mensagem nova sem lançar e mostra o texto', async () => {
