@@ -141,3 +141,9 @@
   color: var(--cor-texto-rotulo);
   margin-top: var(--espaco-3);
 }
+
+.salas-barra {
+  display: flex;
+  gap: var(--espaco-2);
+  flex-wrap: wrap;
+}
