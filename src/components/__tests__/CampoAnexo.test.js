@@ -19,6 +19,7 @@ import {
   __resetarStorage,
   __segurarUploads,
   __semearArquivos,
+  __uploadsPendentes,
 } from 'firebase/storage';
 import CampoAnexo from '../CampoAnexo';
 import { comDimensoes, instalarCanvasFalso, restaurarCanvas } from '../../test-utils';
@@ -37,7 +38,7 @@ function print(nome = 'print.png') {
 
 function montar(props = {}) {
   const aoMudar = jest.fn();
-  const utilidades = render(
+  const utils = render(
     <CampoAnexo
       salaId="sala-3b"
       chamadoId="chamado-1"
@@ -47,7 +48,19 @@ function montar(props = {}) {
     />
   );
 
-  return { aoMudar, ...utilidades };
+  return { aoMudar, ...utils };
+}
+
+/**
+ * Espera a tarefa de upload existir de verdade.
+ *
+ * A barra aparece **antes** do upload começar — o campo mostra 0% assim que o
+ * arquivo é escolhido, enquanto valida e comprime. Mandar o Storage falhar
+ * nesse intervalo não faria nada, e o teste passaria ou não conforme o
+ * agendamento do dia.
+ */
+async function aguardarEnvioComecar() {
+  await waitFor(() => expect(__uploadsPendentes().length).toBeGreaterThan(0));
 }
 
 /** A zona de soltar é o próprio corpo do campo. */
@@ -220,6 +233,7 @@ describe('CampoAnexo — progresso e cancelamento (AC-IMG-08)', () => {
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print());
 
     const barra = await screen.findByRole('progressbar');
+    await aguardarEnvioComecar();
     __avancarUploads(0.5);
     await waitFor(() => expect(barra).toHaveAttribute('value', '50'));
   });
@@ -262,7 +276,7 @@ describe('CampoAnexo — progresso e cancelamento (AC-IMG-08)', () => {
     await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
 
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print('segunda.png'));
-    await screen.findByRole('progressbar');
+    await aguardarEnvioComecar();
     __concluirUploads();
 
     await waitFor(() =>
@@ -287,7 +301,7 @@ describe('CampoAnexo — a falha de envio (AC-IMG-09)', () => {
   it('a falha some quando o aluno escolhe outra imagem', async () => {
     montar();
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print('primeira.png'));
-    await screen.findByRole('progressbar');
+    await aguardarEnvioComecar();
     __falharUploads('storage/retry-limit-exceeded');
     await screen.findByRole('alert');
 
