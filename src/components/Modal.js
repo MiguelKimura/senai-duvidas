@@ -14,13 +14,25 @@
 // duas vezes, em banda e em cota.
 import React, { useRef, useState } from 'react';
 import CampoAnexo from './CampoAnexo';
+import PainelAvancado from './PainelAvancado';
 import { removerAnexo } from '../services/anexos';
 import { reservarChamado } from '../services/salas';
+import { corAutomatica } from '../utils/paleta';
+import { guardarCorPreferida, lerCorPreferida } from '../utils/preferenciaDeCor';
 import '../styles/Modal.css';
 
-function Modal({ salaId = null, onClose, onSubmit }) {
+function Modal({ salaId = null, onClose, onSubmit, autor = '' }) {
   const [descricao, setDescricao] = useState('');
   const [anexo, setAnexo] = useState(null);
+  // A preferência do chamado anterior já entra marcada (AC-COR-10). `null`
+  // significa "não escolheu", e é o que mantém o sorteio de sempre.
+  const [cor, setCor] = useState(lerCorPreferida);
+
+  // Sorteada uma vez, na abertura, e não na hora de gravar. É o que faz a
+  // prévia mostrar **a** cor que o card vai ter: sortear de novo no envio
+  // transformaria a prévia em enfeite (AC-COR-09).
+  const sorteada = useRef(null);
+  if (sorteada.current === null) sorteada.current = corAutomatica();
 
   // Reservado uma vez, na abertura. `useRef` com inicialização preguiçosa
   // porque `reservarChamado` sorteia um id novo a cada chamada — recalculá-lo
@@ -33,7 +45,8 @@ function Modal({ salaId = null, onClose, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    onSubmit(descricao, anexo, chamadoId);
+    guardarCorPreferida(cor);
+    onSubmit(descricao, anexo, chamadoId, cor || sorteada.current);
     setDescricao('');
     setAnexo(null);
   };
@@ -72,8 +85,17 @@ function Modal({ salaId = null, onClose, onSubmit }) {
           />
         </section>
 
-        {/* TODO(task-05): a seção de opções avançadas — cor do card e
-            markdown — entra aqui, ao lado das duas de cima. */}
+        {/* As opções avançadas (task 05). Abaixo das duas seções de cima, e
+            fechadas: o aluno com pressa escreve e envia sem passar por aqui.
+            O campo de link continua na seção de anexo, fora do painel — colar
+            uma URL não pode ficar mais caro do que já era (AC-IMG-01). */}
+        <PainelAvancado
+          cor={cor}
+          corAutomatica={sorteada.current}
+          onCorMudou={setCor}
+          descricao={descricao}
+          autor={autor}
+        />
 
         <div className="buttons-container">
           <button onClick={handleSubmit}>Concluir</button>

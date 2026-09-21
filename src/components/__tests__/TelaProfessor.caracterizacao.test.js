@@ -28,6 +28,7 @@ import {
   __semearColecao,
 } from 'firebase/firestore';
 import TelaProfessor from '../TelaProfessor';
+import { PALETA } from '../../utils/paleta';
 import { corDeFundo, fabricaChamado, renderComProvedores } from '../../test-utils';
 
 const db = getFirestore();
@@ -337,5 +338,72 @@ describe('TelaProfessor — horário pendente e exibição em Brasília (AC-TEMP
     __confirmarCarimbos();
 
     await waitFor(() => expect(autoresNaTela()).toEqual(['Chegou antes', 'Chegou depois']));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 05 — o card do professor mostra o que o do aluno mostra.
+//
+// A fila do professor é a mesma fila, e o card é o mesmo card. A task 04 já
+// mostrou o preço de esquecer isso: o ícone de anexo era dois trechos de JSX
+// copiados, e os dois tinham divergido em silêncio. Estes casos existem para
+// que cor e markdown não repitam a história.
+// ---------------------------------------------------------------------------
+
+describe('TelaProfessor — cor e markdown do card (AC-COR-04, AC-COR-07)', () => {
+  it('pinta o card com a cor da paleta escolhida pelo aluno', () => {
+    const escolhida = PALETA[6];
+    __semearColecao('chamados', [fabricaChamado({ id: 'c1', cor: escolhida.fundo })]);
+
+    renderComProvedores(<TelaProfessor />);
+
+    expect(cardsNaTela()[0]).toHaveStyle({ backgroundColor: escolhida.fundo });
+    expect(cardsNaTela()[0]).toHaveStyle({ color: escolhida.texto });
+  });
+
+  it('rende o markdown do chamado', () => {
+    __semearColecao('chamados', [
+      fabricaChamado({ id: 'c1', descricao: 'o **cabo** caiu', formato: 'markdown' }),
+    ]);
+
+    renderComProvedores(<TelaProfessor />);
+
+    expect(cardsNaTela()[0].querySelector('.texto-markdown strong')).toHaveTextContent('cabo');
+  });
+
+  it('não deixa script chegar ao DOM (AC-COR-08)', () => {
+    __semearColecao('chamados', [
+      fabricaChamado({
+        id: 'c1',
+        descricao: '<script>alert(1)</script><img src=x onerror=alert(1)>',
+        formato: 'markdown',
+      }),
+    ]);
+
+    renderComProvedores(<TelaProfessor />);
+
+    expect(document.querySelector('script')).toBeNull();
+    expect(document.querySelector('img[onerror]')).toBeNull();
+  });
+
+  it('mostra o chamado antigo como texto puro, sem interpretar markdown', () => {
+    __semearColecao('chamados', [
+      {
+        id: 'antigo',
+        nome: 'Bruno',
+        email: 'b@senai.br',
+        horario: '2025-03-10T10:00:00.000Z',
+        cor: 'hsl(210, 70%, 80%)',
+        descricao: 'o *.log some',
+      },
+    ]);
+
+    renderComProvedores(<TelaProfessor />);
+
+    const [cartao] = cardsNaTela();
+    // Escopado ao texto da descrição: o `<em>` do horário é do card.
+    expect(cartao.querySelector('.texto-markdown em')).toBeNull();
+    expect(within(cartao).getByText('o *.log some')).toBeInTheDocument();
+    expect(cartao.style.color).toBe('');
   });
 });

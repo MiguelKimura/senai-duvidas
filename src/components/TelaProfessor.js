@@ -3,8 +3,11 @@ import { deleteDoc, doc, limit, onSnapshot, query } from 'firebase/firestore';
 import { criarComparadorPorHorario, formatarDataHora } from '../services/tempo';
 import { LIMITE_DE_CHAMADOS, colecaoDeChamados } from '../services/salas';
 import { removerAnexoDoChamado } from '../services/anexos';
+import { formatoDoTexto } from '../utils/markdown';
+import { estiloDoCard } from '../utils/cardDoChamado';
 import '../styles/TelaProfessor.css';
 import AnexoDoCard from './AnexoDoCard';
+import TextoMarkdown from './TextoMarkdown';
 import Chat from './Chat';
 import BotaoSair from './BotaoSair';
 
@@ -57,11 +60,7 @@ function TelaProfessor({ salaId = null, somenteLeitura = false }) {
 
       <div className="problemas-list">
         {problemas.map((problema) => (
-          <div
-            key={problema.id}
-            className="problema-card"
-            style={{ backgroundColor: problema.cor }}
-          >
+          <div key={problema.id} className="problema-card" style={estiloDoCard(problema)}>
             <div className="card-header">
               <div className="user-name-wrapper">
                 <p className="user-name">
@@ -75,7 +74,10 @@ function TelaProfessor({ salaId = null, somenteLeitura = false }) {
               <AnexoDoCard chamado={problema} />
             </div>
 
-            <p>{problema.descricao}</p>
+            {/* O mesmo componente do card do aluno, pelo mesmo motivo do
+                `AnexoDoCard`: a fila e a mesma, e o card precisa ser o
+                mesmo (AC-COR-07). */}
+            <TextoMarkdown texto={problema.descricao} formato={formatoDoTexto(problema)} />
             <p>
               <em>{formatarDataHora(problema.horario)}</em>
             </p>

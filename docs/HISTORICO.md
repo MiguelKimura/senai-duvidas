@@ -440,7 +440,98 @@ conteúdo é serviço pago, e está fora do escopo declarado.
 
 ## v0.7.0 — Opções avançadas do card
 
-*(a preencher pela task 05)*
+**O que existia**
+
+O modal de novo chamado tinha duas coisas: um `textarea` e um campo para colar o link de uma
+imagem. A cor do card não era escolhida por ninguém — ela saía de uma linha em `TelaAluno.js`:
+
+```js
+const novaCor = `hsl(${Math.random() * 360}, 70%, 80%)`;
+```
+
+O matiz era sorteado a cada chamado. A descrição ia para a tela como texto puro, sem formatação
+nenhuma.
+
+**O problema que isso causava**
+
+- **A cor era loteria.** Às vezes o card saía num azul claro agradável, às vezes num amarelo
+  quase branco onde o texto some. Ninguém tinha escolhido aquilo e ninguém conseguia corrigir:
+  não há o que ajustar num `Math.random()`. E, como o texto do card usa a cor definida no CSS,
+  o contraste entre os dois nunca foi verificado — o sorteio podia cair em qualquer lugar.
+- **A cor não servia para nada.** Numa fila de quarenta chamados, uma cor escolhida é um jeito
+  barato de o aluno marcar o próprio card e o professor achá-lo de relance. Sorteada, ela é só
+  ruído visual.
+- **A descrição não tinha como se organizar.** Um erro de compilador colado no meio de uma frase
+  vira uma linha ilegível. "Já tentei X, Y e Z" quer ser uma lista, e virava um parágrafo.
+
+**O que o cliente pediu**
+
+> "O menu de abrir um chamado é bem simples: tem a parte de escrever sobre o problema e o campo
+> pra colar link de imagem. Eu queria uma setinha em cinza que, quando aberta, mostrasse opções
+> de cor para o card."
+
+O pedido é tanto sobre o que aparece quanto sobre o que **não** aparece. O aluno com pressa
+precisa continuar abrindo o modal, escrevendo e enviando sem topar com opção nenhuma.
+
+**A decisão**
+
+1. **`<details>`/`<summary>` nativo, fechado por padrão.** Foco, Enter, Espaço, estado e o
+   triângulo já vêm prontos e corretos no navegador; reimplementar isso em React só criaria a
+   chance de errar em algum deles. O `aria-expanded` é declarado por cima do nativo porque o
+   critério o exige nominalmente e porque `<summary>` ainda é anunciado de formas diferentes
+   pelos leitores de tela em uso.
+
+2. **Nove cores, com o contraste verificado por teste.** A paleta em `src/utils/paleta.js` traz
+   cada cor com o seu par de texto, e um teste percorre a lista inteira exigindo 4,5:1 pela
+   fórmula de luminância relativa do WCAG. O valor da paleta não está em ela existir — está em
+   a próxima cor bonita e ilegível reprovar o CI antes de chegar à aula.
+
+3. **A cor virou um radiogroup, não nove botões.** Nove botões soltos são nove paradas de `Tab`
+   e nove anúncios de "botão" sem dizer que são alternativas da mesma escolha. Com o radiogroup,
+   um `Tab` entra, as setas escolhem e um `Tab` sai.
+
+4. **Markdown por biblioteca, sanitizado por lista de permissão.** `marked` faz o parse,
+   `dompurify` tranca. A decisão inteira está no ADR 0008; o resumo é que um parser de markdown
+   escrito à mão com expressões regulares é onde nascem os XSS, e que enumerar o que é perigoso
+   é uma corrida que se perde — a lista diz o que **pode** existir, e o resto some.
+
+5. **O campo `formato`.** Todo chamado gravado até a v0.6.0 é texto puro, e texto puro tem `*`,
+   `_` e `#` dentro: caminhos do Windows com `*.log`, "# 12 travou". Interpretar o legado como
+   markdown mudaria, sem aviso, o que está escrito num card que já está na tela de alguém.
+   `formato` ausente significa "texto", e é isso que preserva o banco inteiro sem migração
+   nenhuma.
+
+**O que foi descartado**
+
+- **Escrever o parser de markdown à mão.** Parece pequeno — quatro `replace` com expressão
+  regular — e é exatamente onde nascem os XSS: basta uma ordem de substituição errada para o
+  texto já escapado voltar a ser HTML.
+- **Permitir links e imagens no markdown.** A imagem do chamado é o anexo, que passa por
+  validação de tipo e sobe para o Storage da sala (ADR 0007). Uma `<img>` escrita na descrição
+  apontaria para qualquer servidor da internet e entregaria a ele o IP de toda a turma ao
+  carregar; um link traria phishing junto. Nesta versão, nenhum dos dois.
+- **Mover o campo de link da imagem para dentro do painel.** Simplificaria a tela principal e
+  encareceria o fluxo que mais acontece. Colar um link continua custando os mesmos cliques.
+- **Guardar a cor preferida no perfil do Firestore.** Custaria uma escrita por chamado, uma
+  leitura por abertura do modal e uma rule nova, para guardar uma cor. Ela ficou no
+  `localStorage`; trocar de computador recomeça do zero, e recomeçar são dois cliques.
+- **Interpretar o legado como markdown e aceitar o estrago.** Seria uma linha a menos de código
+  e uma mudança silenciosa em chamados que já existem.
+
+**O que o usuário sente**
+
+- **O aluno com pressa** não sente nada: abre, escreve, envia. A setinha cinza está lá embaixo e
+  não pede atenção.
+- **O aluno que abre a setinha** escolhe a cor do próprio card numa paleta em que todas as
+  opções são legíveis, vê a prévia do card mudando enquanto digita, e não precisa reescolher a
+  cor no chamado seguinte.
+- **Quem escreve o erro em três linhas** vê as três linhas. Quem cola uma mensagem de compilador
+  entre crases vê a mensagem separada do resto da frase.
+- **Quem usa teclado ou leitor de tela** alcança tudo: a setinha por `Tab`, o painel por `Enter`,
+  as cores pelas setas, cada uma anunciada pelo nome.
+- **Quem pediu menos movimento ao sistema operacional** vê o painel abrir sem animação.
+- **Quem tem chamado antigo na fila** não sente nada — e essa é, de novo, a parte que ninguém
+  percebe e a que mais trabalho deu.
 
 ## v0.8.0 — Chat novo e mensagens diretas
 

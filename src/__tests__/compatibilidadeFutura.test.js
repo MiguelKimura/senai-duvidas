@@ -15,7 +15,7 @@
 // A prova precisa existir agora, antes de os campos novos aparecerem: depois do
 // deploy, já é tarde para descobrir que não.
 import React from 'react';
-import { screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
@@ -30,8 +30,10 @@ import {
   __semearColecao,
 } from 'firebase/firestore';
 import TelaAluno from '../components/TelaAluno';
+import TextoMarkdown from '../components/TextoMarkdown';
 import TelaProfessor from '../components/TelaProfessor';
 import Chat from '../components/Chat';
+import { PALETA } from '../utils/paleta';
 import { corDeFundo, renderComProvedores } from '../test-utils';
 
 jest.mock('react-router-dom', () => ({
@@ -62,7 +64,9 @@ const CHAMADO_DO_FUTURO = {
   atendido: false,
   atendidoPor: null,
   anexos: [{ caminho: 'salas/sala-3b/chamados/futuro/print.png', tipo: 'image/png' }],
-  markdown: true,
+  // O campo que a task 05 realmente entregou, no lugar do `markdown: true`
+  // que esta constante chutava antes de ele existir.
+  formato: 'markdown',
 };
 
 beforeEach(() => {
@@ -358,5 +362,93 @@ describe('horario: a forma de dado que mudou na v0.4.0', () => {
 
     expect(textos[0]).toContain('mais antigo');
     expect(textos[1]).toContain('mais novo');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// `chamados` — os campos que a task 05 acrescenta.
+//
+// `cor` não mudou de forma: continua sendo uma string CSS, e o que muda é de
+// onde ela vem — da paleta em vez do sorteio. `formato` é novo e aditivo, e a
+// degradação dele é o ponto deste bloco: um cliente que não o conheça mostra o
+// markdown como texto cru. O aluno vê `**cabo**` com os asteriscos em vez de
+// negrito, e é só isso que acontece. Nada lança, nada some, nada é executado.
+//
+// O cenário é o de sempre e vai acontecer: no dia do deploy metade do
+// laboratório está com a aba aberta desde antes, e essas abas recebem pelo
+// `onSnapshot` os chamados que a turma cria na versão nova.
+// ---------------------------------------------------------------------------
+describe('chamados da v0.7.0 lidos por um cliente que não conhece `formato`', () => {
+  const CHAMADO_DA_V070 = {
+    id: 'v070',
+    autorNome: 'Ana Souza',
+    nome: 'Ana Souza',
+    email: 'ana@senai.br',
+    descricao: 'o **cabo** de rede caiu',
+    horario: '2025-03-10T13:45:00.000Z',
+    cor: PALETA[4].fundo,
+    formato: 'markdown',
+    imagem: null,
+    anexo: null,
+    atendido: false,
+  };
+
+  /**
+   * O leitor da v0.6.0, reproduzido: ele punha `descricao` direto no JSX e a
+   * `cor` direto no `backgroundColor`, e não conhecia campo nenhum além dos
+   * que já existiam.
+   */
+  function leitorDaV060(chamado) {
+    return {
+      autor: chamado.autorNome || chamado.nome,
+      descricao: chamado.descricao,
+      corDeFundo: chamado.cor,
+    };
+  }
+
+  it('o leitor antigo lê os campos que ele conhece, sem lançar', () => {
+    expect(() => leitorDaV060(CHAMADO_DA_V070)).not.toThrow();
+    expect(leitorDaV060(CHAMADO_DA_V070)).toEqual({
+      autor: 'Ana Souza',
+      descricao: 'o **cabo** de rede caiu',
+      corDeFundo: PALETA[4].fundo,
+    });
+  });
+
+  it('a cor da paleta continua sendo uma string CSS que qualquer versão pinta', () => {
+    // O leitor antigo põe o valor em `backgroundColor` sem perguntar nada. Se
+    // a task tivesse trocado a cor por um id (`"azul"`), o card sairia sem
+    // cor nenhuma nas abas antigas.
+    const cartao = document.createElement('div');
+    cartao.style.backgroundColor = leitorDaV060(CHAMADO_DA_V070).corDeFundo;
+
+    expect(cartao.style.backgroundColor).not.toBe('');
+  });
+
+  it('o markdown aparece como texto cru para quem ignora o formato', () => {
+    // `TextoMarkdown` sem `formato` é exatamente o comportamento do leitor
+    // antigo: texto puro, escapado por React.
+    render(<TextoMarkdown texto={CHAMADO_DA_V070.descricao} />);
+
+    expect(screen.getByText('o **cabo** de rede caiu')).toBeInTheDocument();
+    expect(document.querySelector('strong')).toBeNull();
+  });
+
+  it('a tela de hoje renderiza o chamado da v0.7.0 com o markdown aplicado', () => {
+    __semearColecao('chamados', [CHAMADO_DA_V070]);
+
+    renderComProvedores(<TelaAluno />);
+
+    const [cartao] = document.querySelectorAll('.problema-card');
+    expect(cartao.querySelector('.texto-markdown strong')).toHaveTextContent('cabo');
+    expect(cartao).toHaveStyle({ backgroundColor: PALETA[4].fundo });
+  });
+
+  it('o valor do campo `formato` não vaza para a tela', () => {
+    __semearColecao('chamados', [CHAMADO_DA_V070]);
+
+    renderComProvedores(<TelaAluno />);
+
+    expect(screen.queryByText(/markdown/)).toBeNull();
   });
 });

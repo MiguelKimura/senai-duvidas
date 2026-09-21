@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import AnexoDoCard from './AnexoDoCard';
+import TextoMarkdown from './TextoMarkdown';
 import { auth } from '../firebase';
 import { deleteDoc, doc, limit, onSnapshot, query, setDoc } from 'firebase/firestore';
 import { camposDoAnexo, removerAnexoDoChamado } from '../services/anexos';
@@ -11,6 +12,9 @@ import {
   formatarDataHora,
 } from '../services/tempo';
 import { LIMITE_DE_CHAMADOS, colecaoDeChamados } from '../services/salas';
+import { FORMATO_MARKDOWN, formatoDoTexto } from '../utils/markdown';
+import { corAutomatica } from '../utils/paleta';
+import { estiloDoCard } from '../utils/cardDoChamado';
 import '../styles/TelaAluno.css';
 import Chat from './Chat';
 import BotaoSair from './BotaoSair';
@@ -66,13 +70,16 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 
-  const addProblema = async (descricao, anexo, chamadoId) => {
+  const addProblema = async (descricao, anexo, chamadoId, cor = null) => {
     if (!descricao) return;
 
     const user = auth.currentUser;
     if (!user) return;
 
-    const novaCor = `hsl(${Math.random() * 360}, 70%, 80%)`;
+    // A cor escolhida no painel avançado substitui o sorteio; sem escolha, o
+    // sorteio continua sendo o que sempre foi (AC-COR-05). O `||` é o ponto
+    // inteiro do critério: quem não abre o painel não muda de comportamento.
+    const novaCor = cor || corAutomatica();
 
     const novoProblema = {
       // Escrita dupla do autor, exigida pela seção 4 do protocolo: `autorNome`
@@ -88,6 +95,12 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
       // desta máquina. Ver services/tempo.js.
       horario: carimboServidor(),
       cor: novaCor,
+      // Campo aditivo: diz como `descricao` deve ser lida. Ausente significa
+      // texto puro, e é por isso que nenhum chamado gravado até a v0.6.0
+      // precisa ser migrado para continuar aparecendo como apareceu
+      // (AC-COR-07). Um cliente antigo que ignore o campo mostra o markdown
+      // como texto cru — degradação prevista e testada.
+      formato: FORMATO_MARKDOWN,
       // Escrita dupla do anexo, pela mesma regra do autor: `imagem` continua
       // sendo a string de URL que todo cliente já aberto no laboratório
       // procura, e `anexo` é o objeto com o caminho no Storage e as dimensões.
@@ -136,11 +149,7 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
       )}
       <div className="problemas-list">
         {problemas.map((problema) => (
-          <div
-            key={problema.id}
-            className="problema-card"
-            style={{ backgroundColor: problema.cor }}
-          >
+          <div key={problema.id} className="problema-card" style={estiloDoCard(problema)}>
             <div className="card-header">
               {/* `autorNome` primeiro, `nome` como leitura do formato antigo:
                   é o outro lado da escrita dupla, e é o que mantém legível o
@@ -154,7 +163,10 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
               <AnexoDoCard chamado={problema} />
             </div>
 
-            <p>{problema.descricao}</p>
+            {/* A descrição passa por um componente só, o mesmo do card do
+                professor e da prévia do modal. Chamado sem `formato` é texto
+                puro e continua sendo renderizado como texto (AC-COR-05). */}
+            <TextoMarkdown texto={problema.descricao} formato={formatoDoTexto(problema)} />
             <p>
               <em>{formatarDataHora(problema.horario)}</em>
             </p>
@@ -167,7 +179,14 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
           </div>
         ))}
       </div>
-      {isModalOpen && <Modal salaId={salaId} onClose={closeModal} onSubmit={addProblema} />}
+      {isModalOpen && (
+        <Modal
+          salaId={salaId}
+          autor={usuarioNome}
+          onClose={closeModal}
+          onSubmit={addProblema}
+        />
+      )}
 
       <Chat salaId={salaId} />
     </div>
