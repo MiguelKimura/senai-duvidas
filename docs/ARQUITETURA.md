@@ -42,7 +42,9 @@ salas/{salaId}/membros/{uid}
   nome, email, papel: "aluno" | "professor", entrouEm
 
 salas/{salaId}/chamados/{chamadoId}
-  autorUid, autorNome, nome, email, descricao, cor, imagem,
+  autorUid, autorNome, nome, email, descricao, cor,
+  imagem      string de URL | null   <- formato v0.1.0, mantido até a 1.0.0
+  anexo       objeto | null          <- formato v0.6.0, aditivo (ver § 6)
   horario (Timestamp do servidor), horarioIso, atendido, atendidoEm
 
 salas/{salaId}/chat/{mensagemId}
@@ -57,6 +59,22 @@ indicePins/{pin}                    <- `get` de documento específico, nunca `li
 tentativasPin/{uid}                 <- o limite de força bruta (AC-SALA-12)
   tentativas, janelaIniciadaEm, ultimaTentativaEm, pinTentado
 ```
+
+### O bucket do Storage (v0.6.0)
+
+```
+salas/{salaId}/chamados/{chamadoId}/{arquivo}   <- anexo, legível só por membro
+  {arquivo} = 16 bytes sorteados + extensão real, ex.: 9f3c...b1.png
+
+imagens/{arquivo}                               <- legado v0.1.0
+  leitura aberta (chamados antigos apontam para cá), escrita FECHADA
+```
+
+O nome do arquivo é **sorteado**, e não derivado de `Date.now()`: o relógio das
+máquinas de laboratório está errado (§ 6 da v0.4.0) e uma turma que envia print
+no mesmo minuto colidiria — e colidir no Storage é sobrescrever o anexo de
+outra pessoa, em silêncio. O instante que importa continua sendo o
+`serverTimestamp()` do documento do chamado.
 
 ### Por que o segredo do PIN mora fora do documento da sala
 
@@ -142,6 +160,8 @@ inteiro é construído para que ninguém — nem o servidor — o guarde em clar
 | `tentativasPin/{uid}` | `get` do próprio. `list`: **negado** | o próprio, dentro do que a janela permite; `delete` negado |
 | `usuarios/{uid}/salas/*` | o próprio | o próprio |
 | `chamados/*` e `chat/*` (globais, legado) | autenticado | autenticado, com `horario` do servidor |
+| **Storage** `salas/{id}/chamados/{cid}/*` | membros da sala | membros da sala, ≤ 5 MB, `contentType` num dos quatro formatos; `delete`: membros |
+| **Storage** `imagens/*` (legado) | aberta — chamados antigos apontam para cá | **negada** |
 
 Cada linha tem, em `tests/rules/salas.rules.test.js`, um teste de permissão
 **concedida** e um de **negada**. Sem o par, um `allow ... if false` acidental
@@ -172,20 +192,75 @@ coleções globais da v0.4.0. As rotas `/aluno` e `/professor` continuam no mapa
 e são exatamente esse caso. É o que impede a tela vazia para quem abrir o app
 antes de entrar em sala alguma, ou no meio da migração.
 
+No anexo, `normalizarAnexo` (`src/services/anexos.js`) é a leitura dupla: ela
+entende `imagem` em string — o formato da v0.1.0 — e `anexo` em objeto, e
+devolve a mesma coisa para o card nos dois casos. Nenhuma conversão acontece no
+banco.
+
 **Futura.** Todo documento novo grava `autorNome` **e** `nome`, com o mesmo
 conteúdo, e `autorUid` ao lado de `email`. Um cliente da v0.4.0 com a aba
 aberta continua exibindo quem abriu o chamado. `nome` só é removido na 1.0.0 —
 a segunda etapa da migração em duas fases exigida pelo protocolo.
 
+O campo de anexo segue a mesma regra e é a etapa 1 da mesma migração em duas
+fases. A v0.6.0 grava os **dois** formatos:
+
+```js
+{
+  imagem: anexo.url,   // string — é onde todo cliente já aberto a procura
+  anexo: { url, caminho, origem: 'upload' | 'url', largura, altura, bytes }
+}
+```
+
+Um cliente da v0.5.0 com a aba aberta no laboratório lê `imagem` e mostra a
+imagem, ignorando `anexo`, que ele não conhece. `imagem` só sai na 1.0.0 —
+`scripts/migrar-anexos.js` é a etapa do meio, e é opcional justamente porque a
+leitura dupla já resolve o caso do usuário.
+
 ## 7. O que a task 03 deixou preparado para as próximas
 
-- **Task 04 (imagens):** `caminhoDoAnexo(salaId, chamadoId, nome)` já devolve
-  `salas/{salaId}/chamados/{chamadoId}/{nome}` no Storage, e a rule de Storage
-  já abre esse caminho exigindo sessão, tipo de imagem e tamanho. O que falta
-  ali é a checagem de que quem envia é membro da sala — ela depende de
-  `firestore.exists()` e está marcada com `TODO(task-04)` em `storage.rules`,
-  junto do caminho legado `imagens/{arquivo}`, que continua aberto porque
-  fechá-lo antes de existir a tela nova quebraria produção.
+- **Task 04 (imagens): feito na v0.6.0.** `caminhoDoAnexo(salaId, chamadoId,
+  nome)` já devolvia `salas/{salaId}/chamados/{chamadoId}/{nome}`, e a task 04
+  fechou os dois `TODO(task-04)` que restavam em `storage.rules`: a checagem de
+  membro (via `firestore.exists()`, a mesma consulta que as rules do Firestore
+  fazem do outro lado) e a escrita no caminho legado `imagens/{arquivo}`, que
+  só pôde ser fechada depois de existir o substituto. A **leitura** do legado
+  continua aberta de propósito — fechá-la apagaria da tela o print de chamados
+  antigos que apontam para lá (AC-IMG-13).
 - **Task 06 (chat/DM):** as conversas privadas entram como
   `salas/{salaId}/conversas/{conversaId}`.
 - **Task 07 (perks):** `salas/{salaId}/perks/{uid}`.
+
+## 8. Custo de armazenamento (v0.6.0)
+
+O plano gratuito do Firebase dá **5 GB** de Storage, **1 GB/dia** de download e
+**20 000 operações de upload por dia**. A conta abaixo usa o mesmo alvo
+declarado do projeto: 10 salas ativas, 40 alunos por sala.
+
+| Grandeza | Valor | De onde sai |
+|---|---|---|
+| Tamanho médio por anexo | **~300 KB** | PNG de tela cheia reduzido a 1600px, qualidade 0.85 |
+| Anexos por aluno por ano | 10 | estimativa: um print a cada 3–4 aulas |
+| Por sala por ano | 40 × 10 × 300 KB ≈ **120 MB** | |
+| **10 salas por ano** | ≈ **1,2 GB** | **24% da cota gratuita** |
+
+Cabe, com margem para três anos letivos antes de a cota apertar.
+
+**A compressão no cliente é o que mantém essa conta de pé, e por isso ela é
+requisito e não otimização** (AC-IMG-07). Sem reduzir para 1600px, o print de
+um monitor 1920×1080 sobe com ~1,2 MB e o mesmo uso daria ~4,8 GB por ano — a
+cota inteira, no primeiro ano. Num monitor 4K seria muito pior.
+
+O download também é afetado, e mais de perto: o professor abre a fila várias
+vezes por aula, e cada miniatura é um download. É o mesmo argumento — o que
+reduz o custo não é a qualidade do codec, é o número de pixels.
+
+**Quando a cota apertar**, nesta ordem: (1) apagar os anexos de salas
+arquivadas há mais de um ano letivo, que é o grosso do acervo morto; (2) baixar
+`LADO_MAXIMO` para 1200px, que ainda lê erro de compilador; (3) só então pagar
+o plano Blaze. Aumentar a cota antes de limpar o que já não é olhado é pagar
+por armazenamento de dado que ninguém lê.
+
+**O que não entra nessa conta:** o caminho legado `imagens/{arquivo}` da
+v0.1.0, que não recebe arquivo novo desde a v0.6.0 e é pequeno o bastante para
+não mover o ponteiro.

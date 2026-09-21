@@ -74,7 +74,7 @@
 | AC-CHAMADO-05 ✅ | O aluno **não** consegue excluir o chamado de outro aluno — nem pela interface nem por chamada direta ao banco. | [MVP] |
 | AC-CHAMADO-06 | O professor consegue excluir qualquer chamado da sua sala e marcar um chamado como **atendido**. | [MVP] |
 | AC-CHAMADO-07 ✅ | O card exibe nome do autor, descrição, horário de envio e indicador visual de anexo quando houver imagem. | [MVP] [REG] |
-| AC-CHAMADO-08 | A exclusão remove também os anexos associados do Storage (sem arquivos órfãos). | [MVP] |
+| AC-CHAMADO-08 ✅ | A exclusão remove também os anexos associados do Storage (sem arquivos órfãos). | [MVP] |
 | AC-CHAMADO-09 | A lista suporta 200 chamados simultâneos na mesma sala sem travamento perceptível (paginação ou virtualização). | [MVP] |
 | AC-CHAMADO-10 | Estado vazio tem mensagem amigável ("Nenhuma dúvida por aqui ainda") em vez de tela em branco. | [MVP] |
 
@@ -98,18 +98,18 @@
 | ID | Critério | Prioridade |
 |---|---|---|
 | AC-IMG-01 ✅ | O aluno continua conseguindo anexar imagem por **link/URL**, como hoje. | [MVP] [REG] |
-| AC-IMG-02 | O aluno consegue anexar imagem **do próprio computador** por seletor de arquivo. | [MVP] |
-| AC-IMG-03 | O aluno consegue **arrastar e soltar** (drag & drop) uma imagem no modal. | [MVP] |
-| AC-IMG-04 | O aluno consegue **colar (Ctrl+V)** uma captura de tela direto no modal. | [MVP] |
-| AC-IMG-05 | Formatos aceitos: PNG, JPEG, WEBP e GIF. Outros formatos são rejeitados com mensagem clara. | [MVP] |
-| AC-IMG-06 | Limite de **5 MB por arquivo**, validado no cliente **e** nas regras do Storage. | [MVP] |
-| AC-IMG-07 | Imagens acima de 1600px são redimensionadas/comprimidas no cliente antes do upload. | [MVP] |
-| AC-IMG-08 | Durante o upload há barra de progresso e opção de cancelar. | [MVP] |
-| AC-IMG-09 | Falha de upload exibe erro acionável ("Tente novamente" / "Arquivo muito grande") e **não** perde o texto já digitado. | [MVP] |
-| AC-IMG-10 | A imagem é exibida como miniatura no card e abre em visualizador (lightbox) ao clicar — sem depender de `window.open`, que é bloqueado por alguns navegadores do laboratório. | [MVP] |
-| AC-IMG-11 | Anexos ficam em `salas/{salaId}/chamados/{chamadoId}/{arquivo}` no Storage, e só membros da sala conseguem ler. | [MVP] |
-| AC-IMG-12 | Anexo por URL externa que falhar ao carregar mostra placeholder, nunca ícone quebrado do navegador. | [MVP] |
-| AC-IMG-13 | Chamados antigos, criados antes da migração e com `imagem` como string de URL, continuam sendo exibidos corretamente. | [MVP] [REG] |
+| AC-IMG-02 ✅ | O aluno consegue anexar imagem **do próprio computador** por seletor de arquivo. | [MVP] |
+| AC-IMG-03 ✅ | O aluno consegue **arrastar e soltar** (drag & drop) uma imagem no modal. | [MVP] |
+| AC-IMG-04 ✅ | O aluno consegue **colar (Ctrl+V)** uma captura de tela direto no modal. | [MVP] |
+| AC-IMG-05 ✅ | Formatos aceitos: PNG, JPEG, WEBP e GIF. Outros formatos são rejeitados com mensagem clara. | [MVP] |
+| AC-IMG-06 ✅ | Limite de **5 MB por arquivo**, validado no cliente **e** nas regras do Storage. | [MVP] |
+| AC-IMG-07 ✅ | Imagens acima de 1600px são redimensionadas/comprimidas no cliente antes do upload. | [MVP] |
+| AC-IMG-08 ✅ | Durante o upload há barra de progresso e opção de cancelar. | [MVP] |
+| AC-IMG-09 ✅ | Falha de upload exibe erro acionável ("Tente novamente" / "Arquivo muito grande") e **não** perde o texto já digitado. | [MVP] |
+| AC-IMG-10 ✅ | A imagem é exibida como miniatura no card e abre em visualizador (lightbox) ao clicar — sem depender de `window.open`, que é bloqueado por alguns navegadores do laboratório. | [MVP] |
+| AC-IMG-11 ✅ | Anexos ficam em `salas/{salaId}/chamados/{chamadoId}/{arquivo}` no Storage, e só membros da sala conseguem ler. | [MVP] |
+| AC-IMG-12 ✅ | Anexo por URL externa que falhar ao carregar mostra placeholder, nunca ícone quebrado do navegador. | [MVP] |
+| AC-IMG-13 ✅ | Chamados antigos, criados antes da migração e com `imagem` como string de URL, continuam sendo exibidos corretamente. | [MVP] [REG] |
 
 ## 7. Horário Oficial de Brasília (`TEMPO`)
 
@@ -227,7 +227,7 @@
 | AC-SEC-05 ✅ | PINs de sala não são expostos a quem não é dono da sala em nenhuma resposta do banco. | [MVP] |
 | AC-SEC-06 🟡 | O app roda apenas sob HTTPS; domínios autorizados do Firebase Auth estão restritos aos domínios reais. | [MVP] |
 | AC-SEC-07 | Dados de menores de idade: nenhum dado pessoal além de nome e e-mail institucional é coletado. | [MVP] |
-| AC-SEC-08 | Uploads são varridos por tipo MIME real (magic bytes), não apenas pela extensão do arquivo. | [MVP] |
+| AC-SEC-08 ✅ | Uploads são varridos por tipo MIME real (magic bytes), não apenas pela extensão do arquivo. | [MVP] |
 
 ## 15. Desempenho e Escalabilidade (`PERF`)
 
@@ -484,3 +484,50 @@ responsável pelo AC-TEMPO-01. Estava errado: quem troca o relógio do cliente p
 O limite de tentativas de PIN é por usuário autenticado (`tentativasPin/{uid}`). Quem criar
 contas novas contorna o teto. Fechar isso exige contador por IP ou por sala, que as rules não
 mantêm sozinhas — a proposta é uma Cloud Function, e está descrita lá.
+
+---
+
+### v0.6.0 — Anexo de imagem por upload, arrastar e colar
+
+**Atendidos (✅)**
+
+| AC | Prova |
+|---|---|
+| AC-IMG-01 | `src/components/__tests__/CampoAnexo.test.js:101` — o campo de link continua com o mesmo texto e avisa o modal; `src/components/__tests__/Modal.test.js:97` — o anexo por URL chega como objeto de origem `url` |
+| AC-IMG-02 | `src/components/__tests__/CampoAnexo.test.js:144` — o seletor sobe a imagem escolhida e devolve o anexo ao modal |
+| AC-IMG-03 | `src/components/__tests__/CampoAnexo.test.js:183` — o arquivo solto sobre o campo sobe e passa pela mesma validação do seletor |
+| AC-IMG-04 | `src/components/__tests__/CampoAnexo.test.js:225` — Ctrl+V com captura de tela anexa; `src/hooks/__tests__/useColarImagem.test.js:37` — o hook só entrega imagem, ignora texto colado, e para de escutar no unmount |
+| AC-IMG-05 | `src/services/__tests__/anexos.test.js:104` — os quatro formatos aceitos, e BMP recusado por não estar na lista; `:134` |
+| AC-IMG-06 | `src/services/__tests__/anexos.test.js:142` — o limite no cliente, com a mensagem dizendo tamanho e teto; `tests/rules/storage.rules.test.js:152` — 6 MB negados **no servidor**, com o cliente trocado por um `curl` |
+| AC-IMG-07 | `src/services/__tests__/anexos.test.js:201` — 3000×2000 vira 1600×1067, proporção preservada; `:265` — o GIF sai intacto; `:377` — quem sobe é a versão comprimida, não o original |
+| AC-IMG-08 | `src/services/__tests__/anexos.test.js:409` — progresso como fração; `:427` — `UploadTask.cancel()` no sinal abortado; `src/components/__tests__/CampoAnexo.test.js:245` — a barra e o botão de cancelar na tela, e `:287` — nova tentativa sem fechar o modal |
+| AC-IMG-09 | `src/components/__tests__/Modal.test.js:137` — a descrição digitada continua no campo depois do erro, e `:149` — dá para concluir o chamado sem o anexo; `src/services/__tests__/anexos.test.js:489` — a mensagem é acionável, por código do Storage |
+| AC-IMG-10 | `src/components/__tests__/anexoNosCards.test.js:111` — clicar na miniatura abre o visualizador **sem** `window.open`; `src/components/__tests__/Lightbox.test.js:35` — `window.open` não é chamado; `:83` — foco entra, o Tab não escapa e o foco volta ao gatilho |
+| AC-IMG-11 | `src/services/__tests__/anexos.test.js:321` — o arquivo vai para `salas/{salaId}/chamados/{chamadoId}/`; `tests/rules/storage.rules.test.js:125` e `:131` — membro lê, não-membro é negado |
+| AC-IMG-12 | `src/components/__tests__/anexoNosCards.test.js:157` — aviso no lugar do ícone quebrado, e `:167` — o chamado continua legível; `src/components/__tests__/Lightbox.test.js:131` |
+| AC-IMG-13 | `src/components/__tests__/anexoNosCards.test.js:71` — chamado com `imagem` em string mostra a miniatura; `src/services/__tests__/anexos.test.js:544` — `normalizarAnexo` lê os dois formatos; `tests/rules/storage.rules.test.js:217` — o caminho legado continua **legível** |
+| AC-SEC-08 | `src/services/__tests__/anexos.test.js:68` — `.exe` renomeado para `.png`, com o MIME mentindo junto, é recusado; `:94` — o tipo devolvido é o lido do conteúdo; `src/components/__tests__/CampoAnexo.test.js:166` — recusado **sem subir byte nenhum**; `tests/rules/storage.rules.test.js:159` |
+| AC-CHAMADO-08 | `src/components/__tests__/anexoNosCards.test.js:178` e `:193` — excluir o chamado (pelo aluno ou pelo professor) leva o anexo junto; `src/services/__tests__/anexos.test.js:637` — sem órfãos, e sem varrer o caminho legado; `tests/rules/storage.rules.test.js:189` |
+| Retroativa | `src/components/__tests__/anexoNosCards.test.js:71` — chamado no formato antigo (`imagem` string, sem `anexo`) exibe a miniatura e abre o lightbox; `:275` — os dois formatos convivem na mesma fila; `src/components/__tests__/CampoAnexo.test.js:398` — fora de uma sala, o campo de link continua sendo o que a v0.1.0 sempre ofereceu |
+| Futura | `src/components/__tests__/anexoNosCards.test.js:226` — a gravação dupla `imagem` **e** `anexo` com a mesma URL, e `:263` — um leitor que só conhece `imagem` continua achando a URL; `scripts/__tests__/migrar-anexos.test.js:97` — a migração **nunca** escreve em `imagem` |
+
+**Continuam não atendidos, de propósito**
+
+| AC | Por quê | Task que resolve |
+|---|---|---|
+| AC-ANIM-09 | O lightbox já é um diálogo de teclado completo (Esc, foco preso, foco devolvido), mas o ícone 👁️ dos cards e a transição de abertura são escopo do acabamento. A regra de lint continua desligada com `TODO(task-08)`. | 08 |
+| AC-CHAMADO-06 | Sem mudança nesta versão: marcar como atendido continua sem interface. | 05 |
+
+**Limite conhecido**
+
+Se o upload conclui e o navegador fecha **antes** de o chamado ser criado, o
+arquivo fica no bucket sem documento apontando para ele. O caminho normal está
+coberto — fechar o modal apaga o anexo já enviado
+(`src/components/__tests__/Modal.test.js:164`) e excluir o chamado leva o anexo
+junto (AC-CHAMADO-08). O que sobra é a aba fechada no meio, e varrer o bucket
+periodicamente é trabalho de pós-1.0.0: um arquivo de ~300 KB não justifica uma
+Cloud Function agora. Está registrado no ADR 0007, em "Consequências".
+
+A validação por magic bytes **não é antivírus**: ela garante que o arquivo
+começa como imagem. Um PNG válido com dado escondido depois dos primeiros bytes
+passa. Varredura de conteúdo é serviço pago e está fora do escopo declarado.

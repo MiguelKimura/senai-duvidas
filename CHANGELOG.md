@@ -9,6 +9,45 @@ Todas as mudanças relevantes deste projeto são registradas aqui, no formato
 > intervalo e os agrupa. Escrever à mão é escrever de memória no fim do trabalho, e o que
 > fica de fora é justamente o que ninguém lembrou.
 
+> node scripts/gerarChangelog.js origin/dev..HEAD --versao 0.6.0 --data 2026-09-21
+
+## [0.6.0] - 2026-09-21
+
+### Adicionado
+
+- **anexos:** valida o tipo do anexo pelos magic bytes do conteudo
+- **anexos:** recusa arquivo acima de 5 MB e nomeia o formato pelo conteudo
+- **anexos:** reduz a imagem a 1600px no cliente antes de subir
+- **anexos:** sobe o anexo para a pasta da sala, com progresso e cancelamento
+- **anexos:** le os dois formatos do campo imagem e apaga anexo sem orfao
+- **anexos:** abre o anexo em lightbox acessivel, sem window.open
+- **anexos:** anexa a imagem colada com Ctrl+V no modal
+- **anexos:** entrega o campo com seletor, arrastar, colar e barra de progresso
+- **anexos:** organiza o modal em secoes e reserva o id do chamado
+- **anexos:** mostra miniatura e lightbox no card e apaga o anexo com o chamado
+- **anexos:** aposenta uploadImage e deixa firebase.js so configurando o SDK
+- **anexos:** fecha o Storage por membro da sala, com teto e formato
+- **anexos:** oferece upload so onde ele tem para onde ir
+- **anexos:** preenche anexo a partir do imagem antigo, sem tocar no original
+
+### Alterado
+
+- **anexos:** exige que o tipo do anexo venha do conteudo, nao da extensao
+- **anexos:** exige os quatro formatos, a extensao real e o teto de 5 MB
+- **anexos:** exige reducao para 1600px preservando a proporcao
+- **anexos:** exige upload escopado por sala, com progresso e cancelamento
+- **anexos:** exige leitura dupla do campo imagem e exclusao sem orfaos
+- **anexos:** exige lightbox acessivel no lugar do window.open
+- **anexos:** exige colar a captura de tela direto no modal
+- **anexos:** exige as tres entradas de imagem no campo de anexo do modal
+- **anexos:** exige o modal em secoes e o id do chamado reservado na abertura
+- **anexos:** exige miniatura, lightbox e exclusao de anexo no card
+- **anexos:** exige que excluir um chamado nao varra o caminho legado
+- **anexos:** exige a aposentadoria do uploadImage orfao de firebase.js
+- **anexos:** exige rules de Storage por membro, com teto e formato no servidor
+- **anexos:** exige que o upload so apareca dentro de uma sala
+- **anexos:** exige a migracao opcional que preenche anexo sem tocar em imagem
+
 > node scripts/gerarChangelog.js origin/dev..HEAD --versao 0.5.0 --data 2026-09-21
 
 ## [0.5.0] - 2026-09-21

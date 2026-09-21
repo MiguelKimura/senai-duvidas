@@ -113,3 +113,94 @@ Na **1.0.0**, junto com o fallback de leitura, com as rotas `/aluno` e
 `/professor` e com o campo `nome` dos documentos. Até lá, o app lê a coleção
 global de quem não está em sala nenhuma, e é isso que mantém a tela útil para
 quem abrir o app no meio da migração.
+
+---
+
+## `scripts/migrar-anexos.js` — v0.6.0 (task 04)
+
+Preenche o campo `anexo` a partir do `imagem` antigo, nos chamados que só têm o
+formato da v0.1.0.
+
+### Esta migração é OPCIONAL — leia antes de rodar
+
+**Nada quebra se ela nunca rodar.** O app lê os dois formatos sozinho: é o que
+`normalizarAnexo` faz em `src/services/anexos.js`, permanentemente nesta
+versão. O chamado aberto em março continua exibindo o print dele depois do
+deploy, sem que este script toque no banco.
+
+O que ela compra é **homogeneidade**. Com `anexo` preenchido em todo documento,
+a 1.0.0 — que para de gravar `imagem` — não precisa de uma migração no dia do
+deploy, com o laboratório em aula. É a etapa do meio da migração em duas fases
+da seção 4 do `tasks/_PROTOCOLO.md`:
+
+```
+v0.6.0: escrever nos dois formatos  →  este script: migrar  →  1.0.0: parar de escrever no antigo
+```
+
+Se houver qualquer dúvida sobre o estado do banco, **não rodar é uma decisão
+válida**. Rodar em novembro, com as salas do ano fechando, é melhor que rodar
+em março.
+
+### O que ela faz
+
+1. Lê a coleção de chamados.
+2. Para cada documento que tem `imagem` em string **e não tem** `anexo`, grava
+   `anexo: { url: <a mesma URL>, origem: 'url' }`.
+3. Deixa em paz quem já tem `anexo`, quem não tem imagem nenhuma e quem tem em
+   `imagem` algo que não é endereço — campo sujo existe: alguém colou a
+   descrição do erro no lugar do link, e copiar aquilo só espalharia o problema
+   para o formato novo. Os três casos aparecem separados no relatório.
+
+### O que ela NUNCA faz
+
+**Não toca em `imagem`.** Nem para alterar, nem para apagar, em nenhum modo —
+inclusive na reversão. `imagem` é o campo que todo cliente já aberto no
+laboratório procura e é o backup vivo do `anexo` que o script deriva. Ele sai
+na 1.0.0, por outro caminho.
+
+A gravação é `update` de um campo só, nunca `set`: `set` sem merge apagaria o
+documento inteiro.
+
+### Execução
+
+```bash
+node scripts/migrar-anexos.js --dry-run
+node scripts/migrar-anexos.js --confirmar
+node scripts/migrar-anexos.js --colecao salas/sala-3b/chamados --confirmar
+```
+
+Sem `--dry-run` e sem `--confirmar`, o script não faz nada e diz isso: o padrão
+seguro de um script que escreve em produção não pode ser escrever.
+
+`--colecao` pode ser repetido. Sem ele, a coleção é `chamados` — a global da
+v0.4.0. **Os chamados dentro de salas exigem `--colecao` explícito**, um por
+sala: o script não varre `salas/` atrás de subcoleções, de propósito, para que
+ninguém dispare uma passada pela escola inteira sem ter dito qual escopo queria.
+
+### Rollback
+
+```bash
+node scripts/migrar-anexos.js --reverter --dry-run
+node scripts/migrar-anexos.js --reverter --confirmar
+```
+
+A reversão apaga o campo `anexo` **apenas** dos documentos em que ele tem
+`origem: 'url'` e não tem `caminho` — ou seja, exatamente o que este script
+cria, e cujo original continua em `imagem` ao lado.
+
+**Anexo de origem `upload` não é tocado.** Ele não veio de `imagem`: nasceu
+assim, e o `caminho` dele é a única pista que a exclusão do chamado tem para
+não deixar arquivo órfão no Storage (AC-CHAMADO-08). Apagá-lo pagaria aquele
+arquivo para sempre.
+
+Há um rollback ainda mais simples e que quase sempre é o certo: **não fazer
+nada**. Um `anexo` a mais num documento não incomoda ninguém — a v0.5.0 o
+ignora, e a v0.6.0 o prefere, com o mesmo resultado na tela.
+
+### Idempotência
+
+"Já migrei este documento?" é a pergunta "ele já tem `anexo`?". Quem tem fica
+de fora do plano, então a segunda rodada não tem o que fazer e uma rodada
+interrompida no meio termina na seguinte. Uma falha em um documento não
+interrompe os outros: o script vai até o fim e lista o id e o motivo de cada
+uma no relatório.
