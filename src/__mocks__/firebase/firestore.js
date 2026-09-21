@@ -70,6 +70,33 @@ function criarSnapshotDeDocumento(caminhoDoDocumento) {
   };
 }
 
+/**
+ * Lê um campo pelo caminho, entendendo o ponto como o Firestore entende.
+ *
+ * `ultimaMensagem.horario` é um campo DENTRO de um mapa, e tanto `orderBy`
+ * quanto `where` o aceitam no serviço real. Sem isto, o fake procuraria uma
+ * chave chamada literalmente `"ultimaMensagem.horario"`, não acharia nada, e
+ * diria que a lista de conversas está ordenada quando ela está na ordem de
+ * inserção.
+ *
+ * @param {object|undefined} dados documento.
+ * @param {string} caminho nome do campo, com ou sem ponto.
+ * @returns {unknown} `undefined` quando o caminho não existe.
+ */
+function campoDe(dados, caminho) {
+  return caminho
+    .split('.')
+    .reduce(
+      (atual, parte) => (atual === null || atual === undefined ? undefined : atual[parte]),
+      dados
+    );
+}
+
+/** O caminho existe no documento — inclusive dentro de um mapa. */
+function temCampo(dados, caminho) {
+  return campoDe(dados, caminho) !== undefined;
+}
+
 function valorOrdenavel(valor) {
   if (valor instanceof Timestamp) return valor.toMillis();
   if (valor instanceof Date) return valor.getTime();
@@ -85,9 +112,9 @@ function valorOrdenavel(valor) {
  * `atendido == false`.
  */
 function atendeAoFiltro(dados, { campo, operador, valor }) {
-  if (!dados || !(campo in dados)) return false;
+  if (!dados || !temCampo(dados, campo)) return false;
 
-  const atual = valorOrdenavel(dados[campo]);
+  const atual = valorOrdenavel(campoDe(dados, campo));
   const alvo = valorOrdenavel(valor);
 
   switch (operador) {
@@ -105,8 +132,10 @@ function atendeAoFiltro(dados, { campo, operador, valor }) {
       return atual >= alvo;
     case 'in':
       return Array.isArray(valor) && valor.map(valorOrdenavel).includes(atual);
-    case 'array-contains':
-      return Array.isArray(dados[campo]) && dados[campo].includes(valor);
+    case 'array-contains': {
+      const lista = campoDe(dados, campo);
+      return Array.isArray(lista) && lista.includes(valor);
+    }
     default:
       throw new Error(`Operador de where não implementado no fake: ${operador}`);
   }
@@ -119,8 +148,8 @@ function documentosDe(caminho, ordenacoes = [], filtros = [], quantidade = null)
 
   ordenacoes.forEach(({ campo, direcao }) => {
     documentos.sort((a, b) => {
-      const esquerda = valorOrdenavel(a.data()[campo]);
-      const direita = valorOrdenavel(b.data()[campo]);
+      const esquerda = valorOrdenavel(campoDe(a.data(), campo));
+      const direita = valorOrdenavel(campoDe(b.data(), campo));
 
       if (esquerda === direita) return 0;
       const comparacao = esquerda < direita ? -1 : 1;
