@@ -119,6 +119,25 @@ export const PALETA = [
 ];
 
 /**
+ * A cor sorteada da v0.1.0, byte por byte igual à que estava em `TelaAluno`.
+ *
+ * Ela continua existindo porque continua sendo o padrão: quem não abre o
+ * painel avançado recebe o sorteio de sempre (AC-COR-05). O que mudou é o
+ * lugar — a prévia do modal precisa mostrar **a** cor que o card vai receber,
+ * e duas expressões `Math.random()` em arquivos diferentes seriam duas cores
+ * diferentes na mesma tela.
+ *
+ * `70%` de saturação e `80%` de luminosidade não foram escolhidos aqui e não
+ * mudam aqui: alterá-los mudaria a aparência de toda a fila de uma vez, que é
+ * decisão de outra task.
+ *
+ * @returns {string} por exemplo `hsl(137.4, 70%, 80%)`.
+ */
+export function corAutomatica() {
+  return `hsl(${Math.random() * 360}, 70%, 80%)`;
+}
+
+/**
  * A entrada da paleta que corresponde à cor gravada no chamado.
  *
  * Devolve `null` para a cor sorteada dos chamados antigos — é assim que o card

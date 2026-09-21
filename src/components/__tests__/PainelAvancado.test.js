@@ -151,7 +151,8 @@ describe('PainelAvancado — preview ao vivo (AC-COR-09)', () => {
   it('mostra a descrição com o markdown já aplicado', () => {
     montar({ descricao: 'o **cabo** está solto' });
 
-    expect(previa().querySelector('strong')).toHaveTextContent('cabo');
+    // Escopado ao texto: o nome do autor também é um `<strong>` no card.
+    expect(previa().querySelector('.texto-markdown strong')).toHaveTextContent('cabo');
   });
 
   it('pinta a prévia com a cor escolhida', () => {

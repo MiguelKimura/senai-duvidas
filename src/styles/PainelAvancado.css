@@ -1,4 +1,140 @@
-/* Esqueleto do CSS do painel avançado (ciclo 5). */
+/*
+ * A setinha cinza e o que ela esconde — AC-COR-01, AC-COR-02.
+ *
+ * A regra que manda neste arquivo veio do cliente: o modal continua simples
+ * por padrão. A setinha é cinza, pequena e fica abaixo dos campos principais.
+ * Se ela competir com o botão "Concluir", a feature falhou.
+ */
+
 .painel-avancado {
   margin-bottom: var(--espaco-3);
+}
+
+/*
+ * O cinza é `--cor-texto-discreto`, o mesmo tom que o projeto já usa para
+ * texto secundário. Nada de vermelho: o vermelho é a marca das ações, e
+ * revelar opções não é uma ação.
+ */
+.painel-avancado__setinha {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espaco-1);
+  color: var(--cor-texto-discreto);
+  font-size: 13px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+/* O triângulo padrão do navegador, removido nas duas sintaxes que existem —
+   WebKit ainda usa a pseudo-classe própria. O nosso vem logo abaixo. */
+.painel-avancado__setinha::-webkit-details-marker {
+  display: none;
+}
+
+.painel-avancado__setinha::before {
+  content: '▸';
+  display: inline-block;
+  font-size: 11px;
+  transition: transform var(--duracao-transicao) var(--aceleracao-padrao);
+}
+
+.painel-avancado[open] .painel-avancado__setinha::before {
+  transform: rotate(90deg);
+}
+
+.painel-avancado__setinha:hover {
+  color: var(--cor-texto-rotulo);
+}
+
+.painel-avancado__setinha:focus-visible {
+  outline: 2px solid var(--cor-texto-rotulo);
+  outline-offset: 2px;
+  border-radius: var(--raio-1);
+}
+
+/*
+ * A abertura é animada por opacidade e deslocamento, e não por `height: auto`,
+ * que não é animável. O conteúdo já ocupa o espaço final no primeiro quadro:
+ * assim o painel não "pula" no meio da animação.
+ */
+.painel-avancado__conteudo {
+  margin-top: var(--espaco-2);
+  padding: var(--espaco-2);
+  background-color: var(--cor-fundo-caixa);
+  border: 1px solid var(--cor-borda-campo);
+  border-radius: var(--raio-2);
+  transition:
+    opacity var(--duracao-transicao) var(--aceleracao-padrao),
+    transform var(--duracao-transicao) var(--aceleracao-padrao);
+}
+
+.painel-avancado[open] .painel-avancado__conteudo {
+  animation: painel-avancado-abrir var(--duracao-transicao) var(--aceleracao-padrao);
+}
+
+@keyframes painel-avancado-abrir {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.painel-avancado__grupo + .painel-avancado__grupo {
+  margin-top: var(--espaco-3);
+}
+
+.painel-avancado__ajuda {
+  margin: 0 0 var(--espaco-1);
+  font-size: 12px;
+  color: var(--cor-texto-rotulo);
+}
+
+.painel-avancado__ajuda code {
+  font-family: ui-monospace, 'Courier New', monospace;
+  background-color: rgba(0, 0, 0, 0.06);
+  border-radius: var(--raio-1);
+  padding: 0 var(--espaco-minimo);
+}
+
+/*
+ * A prévia é um card de verdade em miniatura: mesmo raio, mesmo espaçamento
+ * interno. Ela existe para responder "vai ficar legível?" antes de o chamado
+ * estar na fila da turma inteira (AC-COR-09).
+ */
+.painel-avancado__previa {
+  padding: var(--espaco-2);
+  border-radius: var(--raio-1);
+  font-size: 14px;
+}
+
+.painel-avancado__previa-autor {
+  margin: 0 0 var(--espaco-minimo);
+}
+
+.painel-avancado__previa-vazia {
+  margin: 0;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/*
+ * Quem pediu menos movimento ao sistema não recebe movimento nenhum
+ * (AC-ANIM-05). Isso não é preferência estética: para parte das pessoas com
+ * enxaqueca vestibular, animação de interface provoca sintoma físico.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .painel-avancado__setinha::before,
+  .painel-avancado__conteudo {
+    transition: none;
+  }
+
+  .painel-avancado[open] .painel-avancado__conteudo {
+    animation: none;
+  }
 }
