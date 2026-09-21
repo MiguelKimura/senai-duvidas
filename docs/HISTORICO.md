@@ -327,7 +327,116 @@ Cloud Function que faça a conferência e mantenha os contadores — estão em `
 
 ## v0.6.0 — Imagens do computador
 
-*(a preencher pela task 04)*
+**O que existia**
+
+Um campo de texto e uma instrução: "Digite o URL da imagem". Funcionava — e é
+regressão declarada, continua funcionando —, mas resolvia o problema de quem
+**já tem** a imagem na internet.
+
+O aluno em aula não tem. Ele aperta PrintScreen porque o erro está na tela
+dele, e o que ele tem é uma captura na área de transferência ou um arquivo na
+pasta de Downloads. Sem lugar para hospedar, ele acabava descrevendo o erro por
+escrito — "deu erro no código" — e o professor gastava metade do atendimento
+pedindo detalhe, com mais trinta e nove alunos na fila.
+
+Havia mais duas coisas quebradas de um jeito silencioso. O ícone de olho do
+card chamava `window.open(url, '_blank')`, e em boa parte dos laboratórios o
+bloqueador de pop-up vem ligado por política de imagem do Windows: o aluno
+clicava e **nada acontecia**. Sem aviso, sem janela, sem erro — só um clique
+que não fazia nada. E uma URL externa que tivesse saído do ar virava o
+quadradinho de imagem quebrada do navegador, que não explica nada a ninguém.
+
+**A dúvida do cliente, respondida**
+
+O pedido chegou assim: *"mudar o banco de dados pra permitir imagens, porque o
+Firebase é burocrático com imagem"*.
+
+**Não trocamos de banco, e não precisava.** A premissa está meio certa: o
+**Firestore** realmente não guarda binário grande — o limite é 1 MB por
+documento, e um print de tela cheia passa disso. Mas isso não é uma limitação
+do Firebase. O **Firebase Storage** foi feito exatamente para isso, já estava
+inicializado em `src/firebase.js` desde a primeira versão, já tem cota no mesmo
+plano gratuito e já compartilha a mesma sessão de login. Havia até uma função
+`uploadImage` no código, escrita durante o curso, que **nenhuma tela chamava**.
+
+Trocar de banco custaria semanas e jogaria fora três coisas que já funcionam: o
+login com Google e GitHub, as Security Rules por sala e o tempo real que faz o
+card aparecer na tela do professor enquanto o aluno ainda digita. E o banco
+novo teria o mesmo problema pela frente, porque guardar imagem dentro de linha
+de banco é ruim em qualquer banco — a resposta certa, em qualquer stack, é um
+armazenamento de objetos ao lado. O raciocínio inteiro, com as alternativas que
+foram pesadas e descartadas, está no ADR 0007.
+
+**O que foi decidido, e por quê**
+
+- **O binário no Storage, o endereço no Firestore**, em
+  `salas/{salaId}/chamados/{chamadoId}/{arquivo}`. O caminho é por sala porque
+  a rule de leitura precisa poder perguntar "quem está pedindo é membro desta
+  sala?" — e um caminho global não teria sala no caminho para perguntar sobre.
+  O anexo passou a ser privado da turma; antes, o caminho `imagens/{arquivo}`
+  era legível por qualquer pessoa logada que soubesse o nome do arquivo.
+- **O nome do arquivo é sorteado, não carimbado com a hora.** O relógio das
+  máquinas de laboratório está errado — foi o assunto inteiro da v0.4.0 — e uma
+  turma que manda print no mesmo minuto colide. Colidir no Storage é
+  sobrescrever o anexo de outra pessoa, sem ninguém perceber.
+- **O tipo do arquivo é lido dos primeiros bytes, não da extensão.** Extensão e
+  o `type` que o navegador declara saem os dois do **nome** do arquivo, e o
+  nome é exatamente o que quem renomeia um `.exe` para `.png` controla. Um
+  `.exe` renomeado é recusado sem subir byte nenhum.
+- **A compressão é requisito, não otimização.** Lado maior limitado a 1600px,
+  que é o que basta para ler uma mensagem de erro de compilador num print de
+  tela cheia. Isso é banda da rede do laboratório e é cota do Storage — uma
+  conta que a seção 8 do `ARQUITETURA.md` fecha em ~1,2 GB por ano para as dez
+  salas do alvo, dentro dos 5 GB gratuitos.
+- **O campo `imagem` não mudou de forma.** A versão grava os **dois**: `imagem`
+  como sempre, e `anexo` em objeto ao lado. O chamado aberto em março continua
+  exibindo o print dele depois do deploy, sem migração e sem janela de
+  indisponibilidade. `imagem` só sai na 1.0.0.
+
+O que foi **descartado** pelo caminho:
+
+- **Imagem em base64 dentro do documento.** Cabe só se a imagem for pequena, e
+  o pior nem é o limite: o `onSnapshot` da fila baixaria as imagens dos 200
+  chamados a cada abertura do app, porque elas estariam nos documentos. A conta
+  de leitura do Firestore é por documento, mas a de rede é por byte — e a rede
+  é a do laboratório.
+- **Um serviço externo de imagem.** Print de erro de aluno é dado da escola, e
+  "quem mais pode ver isso?" precisa ter resposta. Num serviço externo a
+  resposta é "quem tiver o link", e o link não expira.
+- **Aceitar `image/*` na rule.** `image/svg+xml` passa por `image/*` e é um
+  documento XML com `<script>` dentro. A lista é dos quatro formatos, escrita
+  por extenso.
+- **Recomprimir GIF.** Um canvas desenha um quadro só: o aluno subiria a
+  animação e receberia de volta a imagem parada. GIF acima de 5 MB é recusado
+  com uma mensagem que diz o que fazer no lugar.
+
+**O limite que ficou registrado**
+
+Se o upload conclui e o navegador fecha antes de o chamado ser criado, o
+arquivo fica no bucket sem documento apontando para ele. É o órfão que sobrou —
+o caminho normal (excluir o chamado) apaga o anexo junto. Varrer o bucket
+periodicamente é trabalho de pós-1.0.0: um arquivo de ~300 KB não justifica uma
+Cloud Function agora.
+
+E a validação por magic bytes **não é antivírus**: ela garante que o arquivo
+começa como imagem. Um PNG válido com dado escondido depois passa. Varredura de
+conteúdo é serviço pago, e está fora do escopo declarado.
+
+**O que o usuário sente na prática**
+
+- **O aluno** aperta PrintScreen e cola direto no modal com Ctrl+V — sem salvar
+  arquivo, sem procurar pasta. Se preferir, arrasta o arquivo para dentro do
+  modal ou clica em "Escolher imagem". Vê uma barra de progresso enquanto sobe
+  e pode cancelar no meio, sem fechar o modal. Se a rede do laboratório cair, a
+  mensagem diz o que fazer e **o texto que ele já digitou continua lá** — não
+  precisa escrever tudo de novo.
+- **O professor** vê a miniatura no próprio card, e sabe de relance quais
+  chamados trazem print. Clica e a imagem abre grande **na própria página**,
+  inclusive nas máquinas que bloqueiam pop-up. Esc fecha.
+- **Os dois** continuam podendo colar um link, como sempre. E se o link estiver
+  fora do ar, aparece um aviso legível no lugar do ícone quebrado.
+- **Quem tem chamado antigo** não sente nada: o print continua aparecendo. Essa
+  é a parte que ninguém percebe, e é a que mais trabalho deu.
 
 ## v0.7.0 — Opções avançadas do card
 

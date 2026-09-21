@@ -69,9 +69,9 @@ async function dadosDe(caminho) {
 
 describe('validarDadosDaSala — AC-SALA-01', () => {
   it('devolve os campos limpos, com o ano letivo como número', () => {
-    expect(validarDadosDaSala({ nome: '  Mecânica  ', curso: ' Turma B ', anoLetivo: '2026' })).toEqual(
-      { nome: 'Mecânica', curso: 'Turma B', anoLetivo: 2026 }
-    );
+    expect(
+      validarDadosDaSala({ nome: '  Mecânica  ', curso: ' Turma B ', anoLetivo: '2026' })
+    ).toEqual({ nome: 'Mecânica', curso: 'Turma B', anoLetivo: 2026 });
   });
 
   it.each([
@@ -259,7 +259,6 @@ describe('criarSala — o professor já entra na própria sala (AC-SALA-06)', ()
   });
 });
 
-
 describe('entrarComPin — o aluno entra digitando o PIN (AC-SALA-04, AC-SALA-06)', () => {
   const ANA = { uid: 'uid-ana', nome: 'Ana Souza', email: 'ana@senai.br' };
 
@@ -421,7 +420,6 @@ describe('entrarComPin — limite de tentativas (AC-SALA-12)', () => {
   });
 });
 
-
 describe('regerarPin — invalida o PIN anterior (AC-SALA-09)', () => {
   it('devolve um PIN novo, de seis dígitos', async () => {
     const { salaId, pin } = await criarSala(DADOS, CARLOS);
@@ -455,7 +453,10 @@ describe('regerarPin — invalida o PIN anterior (AC-SALA-09)', () => {
 
     const novo = await regerarPin(salaId);
 
-    expect(await dadosDe(`${COLECAO_DO_INDICE}/${novo}`)).toMatchObject({ salaId, ativo: true });
+    expect(await dadosDe(`${COLECAO_DO_INDICE}/${novo}`)).toMatchObject({
+      salaId,
+      ativo: true,
+    });
   });
 
   it('recarimba pinAtualizadoEm com o horário do servidor', async () => {
@@ -596,10 +597,12 @@ describe('carregarDetalhesDaSala — o cartão da sala (AC-SALA-08)', () => {
       { id: 'c3', descricao: 'resolvido', atendido: true },
     ]);
 
-    await expect(carregarDetalhesDaSala(salaId, { comContagens: true })).resolves.toMatchObject({
-      totalMembros: 2,
-      chamadosAbertos: 2,
-    });
+    await expect(carregarDetalhesDaSala(salaId, { comContagens: true })).resolves.toMatchObject(
+      {
+        totalMembros: 2,
+        chamadosAbertos: 2,
+      }
+    );
   });
 
   it('devolve null quando o servidor nega a leitura — o aluno já foi removido', async () => {

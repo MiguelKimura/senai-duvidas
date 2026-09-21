@@ -33,7 +33,13 @@ async function montarApp() {
 
 function semearProfessor() {
   __semearColecao('usuarios', [
-    { id: CARLOS.uid, uid: CARLOS.uid, nome: 'Carlos Lima', email: CARLOS.email, tipo: 'professor' },
+    {
+      id: CARLOS.uid,
+      uid: CARLOS.uid,
+      nome: 'Carlos Lima',
+      email: CARLOS.email,
+      tipo: 'professor',
+    },
   ]);
   __semearColecao('autorizados', [{ id: CARLOS.email, Tipo: 'professor' }]);
 }

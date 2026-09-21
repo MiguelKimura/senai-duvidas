@@ -1,0 +1,74 @@
+/*
+ * O campo de anexo do modal — AC-IMG-02, AC-IMG-03, AC-IMG-08.
+ *
+ * Escrito com os tokens de `tokens.css`. A zona de soltar precisa ser
+ * visivelmente uma área, e não um campo de texto: o aluno tem de olhar para
+ * ela e entender que dá para largar o arquivo ali.
+ */
+
+.zona-de-anexo {
+  margin-bottom: var(--espaco-3);
+  padding: var(--espaco-3);
+  border: 1px dashed var(--cor-borda);
+  border-radius: var(--raio-2);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.zona-de-anexo--recebendo {
+  border-color: var(--cor-primaria);
+  background-color: var(--cor-fundo-caixa);
+}
+
+.campo-anexo-rotulo {
+  display: block;
+  margin-bottom: var(--espaco-1);
+  color: var(--cor-texto-rotulo);
+  font-size: 14px;
+}
+
+.campo-anexo-dica {
+  margin: var(--espaco-1) 0 var(--espaco-2);
+  color: var(--cor-texto-discreto);
+  font-size: 12px;
+}
+
+.campo-anexo-envio {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  margin-top: var(--espaco-2);
+}
+
+.campo-anexo-envio progress {
+  flex: 1;
+  height: var(--espaco-2);
+}
+
+/* O cancelar não compete com o "Concluir": é saída, não ação principal. */
+.campo-anexo-cancelar {
+  flex: 0 0 auto;
+  padding: var(--espaco-1) var(--espaco-2);
+  border: none;
+  border-radius: var(--raio-1);
+  background-color: var(--cor-borda);
+  color: var(--cor-texto-titulo);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.campo-anexo-erro {
+  margin-top: var(--espaco-2);
+  color: var(--cor-erro);
+  font-size: 14px;
+}
+
+.campo-anexo-quebrada {
+  margin: var(--espaco-2) 0;
+  padding: var(--espaco-2);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-fundo-caixa);
+  color: var(--cor-texto-rotulo);
+  font-size: 14px;
+}

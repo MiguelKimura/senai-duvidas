@@ -1,0 +1,35 @@
+/*
+ * A miniatura do anexo no card — AC-IMG-10, AC-IMG-12.
+ *
+ * `.view-image-icon` já existia em TelaAluno.css e TelaProfessor.css, onde
+ * posicionava o olho 👁️ no canto do cabeçalho do card. O seletor é o mesmo
+ * de propósito: o posicionamento continua valendo, e o que muda é o que há
+ * dentro dele — uma imagem, em vez de um emoji.
+ */
+
+.view-image-icon {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.anexo-miniatura {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: var(--raio-1);
+  /* A borda existe para separar a miniatura do fundo colorido do card, que é
+     sorteado por chamado e pode ficar muito parecido com a imagem. */
+  border: 1px solid var(--cor-borda);
+}
+
+.anexo-indisponivel {
+  margin: 0;
+  padding: var(--espaco-minimo) var(--espaco-1);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-fundo-caixa);
+  color: var(--cor-texto-rotulo);
+  font-size: 12px;
+}

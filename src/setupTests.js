@@ -5,6 +5,7 @@
 // garante que nenhum teste unitário toque a rede ou o projeto de produção:
 // os módulos do Firebase têm mocks manuais em `src/__mocks__/firebase/`.
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/dom';
 import { webcrypto } from 'node:crypto';
 import { TextDecoder, TextEncoder } from 'node:util';
 import { instalarSuporteAHsl } from './test-utils/corDeFundo';
@@ -12,6 +13,17 @@ import { instalarSuporteAHsl } from './test-utils/corDeFundo';
 // O jsdom do react-scripts descarta `hsl()`. Toda cor desta base é `hsl()`,
 // então sem isto as asserções de cor passam a valer nada. Ver corDeFundo.js.
 instalarSuporteAHsl();
+
+// O teto de espera de `waitFor`, `findBy*` e companhia.
+//
+// O padrão é um segundo, e ele passou a apertar na task 04: o upload de um
+// anexo atravessa `FileReader`, `createImageBitmap` e `canvas.toBlob` antes de
+// chegar ao Storage, e cada um desses passos é um ciclo a mais do laço de
+// eventos. Com a suíte inteira rodando em paralelo numa máquina carregada, um
+// segundo vira um sorteio — e o teste que falha não é o que está errado, é o
+// que teve azar de agendamento. Cinco segundos só custam tempo quando algo
+// realmente quebrou.
+configure({ asyncUtilTimeout: 5000 });
 
 // Guarda-chuva contra o erro mais caro que esta suíte pode cometer: falar com o
 // projeto real `senai-duvidas`. Os testes unitários rodam inteiramente em

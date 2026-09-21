@@ -401,6 +401,8 @@ describe('msAteProximaMeiaNoiteBrasilia', () => {
   });
 
   it('nunca devolve zero nem negativo, para o timer não disparar em laço', () => {
-    expect(msAteProximaMeiaNoiteBrasilia(new Date('2026-09-20T03:00:00.000Z'))).toBeGreaterThan(0);
+    expect(msAteProximaMeiaNoiteBrasilia(new Date('2026-09-20T03:00:00.000Z'))).toBeGreaterThan(
+      0
+    );
   });
 });

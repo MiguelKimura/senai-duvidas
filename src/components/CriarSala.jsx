@@ -14,7 +14,8 @@ import BotaoSair from './BotaoSair';
 import PainelDoPin from './PainelDoPin';
 import '../styles/Salas.css';
 
-const ERRO_INESPERADO = 'Não foi possível criar a sala agora. Tente de novo em alguns instantes.';
+const ERRO_INESPERADO =
+  'Não foi possível criar a sala agora. Tente de novo em alguns instantes.';
 
 export default function CriarSala() {
   const { usuario, perfil } = useAuth();

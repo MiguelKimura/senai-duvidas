@@ -1,0 +1,562 @@
+// Anexos de imagem dos chamados — AC-IMG-02 a AC-IMG-13, AC-SEC-08.
+//
+// O problema que este módulo resolve é o print. O aluno fotografa ou recorta a
+// tela do erro e, até a v0.5.0, não tinha onde hospedar: o único caminho era
+// colar uma URL, que ele não tem. Acabava descrevendo o erro por escrito, mal,
+// e o professor perdia a aula pedindo detalhe.
+//
+// Nada aqui decide interface. Quem desenha o seletor, a zona de soltar e a
+// barra de progresso é `components/CampoAnexo.jsx`; este módulo é a regra —
+// o que é uma imagem, quanto ela pode pesar, para onde ela vai e como ela sai.
+import {
+  deleteObject,
+  getDownloadURL,
+  listAll,
+  ref,
+  uploadBytesResumable,
+} from 'firebase/storage';
+import { storage } from '../firebase';
+import { caminhoDoAnexo } from './salas';
+
+/**
+ * O que cada formato aceito carrega nos primeiros bytes (AC-SEC-08).
+ *
+ * Esta tabela é a única autoridade sobre "isto é uma imagem?". Nem a extensão
+ * nem o `type` que o navegador declara entram na decisão: os dois saem do nome
+ * do arquivo, e o nome é exatamente o que quem renomeia um `.exe` controla.
+ *
+ * `deslocamento` existe por causa do WEBP, que é um contêiner RIFF: os quatro
+ * primeiros bytes são `RIFF` — os mesmos de um WAV — e o que diz que há uma
+ * imagem dentro é o `WEBP` do byte 8.
+ */
+const ASSINATURAS = [
+  { tipo: 'image/png', extensao: 'png', bytes: [0x89, 0x50, 0x4e, 0x47], deslocamento: 0 },
+  { tipo: 'image/jpeg', extensao: 'jpg', bytes: [0xff, 0xd8, 0xff], deslocamento: 0 },
+  { tipo: 'image/gif', extensao: 'gif', bytes: [0x47, 0x49, 0x46, 0x38], deslocamento: 0 },
+  {
+    tipo: 'image/webp',
+    extensao: 'webp',
+    bytes: [0x52, 0x49, 0x46, 0x46],
+    deslocamento: 0,
+    tambem: { bytes: [0x57, 0x45, 0x42, 0x50], deslocamento: 8 },
+  },
+];
+
+/**
+ * O teto por arquivo, em bytes (AC-IMG-06).
+ *
+ * Cinco megabytes cobrem com folga um print de tela cheia em PNG, que é o caso
+ * real desta funcionalidade. O mesmo número está nas Storage Rules, e é o de
+ * lá que vale: um limite que mora só no cliente é um limite que o cliente
+ * desliga. O daqui existe para dar a mensagem em português antes de gastar a
+ * banda da rede do laboratório.
+ */
+export const LIMITE_DE_BYTES = 5 * 1024 * 1024;
+
+/** O formato que não é recomprimido, porque recomprimir mata a animação. */
+export const TIPO_ANIMADO = 'image/gif';
+
+/** O anexo que o aluno subiu do computador dele. */
+export const ORIGEM_DE_UPLOAD = 'upload';
+
+/** O anexo que continua sendo só um endereço na internet (AC-IMG-01). */
+export const ORIGEM_DE_URL = 'url';
+
+/** Quantos bytes bastam para reconhecer qualquer assinatura da tabela. */
+const BYTES_DA_ASSINATURA = 12;
+
+/** A única frase para "isto não é uma imagem que sabemos abrir" (AC-IMG-05). */
+export const ERRO_DE_FORMATO =
+  'Esse arquivo não é uma imagem que o sistema aceita. ' +
+  'Envie um print em PNG, JPEG, WEBP ou GIF.';
+
+/**
+ * Lê o começo do arquivo.
+ *
+ * `FileReader` sobre uma fatia, e não o arquivo inteiro: uma foto de 5 MB não
+ * precisa passar pela memória de uma máquina de laboratório só para que se
+ * confiram doze bytes.
+ *
+ * @param {Blob} arquivo
+ * @returns {Promise<Uint8Array>} vazio quando o arquivo não pôde ser lido.
+ */
+function lerAssinatura(arquivo) {
+  return new Promise((resolver) => {
+    const leitor = new FileReader();
+
+    leitor.onload = () => resolver(new Uint8Array(leitor.result || new ArrayBuffer(0)));
+    leitor.onerror = () => resolver(new Uint8Array(0));
+
+    try {
+      leitor.readAsArrayBuffer(arquivo.slice(0, BYTES_DA_ASSINATURA));
+    } catch (_erro) {
+      resolver(new Uint8Array(0));
+    }
+  });
+}
+
+/** Os bytes de `assinatura` batem com `esperados` a partir de `deslocamento`? */
+function combina(assinatura, { bytes, deslocamento }) {
+  return bytes.every((byte, indice) => assinatura[deslocamento + indice] === byte);
+}
+
+/**
+ * O formato reconhecido pelo conteúdo, ou `null`.
+ *
+ * @param {Uint8Array} assinatura os primeiros bytes do arquivo.
+ * @returns {{tipo: string, extensao: string}|null}
+ */
+export function formatoPelaAssinatura(assinatura) {
+  const encontrada = ASSINATURAS.find(
+    (formato) =>
+      combina(assinatura, formato) && (!formato.tambem || combina(assinatura, formato.tambem))
+  );
+
+  return encontrada ? { tipo: encontrada.tipo, extensao: encontrada.extensao } : null;
+}
+
+/** O tamanho em MB com uma casa, como a mensagem de erro o escreve. */
+function emMegabytes(bytes) {
+  return (bytes / (1024 * 1024)).toFixed(1).replace('.', ',');
+}
+
+/**
+ * A frase de "passou do teto", específica por formato (AC-IMG-06).
+ *
+ * O GIF tem a dele porque a saída do aluno é outra: os demais formatos o
+ * cliente comprime sozinho antes de subir, e o GIF não — comprimir um GIF é
+ * perder a animação, que costuma ser justamente o que ele queria mostrar.
+ */
+function erroDeTamanho(bytes, tipo) {
+  const medida = `Este arquivo tem ${emMegabytes(bytes)} MB e o limite é 5 MB.`;
+
+  return tipo === TIPO_ANIMADO
+    ? `${medida} GIF não é comprimido automaticamente, para não perder a animação — ` +
+        'grave a tela em um trecho menor ou envie um print em PNG no lugar.'
+    : `${medida} Recorte só a janela do erro e envie de novo.`;
+}
+
+/**
+ * Diz se o arquivo pode virar anexo, e por qual motivo não pode (AC-IMG-05).
+ *
+ * Devolve um resultado em vez de lançar: recusar um arquivo é um caminho
+ * normal da tela, não uma exceção. Quem chama mostra `erro` ao lado do campo e
+ * continua com o formulário montado — inclusive com o texto já digitado
+ * (AC-IMG-09).
+ *
+ * @param {File|Blob} arquivo
+ * @returns {Promise<{ok: boolean, erro: string|null, tipo: string|null,
+ *   extensao: string|null}>}
+ */
+export async function validarArquivo(arquivo) {
+  const recusa = (erro) => ({ ok: false, erro, tipo: null, extensao: null });
+
+  if (!arquivo) return recusa(ERRO_DE_FORMATO);
+
+  const formato = formatoPelaAssinatura(await lerAssinatura(arquivo));
+
+  // O formato antes do tamanho, de propósito: um `.exe` de 6 MB é um `.exe`, e
+  // dizer a ele que "o limite é 5 MB" sugeriria que bastava encolher.
+  if (!formato) return recusa(ERRO_DE_FORMATO);
+
+  if (arquivo.size > LIMITE_DE_BYTES) return recusa(erroDeTamanho(arquivo.size, formato.tipo));
+
+  return { ok: true, erro: null, ...formato };
+}
+
+// --- compressão -------------------------------------------------------------
+
+/**
+ * O maior lado que um anexo pode ter depois de comprimido (AC-IMG-07).
+ *
+ * 1600px é o que basta para ler uma mensagem de erro de compilador num print
+ * de tela cheia, e é metade da largura de um monitor 4K. O que reduz o custo
+ * não é a qualidade do codec: é o número de pixels.
+ */
+export const LADO_MAXIMO = 1600;
+
+/** Qualidade do recodificador, para os formatos que têm perda. */
+export const QUALIDADE = 0.85;
+
+/**
+ * O tamanho de destino, com a proporção do original preservada.
+ *
+ * @param {number} largura
+ * @param {number} altura
+ * @returns {{largura: number, altura: number, precisaReduzir: boolean}}
+ */
+export function dimensionarPara(largura, altura, ladoMaximo = LADO_MAXIMO) {
+  const maiorLado = Math.max(largura, altura);
+
+  if (maiorLado <= ladoMaximo) return { largura, altura, precisaReduzir: false };
+
+  const fator = ladoMaximo / maiorLado;
+
+  return {
+    largura: Math.round(largura * fator),
+    altura: Math.round(altura * fator),
+    precisaReduzir: true,
+  };
+}
+
+/** Desenha o bitmap no tamanho pedido e devolve os bytes, ou `null`. */
+function recodificar(bitmap, largura, altura, tipo, qualidade) {
+  const canvas = document.createElement('canvas');
+  canvas.width = largura;
+  canvas.height = altura;
+
+  const contexto = canvas.getContext('2d');
+  if (!contexto) return Promise.resolve(null);
+
+  contexto.drawImage(bitmap, 0, 0, largura, altura);
+
+  return new Promise((resolver) => {
+    canvas.toBlob((blob) => resolver(blob), tipo, qualidade);
+  });
+}
+
+/**
+ * Reduz a imagem ao teto de 1600px antes do upload (AC-IMG-07).
+ *
+ * Devolve as dimensões junto com os bytes porque quem chama precisa das duas
+ * coisas: os bytes vão para o Storage e as dimensões vão para o documento do
+ * chamado, onde reservam o espaço da miniatura antes de a imagem carregar.
+ * Decodificar de novo só para medir custaria a imagem inteira na memória de
+ * uma máquina de laboratório, duas vezes.
+ *
+ * Três casos saem com o arquivo **original**, e nenhum deles é falha:
+ *
+ *   * GIF, sempre — um canvas desenha um quadro só, e recomprimir devolveria
+ *     a imagem parada, sem a animação que era o motivo de ela existir;
+ *   * imagem já dentro do teto — recodificar não ganharia bytes e perderia
+ *     nitidez no texto, que é o que o professor precisa ler;
+ *   * `toBlob` que volta `null`, o sintoma de falta de memória. Subir o
+ *     original é pior que subir o comprimido, e muito melhor que não subir.
+ *
+ * O formato de saída é o mesmo da entrada, de propósito: um print de código em
+ * PNG virando JPEG ganha exatamente os artefatos que borram a linha do erro.
+ *
+ * @param {File|Blob} arquivo
+ * @param {{tipo?: string, ladoMaximo?: number, qualidade?: number}} [opcoes]
+ * @returns {Promise<{blob: Blob, largura: number, altura: number,
+ *   recomprimida: boolean}>}
+ */
+export async function comprimirImagem(arquivo, opcoes = {}) {
+  const { tipo = arquivo.type, ladoMaximo = LADO_MAXIMO, qualidade = QUALIDADE } = opcoes;
+
+  const bitmap = await createImageBitmap(arquivo);
+  const original = { largura: bitmap.width, altura: bitmap.height };
+  const alvo = dimensionarPara(original.largura, original.altura, ladoMaximo);
+
+  const intacto = { blob: arquivo, ...original, recomprimida: false };
+
+  if (tipo === TIPO_ANIMADO || !alvo.precisaReduzir) {
+    if (bitmap.close) bitmap.close();
+    return intacto;
+  }
+
+  const blob = await recodificar(bitmap, alvo.largura, alvo.altura, tipo, qualidade);
+  if (bitmap.close) bitmap.close();
+
+  if (!blob) return intacto;
+
+  return { blob, largura: alvo.largura, altura: alvo.altura, recomprimida: true };
+}
+
+// --- upload -----------------------------------------------------------------
+
+/**
+ * Falha de anexo já traduzida para o português, pronta para a tela.
+ *
+ * `cancelado` separa "eu desisti" de "a rede caiu", e a tela precisa dos dois
+ * separados: desistir é uma escolha do aluno e não merece mensagem de erro
+ * nenhuma; a rede caindo merece, e merece dizer o que fazer (AC-IMG-09).
+ */
+export class ErroDeAnexo extends Error {
+  constructor(mensagem, { cancelado = false, causa = null } = {}) {
+    super(mensagem);
+    this.name = 'ErroDeAnexo';
+    this.cancelado = cancelado;
+    this.causa = causa;
+  }
+}
+
+/** O que a tela diz quando o aluno cancela. Não é erro, é escolha. */
+export const ERRO_CANCELADO = 'Envio da imagem cancelado.';
+
+/**
+ * Traduz o `code` do Storage na frase que o aluno pode agir em cima.
+ *
+ * O que o AC-IMG-09 pede não é uma frase gentil: é uma frase **acionável**.
+ * "Erro ao enviar" não diz se a culpa foi da rede, do arquivo ou da sala, e o
+ * aluno em aula não tem como descobrir. Cada caso abaixo termina num verbo.
+ */
+function mensagemDeFalha(erro) {
+  const codigo = (erro && erro.code) || '';
+
+  if (codigo === 'storage/unauthorized') {
+    return 'O envio foi recusado: confira se você ainda faz parte desta sala e entre de novo.';
+  }
+
+  if (codigo === 'storage/quota-exceeded') {
+    return 'O espaço de armazenamento da escola acabou. Avise o professor e descreva o erro por escrito.';
+  }
+
+  return 'Não foi possível enviar a imagem. Confira a conexão e tente de novo — o que você escreveu continua aqui.';
+}
+
+/**
+ * Um nome de arquivo que não colide e não depende de relógio nenhum.
+ *
+ * A task 02 tirou do relógio da máquina a autoridade sobre a ordem da fila,
+ * pela razão simples de que o relógio dos laboratórios está errado. O nome do
+ * arquivo tem o mesmo problema e um a mais: `Date.now()` numa turma que manda
+ * print ao mesmo tempo colide, e colidir no Storage é sobrescrever o anexo de
+ * outra pessoa. Dezesseis bytes sorteados resolvem os dois de uma vez, e o
+ * instante que importa — quando o chamado foi aberto — continua sendo o
+ * `serverTimestamp()` do documento.
+ *
+ * @param {string} extensao
+ * @returns {string}
+ */
+export function nomeDeArquivo(extensao) {
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+
+  const sorteado = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+
+  return `${sorteado}.${extensao}`;
+}
+
+/**
+ * Valida, comprime e sobe o anexo de um chamado (AC-IMG-02, AC-IMG-11).
+ *
+ * O `chamadoId` vem de fora, e é de propósito: quem abre o modal reserva o id
+ * do chamado antes de escrever qualquer coisa, para que o anexo já nasça na
+ * pasta definitiva. A alternativa — subir para um lugar provisório e mover
+ * depois — não existe: o Storage não move objeto, copia.
+ *
+ * @param {File|Blob} arquivo
+ * @param {{salaId: string|null, chamadoId: string,
+ *   onProgresso?: (fracao: number) => void, sinal?: AbortSignal}} opcoes
+ * @returns {Promise<{url: string, caminho: string, largura: number,
+ *   altura: number, bytes: number, tipo: string, origem: 'upload'}>}
+ * @throws {ErroDeAnexo} sempre com mensagem pronta para a tela.
+ */
+export async function enviarAnexo(arquivo, { salaId, chamadoId, onProgresso, sinal } = {}) {
+  if (sinal && sinal.aborted) throw new ErroDeAnexo(ERRO_CANCELADO, { cancelado: true });
+
+  const validacao = await validarArquivo(arquivo);
+  if (!validacao.ok) throw new ErroDeAnexo(validacao.erro);
+
+  const { blob, largura, altura } = await comprimirImagem(arquivo, { tipo: validacao.tipo });
+
+  if (sinal && sinal.aborted) throw new ErroDeAnexo(ERRO_CANCELADO, { cancelado: true });
+
+  const caminho = caminhoDoAnexo(salaId, chamadoId, nomeDeArquivo(validacao.extensao));
+  const tarefa = uploadBytesResumable(ref(storage, caminho), blob, {
+    contentType: validacao.tipo,
+  });
+
+  // O cancelamento do AC-IMG-08 é a `UploadTask` sendo interrompida, não uma
+  // promessa sendo ignorada: o SDK precisa parar de mandar bytes e apagar o
+  // pedaço já gravado. Ignorar a promessa deixaria o arquivo meio subido lá.
+  const cancelar = () => tarefa.cancel();
+  if (sinal) sinal.addEventListener('abort', cancelar, { once: true });
+
+  if (onProgresso) {
+    tarefa.on('state_changed', (instantaneo) => {
+      const total = instantaneo.totalBytes || 0;
+
+      onProgresso(total > 0 ? instantaneo.bytesTransferred / total : 0);
+    });
+  }
+
+  try {
+    await tarefa;
+
+    return {
+      url: await getDownloadURL(ref(storage, caminho)),
+      caminho,
+      largura,
+      altura,
+      bytes: blob.size,
+      tipo: validacao.tipo,
+      origem: ORIGEM_DE_UPLOAD,
+    };
+  } catch (erro) {
+    if (erro && erro.code === 'storage/canceled') {
+      throw new ErroDeAnexo(ERRO_CANCELADO, { cancelado: true, causa: erro });
+    }
+
+    throw new ErroDeAnexo(mensagemDeFalha(erro), { causa: erro });
+  } finally {
+    if (sinal) sinal.removeEventListener('abort', cancelar);
+  }
+}
+
+// --- os dois formatos do campo de anexo -------------------------------------
+
+/**
+ * Traduz o que está gravado em `imagem`/`anexo` para um anexo só (AC-IMG-13).
+ *
+ * É a **leitura dupla** exigida pela seção 4 do `_PROTOCOLO.md`. Convivem no
+ * banco, permanentemente nesta versão:
+ *
+ *   * chamados da v0.1.0, em que `imagem` é uma string de URL;
+ *   * chamados desta versão, com `anexo` em objeto e `imagem` mantido ao lado.
+ *
+ * Nenhum dos dois é convertido no banco. Os dois são entendidos aqui, e é por
+ * isso que o chamado aberto em março continua exibindo o print dele depois do
+ * deploy — sem migração, sem janela de indisponibilidade.
+ *
+ * @param {string|object|null|undefined} valor
+ * @returns {{url: string, origem: string}|null}
+ */
+export function normalizarAnexo(valor) {
+  if (!valor) return null;
+
+  if (typeof valor === 'string') return { url: valor, origem: ORIGEM_DE_URL };
+
+  return valor.url ? valor : null;
+}
+
+/**
+ * O que gravar no documento do chamado — nos **dois** formatos.
+ *
+ * `imagem` continua sendo a string de URL porque é onde todo cliente que já
+ * está aberto no laboratório a procura. `anexo` é o objeto, com o caminho no
+ * Storage (que a exclusão precisa) e as dimensões (que a miniatura precisa).
+ *
+ * `imagem` só sai na 1.0.0, quando nenhum leitor antigo restar — é a segunda
+ * etapa da migração em duas fases que o protocolo exige.
+ *
+ * @param {{url: string}|null} anexo
+ * @returns {{imagem: string|null, anexo: object|null}}
+ */
+export function camposDoAnexo(anexo) {
+  return anexo ? { imagem: anexo.url, anexo } : { imagem: null, anexo: null };
+}
+
+/**
+ * Diz se a string pode virar anexo por link (AC-IMG-01).
+ *
+ * Deliberadamente permissivo quanto ao caminho: encurtadores e serviços de
+ * print não põem extensão nenhuma na URL, e exigir `.png` no fim recusaria
+ * metade dos links que os alunos já usam hoje. Quem descobre que a URL não era
+ * imagem é o `<img>`, e o AC-IMG-12 cuida desse caso com um placeholder.
+ *
+ * O que ele recusa é o **esquema**: `javascript:` não é anexo, é código
+ * executando na máquina de quem abrir o card.
+ *
+ * @param {string|null|undefined} url
+ * @returns {boolean}
+ */
+export function ehUrlDeImagem(url) {
+  if (typeof url !== 'string' || url.trim() === '') return false;
+
+  try {
+    const { protocol, href } = new URL(url.trim());
+
+    if (protocol === 'http:' || protocol === 'https:') return true;
+
+    return protocol === 'data:' && href.startsWith('data:image/');
+  } catch (_erro) {
+    // Não é endereço nenhum — é texto que alguém colou no campo errado.
+    return false;
+  }
+}
+
+// --- remoção ----------------------------------------------------------------
+
+/**
+ * Apaga um arquivo do Storage pelo caminho, sem reclamar do que não existe.
+ *
+ * O caso de uso é o aluno que anexa, se arrepende e troca a imagem antes de
+ * concluir o chamado: o arquivo já subiu e ninguém mais vai referenciá-lo.
+ *
+ * @param {string} caminho
+ */
+export async function removerAnexo(caminho) {
+  if (!caminho) return;
+
+  try {
+    await deleteObject(ref(storage, caminho));
+  } catch (_erro) {
+    // `object-not-found` é o caso normal de uma segunda tentativa, e qualquer
+    // outra falha aqui é custo de cota — nunca motivo para travar a tela.
+  }
+}
+
+/**
+ * Apaga todos os anexos de um chamado (AC-CHAMADO-08).
+ *
+ * O órfão do Storage é um custo silencioso: o documento some da tela, ninguém
+ * mais tem como chegar ao arquivo, e ele ocupa a cota da escola para sempre.
+ *
+ * Nunca lança. Excluir o chamado é o que o aluno pediu, e um anexo que
+ * resistiu à remoção vira custo, não bloqueio — o documento tem de sair da
+ * fila de qualquer jeito.
+ *
+ * @param {string|null} salaId
+ * @param {string} chamadoId
+ * @returns {Promise<{apagados: number}>}
+ */
+export async function removerAnexosDoChamado(salaId, chamadoId) {
+  // Sem sala não há pasta: `caminhoDoAnexo(null, ...)` cai em `imagens/`, o
+  // caminho global da v0.1.0, que não tem dono. Varrer aquele prefixo ao
+  // excluir um chamado apagaria o anexo de todos os outros chamados da escola
+  // de uma vez — e ninguém saberia por quê.
+  if (!salaId) return { apagados: 0 };
+
+  const pasta = caminhoDoAnexo(salaId, chamadoId, '').replace(/\/$/, '');
+
+  try {
+    const { items } = await listAll(ref(storage, pasta));
+
+    const resultados = await Promise.all(
+      items.map((item) =>
+        deleteObject(item).then(
+          () => true,
+          () => false
+        )
+      )
+    );
+
+    return { apagados: resultados.filter(Boolean).length };
+  } catch (_erro) {
+    return { apagados: 0 };
+  }
+}
+
+/**
+ * Apaga o que um chamado excluído deixa para trás no Storage (AC-CHAMADO-08).
+ *
+ * Duas frentes, porque uma só não cobre os dois casos reais:
+ *
+ *   * **o caminho gravado no documento** — é a única pista que sobra quando o
+ *     chamado vive na fila global da v0.4.0, onde não há pasta por sala;
+ *   * **a pasta do chamado** — pega o arquivo que sobrou de uma troca de
+ *     imagem interrompida no meio, cujo caminho não ficou gravado em lugar
+ *     nenhum porque o chamado guardou só o último anexo.
+ *
+ * Nunca lança: excluir o chamado é o que a pessoa pediu, e um arquivo que
+ * resistiu vira custo de cota, não erro na tela.
+ *
+ * @param {string|null} salaId
+ * @param {{id: string, anexo?: object|null, imagem?: string|null}} chamado
+ * @returns {Promise<{apagados: number}>}
+ */
+export async function removerAnexoDoChamado(salaId, chamado) {
+  if (!chamado) return { apagados: 0 };
+
+  const anexo = normalizarAnexo(chamado.anexo);
+
+  // O formato antigo — `imagem` em string — nunca tem caminho: aquela URL
+  // aponta para fora, para um servidor que não é nosso. Não há o que apagar.
+  if (anexo && anexo.caminho) await removerAnexo(anexo.caminho);
+
+  const { apagados } = await removerAnexosDoChamado(salaId, chamado.id);
+
+  return { apagados: apagados + (anexo && anexo.caminho ? 1 : 0) };
+}

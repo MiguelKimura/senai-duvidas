@@ -1,41 +1,85 @@
 rules_version = '2';
 
-// Security Rules do Storage.
+// Security Rules do Storage — AC-IMG-06, AC-IMG-11, AC-SEC-08, AC-CHAMADO-08.
 //
-// Hoje a interface ainda não oferece upload de arquivo: o anexo é colado como
-// URL (AC-IMG-01) e `uploadImage` em `src/firebase.js` é chamado por ninguém.
-// O upload de verdade é a task 04.
+// A task 03 abriu o caminho escopado por sala e deixou dois `TODO(task-04)`,
+// os dois porque dependiam de existir a tela que faz upload: apertar antes
+// quebraria produção sem substituto. A tela existe agora, e os dois estão
+// fechados aqui.
 //
-// O que a task 03 faz aqui é abrir o caminho **já escopado por sala** —
-// `salas/{salaId}/chamados/{chamadoId}/{arquivo}`, o mesmo que
-// `services/salas.js#caminhoDoAnexo` monta — e fechá-lo o suficiente para que
-// ele não nasça como buraco: exige sessão, tipo de imagem e tamanho. A
-// checagem de que a pessoa é membro da sala depende de `firestore.exists()` e
-// entra na task 04, junto com o upload que a usa.
+// A divisão de trabalho com o cliente é deliberada, e as duas pontas precisam
+// existir:
+//
+//   * `services/anexos.js` lê os **magic bytes** do arquivo e dá a mensagem em
+//     português antes de gastar a banda da rede do laboratório. É o que o
+//     aluno vê, e é o que não vale nada contra quem adultera o cliente;
+//   * esta rule confere `contentType` e tamanho. Não consegue ler o conteúdo
+//     do arquivo — nenhuma rule consegue —, mas é o que vale para quem trocou
+//     o app por um `curl`.
 service firebase.storage {
   match /b/{bucket}/o {
-    // Caminho legado, da v0.1.0: sem uid e sem sala, dois alunos que enviem
-    // `print.png` se sobrescrevem.
-    //
-    // TODO(task-04): fechar junto com a migração dos anexos para o caminho
-    // escopado abaixo. Apertar agora quebraria o helper em produção antes de
-    // existir a tela que o substitui.
-    match /imagens/{arquivo} {
-      allow read, write: if true;
+    function ehAutenticado() {
+      return request.auth != null;
     }
 
-    // Anexo de chamado, escopado por sala (task 03, para a task 04 usar).
-    match /salas/{salaId}/chamados/{chamadoId}/{arquivo} {
-      // A leitura é pública porque o card exibe a imagem por URL direta, como
-      // já fazia. Trocar por URL assinada é decisão da task 04.
-      allow read: if true;
+    /// Tem vínculo com a sala. É o MESMO documento que as rules do Firestore
+    /// consultam do outro lado, e é a autoridade sobre quem vê o quê
+    /// (AC-SEC-02). Ser professor no SENAI não é ser membro desta sala.
+    function ehMembroDaSala(salaId) {
+      return ehAutenticado()
+        && firestore.exists(
+             /databases/(default)/documents/salas/$(salaId)/membros/$(request.auth.uid)
+           );
+    }
 
-      // TODO(task-04): exigir também
-      // `firestore.exists(/databases/(default)/documents/salas/$(salaId)/membros/$(request.auth.uid))`,
-      // fechando o upload aos membros da sala (AC-SEC-02).
-      allow write: if request.auth != null
-        && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+    /// Os quatro formatos que a interface oferece (AC-IMG-05).
+    ///
+    /// A lista é explícita, e não `image/.*`: `image/svg+xml` é uma imagem
+    /// para o navegador e um documento com script dentro para quem o abre.
+    function ehFormatoAceito() {
+      return request.resource.contentType in [
+        'image/png',
+        'image/jpeg',
+        'image/webp',
+        'image/gif'
+      ];
+    }
+
+    /// O teto de 5 MB (AC-IMG-06). O mesmo número de `LIMITE_DE_BYTES` em
+    /// `services/anexos.js` — lá para explicar, aqui para valer.
+    function cabeNoLimite() {
+      return request.resource.size <= 5 * 1024 * 1024;
+    }
+
+    // Caminho legado da v0.1.0: sem sala e sem uid, dois alunos que enviem
+    // `print.png` se sobrescrevem — e, sem sala no caminho, nenhuma rule
+    // consegue dizer quem pode ler o que está ali.
+    //
+    // A escrita fecha agora que existe substituto. A **leitura** continua
+    // aberta de propósito: fechá-la apagaria da tela a imagem de chamados
+    // antigos que apontem para cá (AC-IMG-13). O que está lá continua onde
+    // está, e nada novo entra.
+    match /imagens/{arquivo} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Anexo de chamado, escopado por sala (AC-IMG-11).
+    match /salas/{salaId}/chamados/{chamadoId}/{arquivo} {
+      // A leitura fecha por sala. Era pública "como o card espera", e o card
+      // precisa apenas da URL — que só quem leu o chamado obtém, e só membro
+      // lê chamado. Pública, ela entregaria o print de um aluno a qualquer
+      // pessoa que tivesse o caminho.
+      allow read: if ehMembroDaSala(salaId);
+
+      allow write: if ehMembroDaSala(salaId)
+        && cabeNoLimite()
+        && ehFormatoAceito();
+
+      // Excluir o chamado apaga o anexo junto (AC-CHAMADO-08). Sem isto, o
+      // arquivo ficaria no bucket sem documento nenhum apontando para ele,
+      // ocupando a cota da escola para sempre.
+      allow delete: if ehMembroDaSala(salaId);
     }
 
     match /{caminho=**} {

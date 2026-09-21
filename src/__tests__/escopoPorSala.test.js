@@ -84,7 +84,13 @@ function semearAsDuasSalas() {
     },
   ]);
   __semearColecao(CHAT_DA_SALA_A, [
-    { id: 'ma', autorNome: 'Ana Souza', nome: 'Ana Souza', texto: 'Oi da sala A', email: ANA.email },
+    {
+      id: 'ma',
+      autorNome: 'Ana Souza',
+      nome: 'Ana Souza',
+      texto: 'Oi da sala A',
+      email: ANA.email,
+    },
   ]);
   __semearColecao(CHAT_DA_SALA_B, [
     {
@@ -153,10 +159,7 @@ describe('Chamados escopados por sala (AC-SALA-07)', () => {
     renderComProvedores(<TelaAluno salaId="sala-a" />);
 
     await userEvent.click(screen.getByRole('button', { name: '+' }));
-    await userEvent.type(
-      screen.getByPlaceholderText(/descreva/i),
-      'A furadeira não liga.'
-    );
+    await userEvent.type(screen.getByPlaceholderText(/descreva/i), 'A furadeira não liga.');
     await userEvent.click(screen.getByRole('button', { name: /concluir/i }));
     __confirmarCarimbos();
 

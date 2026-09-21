@@ -26,7 +26,8 @@ import BotaoSair from './BotaoSair';
 import PainelDoPin from './PainelDoPin';
 import '../styles/Salas.css';
 
-const ERRO_INESPERADO = 'Não foi possível falar com o servidor agora. Tente de novo em instantes.';
+const ERRO_INESPERADO =
+  'Não foi possível falar com o servidor agora. Tente de novo em instantes.';
 
 /** "1 membro" / "3 membros", sem o "(s)" que ninguém escreve à mão. */
 function plural(quantidade, singular, plural_) {

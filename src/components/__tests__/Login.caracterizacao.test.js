@@ -103,7 +103,11 @@ describe('Login — credencial válida (AC-AUTH-02)', () => {
   });
 
   it('redireciona o professor para /professor conforme usuarios/{uid}.tipo', async () => {
-    const professor = fabricaUsuario({ uid: 'uid-prof', tipo: 'professor', email: 'carlos@senai.br' });
+    const professor = fabricaUsuario({
+      uid: 'uid-prof',
+      tipo: 'professor',
+      email: 'carlos@senai.br',
+    });
     __registrarCredencial('carlos@senai.br', 'senha123', { uid: 'uid-prof' });
     __semearColecao('usuarios', [{ id: 'uid-prof', ...professor }]);
     // A task 01 acrescenta a segunda fonte: sem `autorizados`, o documento
@@ -293,7 +297,9 @@ describe('Login — entrar com GitHub (AC-AUTH-04)', () => {
 describe('Login — e-mail já vinculado a outro método (AC-AUTH-05)', () => {
   it('explica como vincular a conta, em português e sem código do Firebase', async () => {
     const firebaseAuth = require('firebase/auth');
-    const conflito = new Error('Firebase: Error (auth/account-exists-with-different-credential).');
+    const conflito = new Error(
+      'Firebase: Error (auth/account-exists-with-different-credential).'
+    );
     conflito.code = 'auth/account-exists-with-different-credential';
     jest.spyOn(firebaseAuth, 'signInWithPopup').mockRejectedValue(conflito);
     renderComProvedores(<Login />);

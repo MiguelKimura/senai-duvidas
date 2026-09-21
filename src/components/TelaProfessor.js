@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { deleteDoc, doc, limit, onSnapshot, query } from 'firebase/firestore';
 import { criarComparadorPorHorario, formatarDataHora } from '../services/tempo';
 import { LIMITE_DE_CHAMADOS, colecaoDeChamados } from '../services/salas';
+import { removerAnexoDoChamado } from '../services/anexos';
 import '../styles/TelaProfessor.css';
+import AnexoDoCard from './AnexoDoCard';
 import Chat from './Chat';
 import BotaoSair from './BotaoSair';
 
@@ -34,18 +36,18 @@ function TelaProfessor({ salaId = null, somenteLeitura = false }) {
     return () => unsubscribe();
   }, [salaId]);
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (chamado) => {
     try {
-      await deleteDoc(doc(colecaoDeChamados(salaId), id));
+      await deleteDoc(doc(colecaoDeChamados(salaId), chamado.id));
+      // O professor apaga o chamado de um aluno, e o anexo é do aluno: sem
+      // isto ele ficaria no Storage sem documento nenhum apontando para ele,
+      // ocupando a cota da escola para sempre (AC-CHAMADO-08).
+      await removerAnexoDoChamado(salaId, chamado);
       alert('Chamado excluído com sucesso!');
     } catch (error) {
-      console.error("Erro ao excluir o chamado:", error);
+      console.error('Erro ao excluir o chamado:', error);
       alert('Erro ao excluir o chamado. Tente novamente mais tarde.');
     }
-  };
-
-  const visualizarAnexo = (anexoUrl) => {
-    window.open(anexoUrl, '_blank');
   };
 
   return (
@@ -62,32 +64,27 @@ function TelaProfessor({ salaId = null, somenteLeitura = false }) {
           >
             <div className="card-header">
               <div className="user-name-wrapper">
-                <p className="user-name"><strong>{problema.autorNome || problema.nome}</strong></p>
+                <p className="user-name">
+                  <strong>{problema.autorNome || problema.nome}</strong>
+                </p>
               </div>
 
-              {/* Exibindo o ícone para visualizar imagem no canto superior direito do card */}
-              {problema.imagem && (
-                <div 
-                  className="view-image-icon" 
-                  onClick={() => visualizarAnexo(problema.imagem)}
-                  title="Ver imagem"
-                >
-                  👁️
-                </div>
-              )}
+              {/* A mesma miniatura do card do aluno, pelo mesmo componente.
+                  Até a v0.5.0 eram dois trechos de JSX copiados, e já tinham
+                  divergido no nome da função que abriam. */}
+              <AnexoDoCard chamado={problema} />
             </div>
 
             <p>{problema.descricao}</p>
-            <p><em>{formatarDataHora(problema.horario)}</em></p>
+            <p>
+              <em>{formatarDataHora(problema.horario)}</em>
+            </p>
 
             {/* Botão de exclusão posicionado abaixo do conteúdo do card.
                 Some na sala arquivada, que é somente leitura (AC-SALA-10). */}
             {!somenteLeitura && (
               <div className="delete-button-container">
-                <button 
-                  className="delete-button" 
-                  onClick={() => handleDelete(problema.id)}
-                >
+                <button className="delete-button" onClick={() => handleDelete(problema)}>
                   Excluir
                 </button>
               </div>

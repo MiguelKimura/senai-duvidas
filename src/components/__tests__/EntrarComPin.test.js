@@ -50,9 +50,7 @@ function semearSalaDoCarlos({ ativa = true } = {}) {
       arquivadaEm: null,
     },
   ]);
-  __semearColecao('indicePins', [
-    { id: PIN_DA_TURMA, salaId: 'sala-mecanica', ativo: ativa },
-  ]);
+  __semearColecao('indicePins', [{ id: PIN_DA_TURMA, salaId: 'sala-mecanica', ativo: ativa }]);
 }
 
 async function montar() {
@@ -117,7 +115,13 @@ describe('EntrarComPin — entrada válida (AC-SALA-04, AC-SALA-06)', () => {
   it('quem já é membro entra de novo sem reiniciar a data de entrada (AC-SALA-06)', async () => {
     semearSalaDoCarlos();
     __semearColecao('salas/sala-mecanica/membros', [
-      { id: ANA.uid, nome: 'Ana Souza', email: ANA.email, papel: 'aluno', entrouEm: 'fevereiro' },
+      {
+        id: ANA.uid,
+        nome: 'Ana Souza',
+        email: ANA.email,
+        papel: 'aluno',
+        entrouEm: 'fevereiro',
+      },
     ]);
     await montar();
 

@@ -111,9 +111,7 @@ describe('TelaProfessor — lista de chamados (AC-CHAMADO-03)', () => {
   });
 
   it('usa a cor gravada no chamado como fundo do card (AC-COR-05)', () => {
-    __semearColecao('chamados', [
-      fabricaChamado({ id: 'c1', cor: 'hsl(120, 70%, 80%)' }),
-    ]);
+    __semearColecao('chamados', [fabricaChamado({ id: 'c1', cor: 'hsl(120, 70%, 80%)' })]);
 
     renderComProvedores(<TelaProfessor />);
 
@@ -192,7 +190,12 @@ describe('TelaProfessor — anexo por URL (AC-IMG-01)', () => {
     expect(screen.queryByTitle('Ver imagem')).not.toBeInTheDocument();
   });
 
-  it('abre o anexo por window.open — bloqueado em laboratório, AC-IMG-10 corrige', async () => {
+  // INVERTIDO pela task 04, junto com o caso gêmeo da tela do aluno. Os dois
+  // chamavam `window.open`, que nos laboratórios do SENAI vem bloqueado por
+  // política de imagem do Windows e engolia o clique em silêncio. A asserção
+  // vira de "chama window.open" para "NÃO chama, e abre o visualizador na
+  // própria página". Nenhum caso foi removido.
+  it('NÃO abre por window.open: o anexo abre em visualizador (AC-IMG-10)', async () => {
     const abrir = jest.spyOn(window, 'open').mockImplementation(() => null);
     __semearColecao('chamados', [
       fabricaChamado({ id: 'c1', imagem: 'https://exemplo.test/erro.png' }),
@@ -201,7 +204,8 @@ describe('TelaProfessor — anexo por URL (AC-IMG-01)', () => {
     renderComProvedores(<TelaProfessor />);
     await userEvent.click(screen.getByTitle('Ver imagem'));
 
-    expect(abrir).toHaveBeenCalledWith('https://exemplo.test/erro.png', '_blank');
+    expect(abrir).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
 

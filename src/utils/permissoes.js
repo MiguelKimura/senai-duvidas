@@ -1,5 +1,5 @@
-import { db } from "../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 /**
  * Diz se o e-mail está em `autorizados/{email}` com `Tipo: "professor"`.
@@ -20,7 +20,7 @@ export const verificarPermissao = async (email) => {
   }
 
   try {
-    const docRef = doc(db, "autorizados", email.trim().toLowerCase());
+    const docRef = doc(db, 'autorizados', email.trim().toLowerCase());
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
@@ -28,7 +28,7 @@ export const verificarPermissao = async (email) => {
     }
 
     const tipo = docSnap.data().Tipo;
-    return typeof tipo === "string" && tipo.toLowerCase() === "professor";
+    return typeof tipo === 'string' && tipo.toLowerCase() === 'professor';
   } catch {
     // Falha de leitura nega o acesso. O erro não é registrado porque a mensagem
     // do Firestore carrega o caminho do documento — e o caminho é o e-mail.

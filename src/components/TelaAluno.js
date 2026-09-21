@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
+import AnexoDoCard from './AnexoDoCard';
 import { auth } from '../firebase';
-import { addDoc, deleteDoc, doc, limit, onSnapshot, query } from 'firebase/firestore';
+import { deleteDoc, doc, limit, onSnapshot, query, setDoc } from 'firebase/firestore';
+import { camposDoAnexo, removerAnexoDoChamado } from '../services/anexos';
 import {
   carimboServidor,
   completarHorariosIso,
@@ -32,7 +34,7 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
-      setUsuarioNome(user.displayName || "Aluno");
+      setUsuarioNome(user.displayName || 'Aluno');
     }
   }, []);
 
@@ -64,7 +66,7 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 
-  const addProblema = async (descricao, imagem) => {
+  const addProblema = async (descricao, anexo, chamadoId) => {
     if (!descricao) return;
 
     const user = auth.currentUser;
@@ -86,29 +88,37 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
       // desta máquina. Ver services/tempo.js.
       horario: carimboServidor(),
       cor: novaCor,
-      imagem: imagem || null, // Salva a imagem (se houver)
+      // Escrita dupla do anexo, pela mesma regra do autor: `imagem` continua
+      // sendo a string de URL que todo cliente já aberto no laboratório
+      // procura, e `anexo` é o objeto com o caminho no Storage e as dimensões.
+      // `imagem` só sai na 1.0.0 (AC-IMG-13).
+      ...camposDoAnexo(anexo),
       atendido: false,
     };
 
     try {
-      await addDoc(colecaoDeChamados(salaId), novoProblema);
+      // `setDoc` no id que o modal reservou, e não `addDoc`: o anexo já subiu
+      // para `salas/{salaId}/chamados/{chamadoId}/` antes de o documento
+      // existir, e deixar o servidor sortear outro id separaria os dois.
+      await setDoc(doc(colecaoDeChamados(salaId), chamadoId), novoProblema);
       closeModal();
     } catch (error) {
-      console.error("Erro ao adicionar problema:", error);
+      console.error('Erro ao adicionar problema:', error);
     }
   };
 
-  const removerProblema = async (id) => {
+  const removerProblema = async (chamado) => {
+    const id = chamado.id;
+
     try {
       await deleteDoc(doc(colecaoDeChamados(salaId), id));
+      // Depois de apagar o documento, não antes: se a remoção do arquivo
+      // falhar, o chamado já saiu da fila — que é o que o aluno pediu. O
+      // contrário deixaria o card na tela sem o anexo (AC-CHAMADO-08).
+      await removerAnexoDoChamado(salaId, chamado);
     } catch (error) {
-      console.error("Erro ao excluir chamado:", error);
+      console.error('Erro ao excluir chamado:', error);
     }
-  };
-
-  // Função para abrir a imagem
-  const visualizarImagem = (imagemUrl) => {
-    window.open(imagemUrl, '_blank');
   };
 
   return (
@@ -120,7 +130,9 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
           vez de dar erro no clique: o aluno não tem o que fazer com um erro
           que não é dele. Quem recusa de verdade continua sendo a rule. */}
       {!somenteLeitura && (
-        <button className="add-button" onClick={openModal}>+</button>
+        <button className="add-button" onClick={openModal}>
+          +
+        </button>
       )}
       <div className="problemas-list">
         {problemas.map((problema) => (
@@ -133,31 +145,29 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
               {/* `autorNome` primeiro, `nome` como leitura do formato antigo:
                   é o outro lado da escrita dupla, e é o que mantém legível o
                   chamado que a migração copiou da coleção global. */}
-              <p className="user-name"><strong>{problema.autorNome || problema.nome}</strong></p>
-              {/* Exibir ícone para visualizar a imagem no canto superior direito do card, caso haja imagem */}
-              {problema.imagem && (
-                <div
-                  className="view-image-icon"
-                  onClick={() => visualizarImagem(problema.imagem)}
-                  title="Ver imagem"
-                >
-                  👁️
-                </div>
-              )}
+              <p className="user-name">
+                <strong>{problema.autorNome || problema.nome}</strong>
+              </p>
+              {/* A miniatura do anexo, no mesmo canto onde o olho 👁️ ficava.
+                  Clicar abre o visualizador na própria página — `window.open`
+                  vinha bloqueado em parte dos laboratórios (AC-IMG-10). */}
+              <AnexoDoCard chamado={problema} />
             </div>
 
             <p>{problema.descricao}</p>
-            <p><em>{formatarDataHora(problema.horario)}</em></p>
+            <p>
+              <em>{formatarDataHora(problema.horario)}</em>
+            </p>
 
             {!somenteLeitura && problema.email === auth.currentUser?.email && (
-              <button className="delete-button" onClick={() => removerProblema(problema.id)}>
+              <button className="delete-button" onClick={() => removerProblema(problema)}>
                 Excluir
               </button>
             )}
           </div>
         ))}
       </div>
-      {isModalOpen && <Modal onClose={closeModal} onSubmit={addProblema} />}
+      {isModalOpen && <Modal salaId={salaId} onClose={closeModal} onSubmit={addProblema} />}
 
       <Chat salaId={salaId} />
     </div>

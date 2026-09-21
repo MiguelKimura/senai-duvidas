@@ -38,7 +38,13 @@ const HORARIO_DO_SERVIDOR = '2026-03-10T13:45:00.000Z';
 
 function semearProfessoresNoAuth() {
   __semearColecao('usuarios', [
-    { id: CARLOS.uid, uid: CARLOS.uid, nome: 'Carlos Lima', email: CARLOS.email, tipo: 'professor' },
+    {
+      id: CARLOS.uid,
+      uid: CARLOS.uid,
+      nome: 'Carlos Lima',
+      email: CARLOS.email,
+      tipo: 'professor',
+    },
     {
       id: OUTRO_PROFESSOR.uid,
       uid: OUTRO_PROFESSOR.uid,
@@ -68,15 +74,10 @@ function semearSala({ ativa = true, comAna = true } = {}) {
     },
   ]);
 
-  __semearColecao(
-    'salas/sala-mecanica/membros',
-    [
-      { id: CARLOS.uid, nome: 'Carlos Lima', email: CARLOS.email, papel: 'professor' },
-      ...(comAna
-        ? [{ id: ANA.uid, nome: 'Ana Souza', email: ANA.email, papel: 'aluno' }]
-        : []),
-    ]
-  );
+  __semearColecao('salas/sala-mecanica/membros', [
+    { id: CARLOS.uid, nome: 'Carlos Lima', email: CARLOS.email, papel: 'professor' },
+    ...(comAna ? [{ id: ANA.uid, nome: 'Ana Souza', email: ANA.email, papel: 'aluno' }] : []),
+  ]);
 
   __semearColecao('salas/sala-mecanica/chamados', [
     {
@@ -189,7 +190,9 @@ describe('Sala — o painel da turma (AC-SALA-09)', () => {
     renderComProvedores(<Sala />);
     const painel = await screen.findByRole('region', { name: /turma/i });
 
-    await userEvent.click(await within(painel).findByRole('button', { name: /remover ana souza/i }));
+    await userEvent.click(
+      await within(painel).findByRole('button', { name: /remover ana souza/i })
+    );
     __confirmarCarimbos();
 
     await waitFor(() =>

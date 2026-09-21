@@ -22,13 +22,7 @@ const ROTA_INICIAL = {
  * @param {React.ReactNode} props.children tela protegida.
  */
 export default function RotaProtegida({ papel, children }) {
-  const {
-    usuario,
-    papel: papelDoUsuario,
-    carregando,
-    erro,
-    tentarNovamente,
-  } = useAuth();
+  const { usuario, papel: papelDoUsuario, carregando, erro, tentarNovamente } = useAuth();
 
   // 1. Ainda resolvendo. Nem tela protegida, nem tela de login.
   if (carregando) {

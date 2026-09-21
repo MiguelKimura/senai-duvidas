@@ -5,8 +5,9 @@
 // corrigir:
 //   * o listener é `onSnapshot` na coleção `chamados` INTEIRA, sem `where` nem
 //     `limit` — viola AC-PERF-03 e impede o escopo por sala (task 03);
-//   * o anexo abre por `window.open`, bloqueado em parte dos laboratórios —
-//     AC-IMG-10 troca isso por um lightbox na task 04.
+//   * o anexo abria por `window.open`, bloqueado em parte dos laboratórios.
+//     A task 04 corrigiu isso: a asserção correspondente foi INVERTIDA e hoje
+//     exige o lightbox na própria página (AC-IMG-10).
 //
 // A terceira falha registrada aqui pela task 00 — `horario` vindo do relógio do
 // aluno — foi corrigida pela task 02: as asserções que a descreviam foram
@@ -106,7 +107,9 @@ describe('TelaAluno — lista de chamados (AC-CHAMADO-03)', () => {
 
     renderComProvedores(<TelaAluno />);
 
-    const descricoes = [...cartoes()].map((cartao) => within(cartao).getByText(/^(primeira|segunda|terceira)$/).textContent);
+    const descricoes = [...cartoes()].map(
+      (cartao) => within(cartao).getByText(/^(primeira|segunda|terceira)$/).textContent
+    );
     expect(descricoes).toEqual(['primeira', 'segunda', 'terceira']);
   });
 
@@ -124,9 +127,7 @@ describe('TelaAluno — lista de chamados (AC-CHAMADO-03)', () => {
   });
 
   it('usa a cor gravada no chamado como fundo do card (AC-COR-05)', () => {
-    __semearColecao('chamados', [
-      fabricaChamado({ id: 'c1', cor: 'hsl(120, 70%, 80%)' }),
-    ]);
+    __semearColecao('chamados', [fabricaChamado({ id: 'c1', cor: 'hsl(120, 70%, 80%)' })]);
 
     renderComProvedores(<TelaAluno />);
 
@@ -231,6 +232,11 @@ describe('TelaAluno — criação de chamado (AC-CHAMADO-01)', () => {
         horarioIso: HORARIO_DO_SERVIDOR,
         cor: expect.stringMatching(/^hsl\(/),
         imagem: null,
+        // A task 04 acrescentou `anexo` ao lado de `imagem`, e a igualdade
+        // exata continua exata: `imagem` não saiu de cena. Os dois carregam a
+        // mesma URL (escrita dupla da seção 4 do protocolo) e `imagem` só é
+        // removido na 1.0.0, quando nenhum leitor antigo o procurar.
+        anexo: null,
         atendido: false,
       },
     ]);
@@ -289,9 +295,7 @@ describe('TelaAluno — criação de chamado (AC-CHAMADO-01)', () => {
     await waitFor(async () => expect(await chamadosGravados()).toHaveLength(1));
     __confirmarCarimbos();
 
-    expect(JSON.stringify(await chamadosGravados())).not.toContain(
-      RELOGIO_ADIANTADO_DO_ALUNO
-    );
+    expect(JSON.stringify(await chamadosGravados())).not.toContain(RELOGIO_ADIANTADO_DO_ALUNO);
   });
 });
 
@@ -329,7 +333,12 @@ describe('TelaAluno — anexo por URL (AC-IMG-01)', () => {
     expect(screen.queryByTitle('Ver imagem')).not.toBeInTheDocument();
   });
 
-  it('abre o anexo por window.open — bloqueado em laboratório, AC-IMG-10 corrige', () => {
+  // INVERTIDO pela task 04. Este caso nasceu na task 00 provando que o anexo
+  // abria por `window.open` — que nos laboratórios do SENAI vem bloqueado por
+  // política de imagem do Windows, e engolia o clique em silêncio. A asserção
+  // vira de "chama window.open" para "NÃO chama, e abre o visualizador na
+  // própria página". Nenhum caso foi removido.
+  it('NÃO abre por window.open: o anexo abre em visualizador (AC-IMG-10)', () => {
     const abrirJanela = jest.spyOn(window, 'open').mockImplementation(() => null);
     __semearColecao('chamados', [
       fabricaChamado({ id: 'c1', imagem: 'https://exemplo.br/erro.png' }),
@@ -338,13 +347,21 @@ describe('TelaAluno — anexo por URL (AC-IMG-01)', () => {
 
     userEvent.click(screen.getByTitle('Ver imagem'));
 
-    expect(abrirJanela).toHaveBeenCalledWith('https://exemplo.br/erro.png', '_blank');
+    expect(abrirJanela).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
     abrirJanela.mockRestore();
   });
 
   it('exibe chamado antigo cujo campo imagem é string de URL (AC-IMG-13)', () => {
     __semearColecao('chamados', [
-      { id: 'antigo', nome: 'Bruno', email: 'b@senai.br', descricao: 'print antigo', horario: '2025-01-05T10:00:00.000Z', imagem: 'https://exemplo.br/antigo.png' },
+      {
+        id: 'antigo',
+        nome: 'Bruno',
+        email: 'b@senai.br',
+        descricao: 'print antigo',
+        horario: '2025-01-05T10:00:00.000Z',
+        imagem: 'https://exemplo.br/antigo.png',
+      },
     ]);
 
     renderComProvedores(<TelaAluno />);
@@ -443,7 +460,9 @@ describe('TelaAluno — o relógio da máquina não move a fila (AC-TEMPO-02)', 
 
   it('atrasar o relógio em 3 horas não passa ninguém na frente', async () => {
     // Bruno enviou às 10:00 pelo relógio do servidor.
-    __semearColecao('chamados', [chamadoDeBruno('chegou primeiro', '2025-03-10T10:00:00.000Z')]);
+    __semearColecao('chamados', [
+      chamadoDeBruno('chegou primeiro', '2025-03-10T10:00:00.000Z'),
+    ]);
 
     // Ana atrasa o relógio dela em 3 horas e envia depois. Pelo código
     // antigo, o chamado dela nasceria com 07:05 e apareceria no topo.
@@ -476,7 +495,9 @@ describe('TelaAluno — o relógio da máquina não move a fila (AC-TEMPO-02)', 
   });
 
   it('o horário exibido é o do servidor, não o que o relógio da máquina marcava', async () => {
-    __semearColecao('chamados', [chamadoDeBruno('chegou primeiro', '2025-03-10T10:00:00.000Z')]);
+    __semearColecao('chamados', [
+      chamadoDeBruno('chegou primeiro', '2025-03-10T10:00:00.000Z'),
+    ]);
 
     await anaEnviaCom({
       relogioDaMaquina: '2025-03-10T07:05:00.000Z',
@@ -535,9 +556,9 @@ describe('TelaAluno — horário pendente de confirmação (AC-TEMPO-06)', () =>
     await abrirModalECriar({ descricao: 'chamado em voo' });
 
     await waitFor(() => expect(cartoes()).toHaveLength(2));
-    expect([...cartoes()].map((cartao) => within(cartao).getByText(/^chamado /).textContent)).toEqual(
-      ['chamado confirmado', 'chamado em voo']
-    );
+    expect(
+      [...cartoes()].map((cartao) => within(cartao).getByText(/^chamado /).textContent)
+    ).toEqual(['chamado confirmado', 'chamado em voo']);
   });
 
   it('troca "enviando…" pelo horário de Brasília quando o servidor confirma', async () => {
