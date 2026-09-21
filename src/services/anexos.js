@@ -8,6 +8,9 @@
 // Nada aqui decide interface. Quem desenha o seletor, a zona de soltar e a
 // barra de progresso é `components/CampoAnexo.jsx`; este módulo é a regra —
 // o que é uma imagem, quanto ela pode pesar, para onde ela vai e como ela sai.
+import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
+import { storage } from '../firebase';
+import { caminhoDoAnexo } from './salas';
 
 /**
  * O que cada formato aceito carrega nos primeiros bytes (AC-SEC-08).
@@ -46,6 +49,12 @@ export const LIMITE_DE_BYTES = 5 * 1024 * 1024;
 
 /** O formato que não é recomprimido, porque recomprimir mata a animação. */
 export const TIPO_ANIMADO = 'image/gif';
+
+/** O anexo que o aluno subiu do computador dele. */
+export const ORIGEM_DE_UPLOAD = 'upload';
+
+/** O anexo que continua sendo só um endereço na internet (AC-IMG-01). */
+export const ORIGEM_DE_URL = 'url';
 
 /** Quantos bytes bastam para reconhecer qualquer assinatura da tabela. */
 const BYTES_DA_ASSINATURA = 12;
@@ -246,4 +255,136 @@ export async function comprimirImagem(arquivo, opcoes = {}) {
   if (!blob) return intacto;
 
   return { blob, largura: alvo.largura, altura: alvo.altura, recomprimida: true };
+}
+
+// --- upload -----------------------------------------------------------------
+
+/**
+ * Falha de anexo já traduzida para o português, pronta para a tela.
+ *
+ * `cancelado` separa "eu desisti" de "a rede caiu", e a tela precisa dos dois
+ * separados: desistir é uma escolha do aluno e não merece mensagem de erro
+ * nenhuma; a rede caindo merece, e merece dizer o que fazer (AC-IMG-09).
+ */
+export class ErroDeAnexo extends Error {
+  constructor(mensagem, { cancelado = false, causa = null } = {}) {
+    super(mensagem);
+    this.name = 'ErroDeAnexo';
+    this.cancelado = cancelado;
+    this.causa = causa;
+  }
+}
+
+/** O que a tela diz quando o aluno cancela. Não é erro, é escolha. */
+export const ERRO_CANCELADO = 'Envio da imagem cancelado.';
+
+/**
+ * Traduz o `code` do Storage na frase que o aluno pode agir em cima.
+ *
+ * O que o AC-IMG-09 pede não é uma frase gentil: é uma frase **acionável**.
+ * "Erro ao enviar" não diz se a culpa foi da rede, do arquivo ou da sala, e o
+ * aluno em aula não tem como descobrir. Cada caso abaixo termina num verbo.
+ */
+function mensagemDeFalha(erro) {
+  const codigo = (erro && erro.code) || '';
+
+  if (codigo === 'storage/unauthorized') {
+    return 'O envio foi recusado: confira se você ainda faz parte desta sala e entre de novo.';
+  }
+
+  if (codigo === 'storage/quota-exceeded') {
+    return 'O espaço de armazenamento da escola acabou. Avise o professor e descreva o erro por escrito.';
+  }
+
+  return 'Não foi possível enviar a imagem. Confira a conexão e tente de novo — o que você escreveu continua aqui.';
+}
+
+/**
+ * Um nome de arquivo que não colide e não depende de relógio nenhum.
+ *
+ * A task 02 tirou do relógio da máquina a autoridade sobre a ordem da fila,
+ * pela razão simples de que o relógio dos laboratórios está errado. O nome do
+ * arquivo tem o mesmo problema e um a mais: `Date.now()` numa turma que manda
+ * print ao mesmo tempo colide, e colidir no Storage é sobrescrever o anexo de
+ * outra pessoa. Dezesseis bytes sorteados resolvem os dois de uma vez, e o
+ * instante que importa — quando o chamado foi aberto — continua sendo o
+ * `serverTimestamp()` do documento.
+ *
+ * @param {string} extensao
+ * @returns {string}
+ */
+export function nomeDeArquivo(extensao) {
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+
+  const sorteado = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+
+  return `${sorteado}.${extensao}`;
+}
+
+/**
+ * Valida, comprime e sobe o anexo de um chamado (AC-IMG-02, AC-IMG-11).
+ *
+ * O `chamadoId` vem de fora, e é de propósito: quem abre o modal reserva o id
+ * do chamado antes de escrever qualquer coisa, para que o anexo já nasça na
+ * pasta definitiva. A alternativa — subir para um lugar provisório e mover
+ * depois — não existe: o Storage não move objeto, copia.
+ *
+ * @param {File|Blob} arquivo
+ * @param {{salaId: string|null, chamadoId: string,
+ *   onProgresso?: (fracao: number) => void, sinal?: AbortSignal}} opcoes
+ * @returns {Promise<{url: string, caminho: string, largura: number,
+ *   altura: number, bytes: number, tipo: string, origem: 'upload'}>}
+ * @throws {ErroDeAnexo} sempre com mensagem pronta para a tela.
+ */
+export async function enviarAnexo(arquivo, { salaId, chamadoId, onProgresso, sinal } = {}) {
+  if (sinal && sinal.aborted) throw new ErroDeAnexo(ERRO_CANCELADO, { cancelado: true });
+
+  const validacao = await validarArquivo(arquivo);
+  if (!validacao.ok) throw new ErroDeAnexo(validacao.erro);
+
+  const { blob, largura, altura } = await comprimirImagem(arquivo, { tipo: validacao.tipo });
+
+  if (sinal && sinal.aborted) throw new ErroDeAnexo(ERRO_CANCELADO, { cancelado: true });
+
+  const caminho = caminhoDoAnexo(salaId, chamadoId, nomeDeArquivo(validacao.extensao));
+  const tarefa = uploadBytesResumable(ref(storage, caminho), blob, {
+    contentType: validacao.tipo,
+  });
+
+  // O cancelamento do AC-IMG-08 é a `UploadTask` sendo interrompida, não uma
+  // promessa sendo ignorada: o SDK precisa parar de mandar bytes e apagar o
+  // pedaço já gravado. Ignorar a promessa deixaria o arquivo meio subido lá.
+  const cancelar = () => tarefa.cancel();
+  if (sinal) sinal.addEventListener('abort', cancelar, { once: true });
+
+  if (onProgresso) {
+    tarefa.on('state_changed', (instantaneo) => {
+      const total = instantaneo.totalBytes || 0;
+
+      onProgresso(total > 0 ? instantaneo.bytesTransferred / total : 0);
+    });
+  }
+
+  try {
+    await tarefa;
+
+    return {
+      url: await getDownloadURL(ref(storage, caminho)),
+      caminho,
+      largura,
+      altura,
+      bytes: blob.size,
+      tipo: validacao.tipo,
+      origem: ORIGEM_DE_UPLOAD,
+    };
+  } catch (erro) {
+    if (erro && erro.code === 'storage/canceled') {
+      throw new ErroDeAnexo(ERRO_CANCELADO, { cancelado: true, causa: erro });
+    }
+
+    throw new ErroDeAnexo(mensagemDeFalha(erro), { causa: erro });
+  } finally {
+    if (sinal) sinal.removeEventListener('abort', cancelar);
+  }
 }
