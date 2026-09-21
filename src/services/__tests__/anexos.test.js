@@ -7,7 +7,13 @@
 // para `print.png` leva três segundos e engana qualquer `endsWith('.png')`.
 // O que prova é o começo do conteúdo — os *magic bytes*, que todo formato de
 // imagem carrega nos primeiros bytes e que nenhum renomeio altera (AC-SEC-08).
-import { LIMITE_DE_BYTES, validarArquivo } from '../anexos';
+import { LIMITE_DE_BYTES, comprimirImagem, validarArquivo } from '../anexos';
+import {
+  comDimensoes,
+  desenhosFeitos,
+  instalarCanvasFalso,
+  restaurarCanvas,
+} from '../../test-utils';
 
 /**
  * Monta um `File` com os bytes exatos que o teste quer no começo.
@@ -150,5 +156,122 @@ describe('validarArquivo — o limite de 5 MB (AC-IMG-06)', () => {
 
   it('o limite é de 5 MB, e não outro número qualquer', () => {
     expect(LIMITE_DE_BYTES).toBe(5 * 1024 * 1024);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Compressão no cliente — AC-IMG-07.
+//
+// Não é otimização: é requisito de custo. O Storage do plano gratuito tem
+// cota, e a rede do laboratório é compartilhada por quarenta máquinas. Um
+// print de monitor 4K sai com 3840px e alguns megabytes; a mesma imagem em
+// 1600px continua legível para quem vai ler a mensagem de erro nela e custa
+// uma fração disso, na banda de subida e no armazenamento.
+//
+// O jsdom não decodifica nem desenha imagem — quem faz esse papel aqui é
+// `test-utils/canvasFalso`, que substitui **as APIs do navegador**, não o
+// código sob teste. As contas de proporção são de `comprimirImagem`.
+// ---------------------------------------------------------------------------
+describe('comprimirImagem — o lado maior cabe em 1600px (AC-IMG-07)', () => {
+  beforeEach(() => instalarCanvasFalso());
+  afterEach(() => restaurarCanvas());
+
+  it('reduz 3000x2000 para 1600x1067, preservando a proporção', async () => {
+    const original = comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 3000, 2000);
+
+    const resultado = await comprimirImagem(original);
+
+    expect(resultado.largura).toBe(1600);
+    expect(resultado.altura).toBe(1067);
+  });
+
+  it('a altura manda quando a imagem é mais alta que larga', async () => {
+    const original = comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 800, 3000);
+
+    const resultado = await comprimirImagem(original);
+
+    expect(resultado).toMatchObject({ largura: 427, altura: 1600 });
+  });
+
+  it('desenha no canvas exatamente no tamanho reduzido', async () => {
+    const original = comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 3000, 2000);
+
+    await comprimirImagem(original);
+
+    expect(desenhosFeitos()).toEqual([
+      expect.objectContaining({ largura: 1600, altura: 1067 }),
+    ]);
+  });
+
+  it('a imagem menor que o teto sai intacta, sem passar pelo canvas', async () => {
+    // Recodificar um print de 1200px não ganharia bytes e perderia nitidez no
+    // texto, que é justamente o que o professor precisa ler.
+    const pequena = comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 1200, 800);
+
+    const resultado = await comprimirImagem(pequena);
+
+    expect(resultado.blob).toBe(pequena);
+    expect(resultado.recomprimida).toBe(false);
+    expect(desenhosFeitos()).toHaveLength(0);
+  });
+
+  it('o arquivo comprimido pesa menos que o original', async () => {
+    const original = comTamanho(
+      comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 4000, 3000),
+      4 * 1024 * 1024
+    );
+
+    const resultado = await comprimirImagem(original);
+
+    expect(resultado.blob.size).toBeLessThan(original.size);
+    expect(resultado.recomprimida).toBe(true);
+  });
+
+  it('mantém o formato do original: um PNG continua PNG', async () => {
+    const original = comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 3000, 2000);
+
+    const resultado = await comprimirImagem(original);
+
+    expect(resultado.blob.type).toBe('image/png');
+  });
+});
+
+describe('comprimirImagem — o GIF não é recomprimido (AC-IMG-07)', () => {
+  beforeEach(() => instalarCanvasFalso());
+  afterEach(() => restaurarCanvas());
+
+  it('devolve o GIF original, mesmo passando de 1600px', async () => {
+    // Um canvas desenha um quadro só: recomprimir um GIF é entregar a imagem
+    // parada de volta, sem a animação que era o motivo de ele ter sido feito.
+    const gif = comDimensoes(arquivoComBytes(GIF, 'tela.gif', 'image/gif'), 3000, 2000);
+
+    const resultado = await comprimirImagem(gif);
+
+    expect(resultado.blob).toBe(gif);
+    expect(resultado.recomprimida).toBe(false);
+    expect(desenhosFeitos()).toHaveLength(0);
+  });
+
+  it('ainda assim informa as dimensões reais do GIF', async () => {
+    const gif = comDimensoes(arquivoComBytes(GIF, 'tela.gif', 'image/gif'), 3000, 2000);
+
+    await expect(comprimirImagem(gif)).resolves.toMatchObject({ largura: 3000, altura: 2000 });
+  });
+});
+
+describe('comprimirImagem — quando o navegador não dá conta', () => {
+  afterEach(() => restaurarCanvas());
+
+  it('volta ao arquivo original se o canvas não conseguir codificar', async () => {
+    // `toBlob` devolve `null` quando falta memória para a imagem — o que
+    // acontece nas máquinas de 4 GB do laboratório. Subir o original é pior
+    // que subir o comprimido e muito melhor que não subir nada.
+    instalarCanvasFalso({ falharAoCodificar: true });
+    const original = comDimensoes(arquivoComBytes(PNG, 'print.png', 'image/png'), 3000, 2000);
+
+    const resultado = await comprimirImagem(original);
+
+    expect(resultado.blob).toBe(original);
+    expect(resultado.recomprimida).toBe(false);
   });
 });
