@@ -691,7 +691,18 @@ describe('chat da sala — escopo por turma (AC-CHAT-10, AC-SEC-02)', () => {
     );
   });
 
-  it('cada um apaga a própria mensagem', async () => {
+  // INVERTIDO pela task 06 (AC-CHAT-08). O caso nasceu na task 03 provando que
+  // cada aluno apagava a própria mensagem, e isso parecia inofensivo — até se
+  // juntar ao `!clear`. Enquanto o aluno pudesse apagar qualquer documento do
+  // chat, o `!clear` dele apagaria tudo o que fosse dele: a conversa da turma
+  // ficaria pela metade, com a metade que sumiu sendo escolhida por quem
+  // digitou o comando. A autorização de apagar mensagem passa a ser inteira do
+  // professor dono da sala, e é a rule que a garante.
+  //
+  // O caso continua aqui, com a asserção virada: é essa inversão que comprova
+  // a correção, e é ela que vai reprovar o CI se a permissão voltar por
+  // descuido.
+  it('o aluno NÃO apaga nem a própria mensagem — só o professor apaga (AC-CHAT-08)', async () => {
     await semear(`salas/${SALA_A}/chat/da-ana`, {
       autorUid: ANA,
       autorNome: 'Ana Souza',
@@ -699,7 +710,28 @@ describe('chat da sala — escopo por turma (AC-CHAT-10, AC-SEC-02)', () => {
       horario: Timestamp.now(),
     });
 
-    await assertSucceeds(deleteDoc(doc(como(ANA), `salas/${SALA_A}/chat/da-ana`)));
+    await assertFails(deleteDoc(doc(como(ANA), `salas/${SALA_A}/chat/da-ana`)));
+  });
+
+  it('o !clear de um aluno não apaga NENHUMA mensagem da turma (AC-CHAT-08)', async () => {
+    // O comando em si é do cliente; o que o impede de funcionar é isto. Um
+    // aluno com o cliente adulterado, chamando `deleteDoc` direto pelo
+    // DevTools, recebe a mesma recusa.
+    await semear(`salas/${SALA_A}/chat/da-ana`, {
+      autorUid: ANA,
+      autorNome: 'Ana Souza',
+      texto: 'minha',
+      horario: Timestamp.now(),
+    });
+    await semear(`salas/${SALA_A}/chat/do-bruno`, {
+      autorUid: BRUNO,
+      autorNome: 'Bruno Alves',
+      texto: 'do Bruno',
+      horario: Timestamp.now(),
+    });
+
+    await assertFails(deleteDoc(doc(como(ANA), `salas/${SALA_A}/chat/da-ana`)));
+    await assertFails(deleteDoc(doc(como(ANA), `salas/${SALA_A}/chat/do-bruno`)));
   });
 
   it('um aluno NÃO apaga a mensagem do colega — era o !clear da turma inteira', async () => {
