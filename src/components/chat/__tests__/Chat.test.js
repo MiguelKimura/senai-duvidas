@@ -37,8 +37,17 @@ const CARLOS = { uid: 'uid-carlos', email: 'carlos@senai.br', displayName: 'Carl
 /** 10/03/2026, 14:00 em Brasília. */
 const TARDE = '2026-03-10T17:00:00.000Z';
 
-function abrirChat() {
-  return userEvent.click(screen.getByRole('button', { name: /abrir o chat/i }));
+/**
+ * Abre o painel e espera a sessão resolver.
+ *
+ * O `findByRole` não é enfeite: até o `AuthContext` responder quem está
+ * logado, o painel mostra "Carregando a conversa..." em vez do campo. Sem essa
+ * espera o teste digitaria numa tela que ainda não sabe quem é o autor.
+ */
+async function abrirChat() {
+  await userEvent.click(screen.getByRole('button', { name: /abrir o chat/i }));
+
+  return screen.findByRole('tab', { name: 'Sala' });
 }
 
 function campo() {
@@ -63,6 +72,10 @@ function mensagemEm(id, texto, quando, autor = ANA) {
 }
 
 beforeEach(() => {
+  // O relógio do LEITOR precisa estar no mesmo dia das mensagens semeadas: a
+  // partir desta versão a aba da sala mostra a conversa **de hoje**, e sem
+  // fixar o dia a suíte passaria hoje e falharia amanhã.
+  fixarRelogio(TARDE);
   __resetarFirestore();
   __resetarAuth();
   __definirRelogioDoServidor(TARDE);
@@ -271,7 +284,6 @@ describe('Chat — o dia corrente (AC-TEMPO-07)', () => {
   const ONTEM = '2026-03-09T17:00:00.000Z';
 
   it('mostra só a conversa de hoje', async () => {
-    fixarRelogio(TARDE);
     __semearColecao(CHAT, [
       mensagemEm('velha', 'combinado de ontem', ONTEM),
       mensagemEm('nova', 'bom dia de hoje', TARDE),
@@ -284,7 +296,6 @@ describe('Chat — o dia corrente (AC-TEMPO-07)', () => {
   });
 
   it('a conversa de ontem continua NO BANCO — nada é apagado', async () => {
-    fixarRelogio(TARDE);
     __semearColecao(CHAT, [mensagemEm('velha', 'combinado de ontem', ONTEM)]);
 
     renderComProvedores(<Chat salaId={SALA} />);
@@ -295,7 +306,6 @@ describe('Chat — o dia corrente (AC-TEMPO-07)', () => {
   });
 
   it('dá para ver o histórico quando alguém precisa dele', async () => {
-    fixarRelogio(TARDE);
     __semearColecao(CHAT, [
       mensagemEm('velha', 'combinado de ontem', ONTEM),
       mensagemEm('nova', 'bom dia de hoje', TARDE),
@@ -314,7 +324,6 @@ describe('Chat — o dia corrente (AC-TEMPO-07)', () => {
   it('a mensagem em voo, sem horário ainda, não some da tela', async () => {
     // `horario` é `null` até o servidor carimbar. Tratar isso como "não é de
     // hoje" faria a própria mensagem recém-enviada piscar e sumir.
-    fixarRelogio(TARDE);
     renderComProvedores(<Chat salaId={SALA} />);
     await abrirChat();
 
@@ -375,7 +384,6 @@ describe('Chat — listeners (AC-PERF-04)', () => {
 describe('Chat — sala arquivada (AC-SALA-10)', () => {
   it('deixa ler e não deixa escrever', async () => {
     __semearColecao(CHAT, [mensagemEm('m1', 'conversa da turma', TARDE)]);
-    fixarRelogio(TARDE);
 
     renderComProvedores(<Chat salaId={SALA} somenteLeitura />);
     await abrirChat();
