@@ -50,18 +50,18 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-SALA-01 | O professor consegue criar uma sala informando nome, curso/turma e ano letivo. | [MVP] |
-| AC-SALA-02 | Ao criar, o sistema gera automaticamente um **PIN numérico de 6 dígitos**, único entre as salas ativas. | [MVP] |
-| AC-SALA-03 | O professor visualiza o PIN em destaque e consegue copiá-lo com um clique. | [MVP] |
-| AC-SALA-04 | O aluno entra na sala digitando o PIN; PIN inválido exibe erro claro sem revelar se o PIN existe em outra sala. | [MVP] |
-| AC-SALA-05 | Uma sala vale o **ano letivo inteiro**: possui `anoLetivo` e permanece ativa até ser arquivada manualmente pelo professor. | [MVP] |
-| AC-SALA-06 | Após entrar uma vez, o aluno não precisa redigitar o PIN em acessos futuros — o vínculo fica salvo em `salas/{salaId}/membros/{uid}`. | [MVP] |
-| AC-SALA-07 | Chamados e chat são **escopados por sala**: um aluno da sala A nunca vê chamados nem mensagens da sala B. | [MVP] |
-| AC-SALA-08 | O professor vê a lista de salas que criou, com contagem de membros e de chamados abertos em cada uma. | [MVP] |
-| AC-SALA-09 | O professor consegue remover um aluno da sala e **regerar o PIN** (invalidando o anterior). | [MVP] |
-| AC-SALA-10 | O professor consegue arquivar uma sala ao fim do ano; salas arquivadas ficam somente-leitura e não aceitam novas entradas. | [MVP] |
+| AC-SALA-01 ✅ | O professor consegue criar uma sala informando nome, curso/turma e ano letivo. | [MVP] |
+| AC-SALA-02 ✅ | Ao criar, o sistema gera automaticamente um **PIN numérico de 6 dígitos**, único entre as salas ativas. | [MVP] |
+| AC-SALA-03 ✅ | O professor visualiza o PIN em destaque e consegue copiá-lo com um clique. | [MVP] |
+| AC-SALA-04 ✅ | O aluno entra na sala digitando o PIN; PIN inválido exibe erro claro sem revelar se o PIN existe em outra sala. | [MVP] |
+| AC-SALA-05 ✅ | Uma sala vale o **ano letivo inteiro**: possui `anoLetivo` e permanece ativa até ser arquivada manualmente pelo professor. | [MVP] |
+| AC-SALA-06 ✅ | Após entrar uma vez, o aluno não precisa redigitar o PIN em acessos futuros — o vínculo fica salvo em `salas/{salaId}/membros/{uid}`. | [MVP] |
+| AC-SALA-07 ✅ | Chamados e chat são **escopados por sala**: um aluno da sala A nunca vê chamados nem mensagens da sala B. | [MVP] |
+| AC-SALA-08 ✅ | O professor vê a lista de salas que criou, com contagem de membros e de chamados abertos em cada uma. | [MVP] |
+| AC-SALA-09 ✅ | O professor consegue remover um aluno da sala e **regerar o PIN** (invalidando o anterior). | [MVP] |
+| AC-SALA-10 ✅ | O professor consegue arquivar uma sala ao fim do ano; salas arquivadas ficam somente-leitura e não aceitam novas entradas. | [MVP] |
 | AC-SALA-11 | Um aluno pode pertencer a mais de uma sala e alterna entre elas por um seletor. | [POS] |
-| AC-SALA-12 | Tentativas de PIN são limitadas (ex.: 5 erros em 5 minutos por usuário) para impedir força bruta em 6 dígitos. | [MVP] |
+| AC-SALA-12 ✅ | Tentativas de PIN são limitadas (ex.: 5 erros em 5 minutos por usuário) para impedir força bruta em 6 dígitos. | [MVP] |
 
 ## 4. Chamados / Dúvidas (`CHAMADO`)
 
@@ -71,7 +71,7 @@
 | AC-CHAMADO-02 ✅ | Chamados aparecem em tempo real para o professor e para os colegas da mesma sala, sem recarregar a página. | [MVP] [REG] |
 | AC-CHAMADO-03 ✅ | A fila é ordenada por horário de envio **crescente** (mais antigo primeiro), respeitando os perks de prioridade (ver `PERK`). | [MVP] [REG] |
 | AC-CHAMADO-04 🟡 | O aluno consegue excluir o **próprio** chamado quando a dúvida já foi resolvida, com confirmação antes de excluir. | [MVP] [REG] |
-| AC-CHAMADO-05 | O aluno **não** consegue excluir o chamado de outro aluno — nem pela interface nem por chamada direta ao banco. | [MVP] |
+| AC-CHAMADO-05 ✅ | O aluno **não** consegue excluir o chamado de outro aluno — nem pela interface nem por chamada direta ao banco. | [MVP] |
 | AC-CHAMADO-06 | O professor consegue excluir qualquer chamado da sua sala e marcar um chamado como **atendido**. | [MVP] |
 | AC-CHAMADO-07 ✅ | O card exibe nome do autor, descrição, horário de envio e indicador visual de anexo quando houver imagem. | [MVP] [REG] |
 | AC-CHAMADO-08 | A exclusão remove também os anexos associados do Storage (sem arquivos órfãos). | [MVP] |
@@ -138,7 +138,7 @@
 | AC-CHAT-07 | Enviar mensagem tem feedback otimista: a mensagem aparece imediatamente em estado "enviando" e confirma ao gravar. | [MVP] |
 | AC-CHAT-08 | O comando `!clear` só funciona para **professores** e pede confirmação; hoje qualquer aluno pode apagar o chat inteiro (falha de segurança a corrigir). | [MVP] |
 | AC-CHAT-09 | Mensagens são limitadas a 500 caracteres, com contador visível ao se aproximar do limite. | [MVP] |
-| AC-CHAT-10 | O chat é escopado por sala (`salas/{salaId}/chat`). | [MVP] |
+| AC-CHAT-10 ✅ | O chat é escopado por sala (`salas/{salaId}/chat`). | [MVP] |
 | AC-CHAT-11 | Existe indicador de "digitando…" para os participantes da conversa. | [POS] |
 | AC-CHAT-12 | Links enviados no chat viram links clicáveis com `rel="noopener noreferrer"`; nenhum HTML do usuário é renderizado como markup. | [MVP] |
 | AC-CHAT-13 | Animação de entrada suave nas novas mensagens, respeitando `prefers-reduced-motion`. | [MVP] |
@@ -220,11 +220,11 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-SEC-01 | As Firestore Rules negam tudo por padrão e liberam explicitamente cada caminho. | [MVP] |
-| AC-SEC-02 | Nenhum usuário lê ou escreve dados de sala à qual não pertence, validado por teste de rules. | [MVP] |
+| AC-SEC-01 ✅ | As Firestore Rules negam tudo por padrão e liberam explicitamente cada caminho. | [MVP] |
+| AC-SEC-02 ✅ | Nenhum usuário lê ou escreve dados de sala à qual não pertence, validado por teste de rules. | [MVP] |
 | AC-SEC-03 ✅ | Escalada de privilégio de aluno para professor é impossível pelo cliente. | [MVP] |
 | AC-SEC-04 | Todo texto do usuário é escapado ou sanitizado antes de ser renderizado (proteção contra XSS). | [MVP] |
-| AC-SEC-05 | PINs de sala não são expostos a quem não é dono da sala em nenhuma resposta do banco. | [MVP] |
+| AC-SEC-05 ✅ | PINs de sala não são expostos a quem não é dono da sala em nenhuma resposta do banco. | [MVP] |
 | AC-SEC-06 🟡 | O app roda apenas sob HTTPS; domínios autorizados do Firebase Auth estão restritos aos domínios reais. | [MVP] |
 | AC-SEC-07 | Dados de menores de idade: nenhum dado pessoal além de nome e e-mail institucional é coletado. | [MVP] |
 | AC-SEC-08 | Uploads são varridos por tipo MIME real (magic bytes), não apenas pela extensão do arquivo. | [MVP] |
@@ -235,10 +235,10 @@
 |---|---|---|
 | AC-PERF-01 | O carregamento inicial (First Contentful Paint) fica abaixo de 2,5s em conexão 3G rápida. | [MVP] |
 | AC-PERF-02 | O bundle JavaScript inicial fica abaixo de 300 KB comprimido (gzip), com code-splitting por rota. | [MVP] |
-| AC-PERF-03 | Listeners do Firestore são sempre escopados e paginados — nunca `onSnapshot` em coleção inteira sem limite. | [MVP] |
-| AC-PERF-04 | Todo `onSnapshot` é cancelado ao desmontar o componente (sem vazamento de listener). | [MVP] |
+| AC-PERF-03 ✅ | Listeners do Firestore são sempre escopados e paginados — nunca `onSnapshot` em coleção inteira sem limite. | [MVP] |
+| AC-PERF-04 ✅ | Todo `onSnapshot` é cancelado ao desmontar o componente (sem vazamento de listener). | [MVP] |
 | AC-PERF-05 | Uma sala com 40 alunos simultâneos, 200 chamados e 1000 mensagens permanece fluida. | [MVP] |
-| AC-PERF-06 | O custo de leituras do Firestore por aluno por aula fica dentro do plano gratuito para até 10 salas ativas. | [MVP] |
+| AC-PERF-06 🟡 | O custo de leituras do Firestore por aluno por aula fica dentro do plano gratuito para até 10 salas ativas. | [MVP] |
 | AC-PERF-07 | O app funciona offline em modo leitura (cache do Firestore) e enfileira envios feitos sem conexão. | [POS] |
 
 ## 16. Documentação (`DOC`)
@@ -429,3 +429,58 @@ formatos convivem, quem decide a ordem final é `criarComparadorPorHorario()`, n
 As duas tabelas de "não atendidos" das versões 0.2.0 e 0.3.0 apontam a task **05** como
 responsável pelo AC-TEMPO-01. Estava errado: quem troca o relógio do cliente pelo do servidor
 é a task **02**, e é o que esta versão faz. O critério em si não mudou.
+
+---
+
+### v0.5.0 — Salas do professor com entrada por PIN e escopo de dados por sala
+
+**Atendidos (✅)**
+
+| AC | Prova |
+|---|---|
+| AC-SALA-01 | `src/components/__tests__/CriarSala.test.js:117` — nome, curso e ano letivo chegam ao banco com o dono da sala; `src/services/__tests__/salas.test.js` — a validação recusa nome vazio, curso vazio e ano fora da faixa antes de qualquer escrita; `tests/rules/salas.rules.test.js` — só professor cria, e só como dono de si mesmo |
+| AC-SALA-02 | `src/services/__tests__/pin.test.js` — 6 dígitos sorteados por Web Crypto, sem `Math.random()`; `src/services/__tests__/salas.test.js` — colisão no índice força novo sorteio; `tests/rules/salas.rules.test.js` — `indicePins` só aceita `create`, e é a recusa que garante a unicidade |
+| AC-SALA-03 | `src/components/__tests__/CriarSala.test.js:136` — o PIN aparece em destaque; `:145` — um clique copia; `:167` — a tela avisa que ele aparece uma vez só |
+| AC-SALA-04 | `src/components/__tests__/EntrarComPin.test.js:132` — PIN inexistente e PIN de sala arquivada dão **a mesma** frase; `:162` — o nome da sala recusada não aparece em lugar nenhum da tela |
+| AC-SALA-05 | `src/components/__tests__/CriarSala.test.js:117` — `anoLetivo` e `ativa: true`; `src/components/__tests__/MinhasSalas.test.js` — a sala fica ativa até ser arquivada à mão |
+| AC-SALA-06 | `src/components/__tests__/MinhasSalas.test.js:120` — a sala abre pelo cartão, sem PIN; `src/components/__tests__/EntrarComPin.test.js:112` — reentrar não reinicia a data de entrada de ninguém |
+| AC-SALA-07 | `src/__tests__/escopoPorSala.test.js` — a sala A não vê chamado, mensagem nem fila global da sala B, na tela do aluno e na do professor; `:202` — o `!clear` para na porta da sala; `tests/rules/salas.rules.test.js` — o servidor nega, que é o que vale |
+| AC-SALA-08 | `src/components/__tests__/MinhasSalas.test.js:160` — contagem de membros e de chamados abertos, só para o dono |
+| AC-SALA-09 | `src/components/__tests__/Sala.test.js:188` — remover o aluno e gerar PIN novo são um gesto só; `src/services/__tests__/salas.test.js` — o PIN anterior deixa de conferir; `tests/rules/salas.rules.test.js` — só o dono remove |
+| AC-SALA-10 | `src/components/__tests__/MinhasSalas.test.js:184` — arquivar; `src/components/__tests__/Sala.test.js:223` — arquivada é somente leitura e continua mostrando o que já existe; `tests/rules/salas.rules.test.js` — o servidor nega escrita e entrada nova em sala arquivada |
+| AC-SALA-12 | `src/components/__tests__/EntrarComPin.test.js:171` — a tela obedece ao bloqueio; `tests/rules/salas.rules.test.js` — a janela de 5 em 5 minutos é validada pelo **servidor**, com `request.time` |
+| AC-SEC-01 | `firestore.rules` — `match /{documento=**} { allow read, write: if false; }` no fim, com cada caminho liberado explicitamente acima; `tests/rules/` — 141 testes, com o par concedido/negado por caminho |
+| AC-SEC-02 | `tests/rules/salas.rules.test.js` — aluno da sala A recebe `permission-denied` em tudo da sala B; `src/components/__tests__/Sala.test.js:137` — nem o professor de outra sala entra com a URL na mão |
+| AC-SEC-05 | `src/components/__tests__/CriarSala.test.js:156` — o número que a tela mostrou não está no documento da sala; `src/services/__tests__/salas.test.js` — o PIN em claro não é persistido em lugar nenhum; `tests/rules/salas.rules.test.js` — o segredo só é legível pelo dono |
+| AC-PERF-03 | `src/__tests__/escopoPorSala.test.js:289` — a fila é cortada no teto; `:311` — a conversa também; `src/components/__tests__/MinhasSalas.test.js` — a lista de salas idem. Nenhum `onSnapshot` sem `limit` no `src/` |
+| AC-PERF-04 | `src/__tests__/escopoPorSala.test.js:330` — trocar de sala não acumula listener, e desmontar zera; mesmo teste em `CriarSala`, `EntrarComPin`, `MinhasSalas` e `Sala` |
+| AC-CHAMADO-05 | `tests/rules/salas.rules.test.js` — dentro da sala, o `delete` é do autor ou do dono; `tests/rules/firestore.rules.test.js` — na coleção global legada, do autor ou de professor. Inverte a caracterização da v0.2.0 |
+| AC-CHAT-10 | `src/__tests__/escopoPorSala.test.js:180` — a conversa vive em `salas/{salaId}/chat` |
+
+**Parcialmente atendidos (🟡)**
+
+| AC | O que já vale | O que falta |
+|---|---|---|
+| AC-PERF-06 | Todo listener tem teto, e a conta para o alvo declarado (10 salas, 40 alunos, 200 chamados, 1000 mensagens) está em `docs/ARQUITETURA.md` § 5: cabe no plano gratuito, e quem chega perto do teto é o chat, não a fila | A conta é uma estimativa a partir dos cortes, não uma medição no console do Firebase com uso real. Ela só existe depois de um semestre rodando. |
+
+**Compatibilidade desta versão**
+
+| Sentido | Prova |
+|---|---|
+| Retroativa | `src/__tests__/escopoPorSala.test.js:217` — sem `salaId`, as telas leem as coleções globais da v0.4.0; `:243` — um chamado no formato antigo (`nome`, sem `autorNome`, sem `atendido`) continua legível dentro da sala; `src/__tests__/rotasDeSala.test.js:152` — `/aluno` e `/professor` continuam abrindo |
+| Futura | `src/__tests__/escopoPorSala.test.js:259` — o documento novo grava `autorNome` **e** `nome`, `autorUid` **e** `email`; `src/components/__tests__/TelaAluno.caracterizacao.test.js` — a igualdade exata do documento foi estendida, não afrouxada. `nome` sai só na 1.0.0 |
+
+**Continuam não atendidos, de propósito**
+
+| AC | Por quê | Task que resolve |
+|---|---|---|
+| AC-CHAT-08 | O `!clear` deixou de ser global — ele para na porta da sala —, mas continua disponível para qualquer membro e continua sem confirmação. Restringi-lo a professor é escopo do chat. | 06 |
+| AC-CHAMADO-06 | O professor já apaga qualquer chamado da sala dele, mas marcar como **atendido** não tem interface: o campo `atendido` nasce nesta versão e é escrito apenas na criação. | 05 |
+| AC-SALA-11 | Um aluno já pode pertencer a várias salas e alterna por `/salas`, mas não há seletor dentro da sala. | pós-1.0.0 |
+| AC-SEC-08 | Não há upload de arquivo ainda; o caminho do Storage já nasce escopado por sala. | 04 |
+
+**Limite conhecido, registrado em `docs/BLOQUEIOS.md`**
+
+O limite de tentativas de PIN é por usuário autenticado (`tentativasPin/{uid}`). Quem criar
+contas novas contorna o teto. Fechar isso exige contador por IP ou por sala, que as rules não
+mantêm sozinhas — a proposta é uma Cloud Function, e está descrita lá.
