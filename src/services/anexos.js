@@ -21,16 +21,31 @@
  * imagem dentro é o `WEBP` do byte 8.
  */
 const ASSINATURAS = [
-  { tipo: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47], deslocamento: 0 },
-  { tipo: 'image/jpeg', bytes: [0xff, 0xd8, 0xff], deslocamento: 0 },
-  { tipo: 'image/gif', bytes: [0x47, 0x49, 0x46, 0x38], deslocamento: 0 },
+  { tipo: 'image/png', extensao: 'png', bytes: [0x89, 0x50, 0x4e, 0x47], deslocamento: 0 },
+  { tipo: 'image/jpeg', extensao: 'jpg', bytes: [0xff, 0xd8, 0xff], deslocamento: 0 },
+  { tipo: 'image/gif', extensao: 'gif', bytes: [0x47, 0x49, 0x46, 0x38], deslocamento: 0 },
   {
     tipo: 'image/webp',
+    extensao: 'webp',
     bytes: [0x52, 0x49, 0x46, 0x46],
     deslocamento: 0,
     tambem: { bytes: [0x57, 0x45, 0x42, 0x50], deslocamento: 8 },
   },
 ];
+
+/**
+ * O teto por arquivo, em bytes (AC-IMG-06).
+ *
+ * Cinco megabytes cobrem com folga um print de tela cheia em PNG, que é o caso
+ * real desta funcionalidade. O mesmo número está nas Storage Rules, e é o de
+ * lá que vale: um limite que mora só no cliente é um limite que o cliente
+ * desliga. O daqui existe para dar a mensagem em português antes de gastar a
+ * banda da rede do laboratório.
+ */
+export const LIMITE_DE_BYTES = 5 * 1024 * 1024;
+
+/** O formato que não é recomprimido, porque recomprimir mata a animação. */
+export const TIPO_ANIMADO = 'image/gif';
 
 /** Quantos bytes bastam para reconhecer qualquer assinatura da tabela. */
 const BYTES_DA_ASSINATURA = 12;
@@ -71,18 +86,39 @@ function combina(assinatura, { bytes, deslocamento }) {
 }
 
 /**
- * O tipo MIME real do conteúdo, ou `null`.
+ * O formato reconhecido pelo conteúdo, ou `null`.
  *
  * @param {Uint8Array} assinatura os primeiros bytes do arquivo.
- * @returns {string|null}
+ * @returns {{tipo: string, extensao: string}|null}
  */
-export function tipoPelaAssinatura(assinatura) {
+export function formatoPelaAssinatura(assinatura) {
   const encontrada = ASSINATURAS.find(
     (formato) =>
       combina(assinatura, formato) && (!formato.tambem || combina(assinatura, formato.tambem))
   );
 
-  return encontrada ? encontrada.tipo : null;
+  return encontrada ? { tipo: encontrada.tipo, extensao: encontrada.extensao } : null;
+}
+
+/** O tamanho em MB com uma casa, como a mensagem de erro o escreve. */
+function emMegabytes(bytes) {
+  return (bytes / (1024 * 1024)).toFixed(1).replace('.', ',');
+}
+
+/**
+ * A frase de "passou do teto", específica por formato (AC-IMG-06).
+ *
+ * O GIF tem a dele porque a saída do aluno é outra: os demais formatos o
+ * cliente comprime sozinho antes de subir, e o GIF não — comprimir um GIF é
+ * perder a animação, que costuma ser justamente o que ele queria mostrar.
+ */
+function erroDeTamanho(bytes, tipo) {
+  const medida = `Este arquivo tem ${emMegabytes(bytes)} MB e o limite é 5 MB.`;
+
+  return tipo === TIPO_ANIMADO
+    ? `${medida} GIF não é comprimido automaticamente, para não perder a animação — ` +
+        'grave a tela em um trecho menor ou envie um print em PNG no lugar.'
+    : `${medida} Recorte só a janela do erro e envie de novo.`;
 }
 
 /**
@@ -94,14 +130,21 @@ export function tipoPelaAssinatura(assinatura) {
  * (AC-IMG-09).
  *
  * @param {File|Blob} arquivo
- * @returns {Promise<{ok: boolean, erro: string|null, tipo: string|null}>}
+ * @returns {Promise<{ok: boolean, erro: string|null, tipo: string|null,
+ *   extensao: string|null}>}
  */
 export async function validarArquivo(arquivo) {
-  if (!arquivo) return { ok: false, erro: ERRO_DE_FORMATO, tipo: null };
+  const recusa = (erro) => ({ ok: false, erro, tipo: null, extensao: null });
 
-  const tipo = tipoPelaAssinatura(await lerAssinatura(arquivo));
+  if (!arquivo) return recusa(ERRO_DE_FORMATO);
 
-  if (!tipo) return { ok: false, erro: ERRO_DE_FORMATO, tipo: null };
+  const formato = formatoPelaAssinatura(await lerAssinatura(arquivo));
 
-  return { ok: true, erro: null, tipo };
+  // O formato antes do tamanho, de propósito: um `.exe` de 6 MB é um `.exe`, e
+  // dizer a ele que "o limite é 5 MB" sugeriria que bastava encolher.
+  if (!formato) return recusa(ERRO_DE_FORMATO);
+
+  if (arquivo.size > LIMITE_DE_BYTES) return recusa(erroDeTamanho(arquivo.size, formato.tipo));
+
+  return { ok: true, erro: null, ...formato };
 }
