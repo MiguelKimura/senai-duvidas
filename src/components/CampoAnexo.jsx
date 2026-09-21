@@ -29,6 +29,19 @@ export const FORMATOS_ACEITOS = 'image/png,image/jpeg,image/webp,image/gif';
 export const ERRO_DE_URL =
   'Isso não parece um endereço de imagem. Cole o endereço completo, começando com https://.';
 
+/**
+ * O que a tela diz nas rotas antigas, que não têm sala.
+ *
+ * `/aluno` e `/professor` continuam lendo a fila global da v0.4.0, e lá o
+ * upload não tem para onde ir: o caminho do Storage é por sala, e a rule que
+ * autoriza a escrita pergunta se quem envia é membro **daquela** sala. Sem
+ * sala a resposta é sempre não — e oferecer o botão seria prometer algo que o
+ * servidor recusa depois de o aluno esperar o upload inteiro.
+ */
+export const AVISO_SEM_SALA =
+  'Para anexar uma imagem do computador, entre em uma sala com o PIN da turma. ' +
+  'Aqui só dá para colar o link de uma imagem que já esteja na internet.';
+
 /** O que a tela diz quando a imagem do anexo não carrega (AC-IMG-12). */
 export const AVISO_DE_IMAGEM_QUEBRADA = 'Não foi possível carregar a imagem deste endereço.';
 
@@ -43,7 +56,7 @@ export const AVISO_DE_IMAGEM_QUEBRADA = 'Não foi possível carregar a imagem de
  *   onAnexoMudou: (anexo: object|null) => void, desabilitado?: boolean}} props
  */
 export default function CampoAnexo({
-  salaId,
+  salaId = null,
   chamadoId,
   anexo,
   onAnexoMudou,
@@ -67,7 +80,7 @@ export default function CampoAnexo({
    */
   const anexarArquivo = useCallback(
     async (arquivo) => {
-      if (!arquivo || desabilitado) return;
+      if (!arquivo || desabilitado || !salaId) return;
 
       setErro(null);
       setImagemQuebrada(false);
@@ -97,7 +110,9 @@ export default function CampoAnexo({
     [chamadoId, desabilitado, onAnexoMudou, salaId]
   );
 
-  useColarImagem(anexarArquivo, { ativo: !desabilitado });
+  const podeEnviarArquivo = Boolean(salaId) && !desabilitado;
+
+  useColarImagem(anexarArquivo, { ativo: podeEnviarArquivo });
 
   const cancelar = () => {
     if (controle.current) controle.current.abort();
@@ -115,7 +130,7 @@ export default function CampoAnexo({
     // Sem o `preventDefault`, o navegador abre a imagem na própria aba e a
     // descrição que o aluno estava escrevendo vai junto com a página.
     evento.preventDefault();
-    if (!desabilitado) setRecebendo(true);
+    if (podeEnviarArquivo) setRecebendo(true);
   };
 
   const aoDigitarLink = (evento) => {
@@ -161,19 +176,25 @@ export default function CampoAnexo({
       onDragLeave={() => setRecebendo(false)}
       onDrop={aoSoltar}
     >
-      <label className="campo-anexo-rotulo" htmlFor="campo-anexo-arquivo">
-        Anexar imagem do computador
-      </label>
-      <input
-        id="campo-anexo-arquivo"
-        type="file"
-        accept={FORMATOS_ACEITOS}
-        disabled={desabilitado || enviando}
-        onChange={(evento) => anexarArquivo(evento.target.files && evento.target.files[0])}
-      />
-      <p className="campo-anexo-dica">
-        Arraste a imagem para cá ou cole a captura de tela com Ctrl+V.
-      </p>
+      {salaId ? (
+        <>
+          <label className="campo-anexo-rotulo" htmlFor="campo-anexo-arquivo">
+            Anexar imagem do computador
+          </label>
+          <input
+            id="campo-anexo-arquivo"
+            type="file"
+            accept={FORMATOS_ACEITOS}
+            disabled={desabilitado || enviando}
+            onChange={(evento) => anexarArquivo(evento.target.files && evento.target.files[0])}
+          />
+          <p className="campo-anexo-dica">
+            Arraste a imagem para cá ou cole a captura de tela com Ctrl+V.
+          </p>
+        </>
+      ) : (
+        <p className="campo-anexo-dica">{AVISO_SEM_SALA}</p>
+      )}
 
       <div className="image-url-container">
         <input
