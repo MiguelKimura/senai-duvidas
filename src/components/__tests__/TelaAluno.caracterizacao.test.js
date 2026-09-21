@@ -29,6 +29,7 @@ import {
   __semearColecao,
 } from 'firebase/firestore';
 import TelaAluno from '../TelaAluno';
+import { PALETA } from '../../utils/paleta';
 import {
   corDeFundo,
   fabricaChamado,
@@ -237,6 +238,11 @@ describe('TelaAluno — criação de chamado (AC-CHAMADO-01)', () => {
         // mesma URL (escrita dupla da seção 4 do protocolo) e `imagem` só é
         // removido na 1.0.0, quando nenhum leitor antigo o procurar.
         anexo: null,
+        // A task 05 acrescentou `formato`, e a igualdade exata continua
+        // exata. Ele diz como `descricao` deve ser lida; ausente significa
+        // texto puro, que e o que todo chamado gravado ate a v0.6.0 e. Nenhum
+        // documento antigo precisa ser tocado para isso valer (AC-COR-07).
+        formato: 'markdown',
         atendido: false,
       },
     ]);
@@ -571,5 +577,144 @@ describe('TelaAluno — horário pendente de confirmação (AC-TEMPO-06)', () =>
     __confirmarCarimbos();
 
     await waitFor(() => expect(horariosNaTela()).toEqual(['10/03/2025 10:45']));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 05 — cor escolhida e markdown no card.
+//
+// Os dois campos são aditivos: `cor` já existia e continua sendo uma string
+// CSS; `formato` é novo, e a ausência dele é o que preserva todo chamado já
+// gravado. Os casos abaixo cobrem as duas pontas — o que a tela grava e o que
+// ela mostra —, e o grupo de retrocompatibilidade prova que o card de março
+// continua aparecendo como apareceu em março.
+// ---------------------------------------------------------------------------
+
+async function abrirModalEEscolherCor(nomeDaCor, descricao) {
+  userEvent.click(screen.getByRole('button', { name: '+' }));
+  userEvent.click(document.querySelector('.painel-avancado summary'));
+  userEvent.click(screen.getByRole('radio', { name: nomeDaCor }));
+  userEvent.type(screen.getByPlaceholderText('Descreva o problema'), descricao);
+  userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+}
+
+describe('TelaAluno — a cor escolhida pelo aluno (AC-COR-04)', () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it('grava no chamado a cor que o aluno escolheu, e não uma sorteada', async () => {
+    const escolhida = PALETA[4];
+    renderComProvedores(<TelaAluno />);
+
+    await abrirModalEEscolherCor(escolhida.nome, 'A rede caiu');
+
+    await waitFor(async () => expect(await chamadosGravados()).toHaveLength(1));
+    expect((await chamadosGravados())[0].cor).toBe(escolhida.fundo);
+  });
+
+  it('pinta o card com a cor da paleta, para todo mundo que o vê', () => {
+    const escolhida = PALETA[4];
+    __semearColecao('chamados', [fabricaChamado({ id: 'c1', cor: escolhida.fundo })]);
+
+    renderComProvedores(<TelaAluno />);
+
+    expect(cartoes()[0]).toHaveStyle({ backgroundColor: escolhida.fundo });
+  });
+
+  it('usa a cor de texto que a paleta garante legível (AC-COR-03)', () => {
+    const escolhida = PALETA[4];
+    __semearColecao('chamados', [fabricaChamado({ id: 'c1', cor: escolhida.fundo })]);
+
+    renderComProvedores(<TelaAluno />);
+
+    expect(cartoes()[0]).toHaveStyle({ color: escolhida.texto });
+  });
+
+  it('NÃO mexe na cor de texto do card antigo, de cor sorteada (AC-COR-05)', () => {
+    __semearColecao('chamados', [fabricaChamado({ id: 'c1', cor: 'hsl(210, 70%, 80%)' })]);
+
+    renderComProvedores(<TelaAluno />);
+
+    // Vazio, e não "preto": a cor do texto do card legado continua sendo a que
+    // o CSS define, exatamente como antes desta versão.
+    expect(cartoes()[0].style.color).toBe('');
+  });
+});
+
+describe('TelaAluno — markdown no card (AC-COR-07, AC-COR-08)', () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it('grava os chamados novos como markdown', async () => {
+    renderComProvedores(<TelaAluno />);
+
+    await abrirModalECriar({ descricao: 'o **cabo** caiu' });
+
+    await waitFor(async () => expect(await chamadosGravados()).toHaveLength(1));
+    expect((await chamadosGravados())[0].formato).toBe('markdown');
+  });
+
+  it('rende o markdown do chamado no card', () => {
+    __semearColecao('chamados', [
+      fabricaChamado({ id: 'c1', descricao: 'o **cabo** caiu', formato: 'markdown' }),
+    ]);
+
+    renderComProvedores(<TelaAluno />);
+
+    expect(cartoes()[0].querySelector('.texto-markdown strong')).toHaveTextContent('cabo');
+  });
+
+  it('não deixa script de um chamado chegar ao DOM (AC-COR-08)', () => {
+    __semearColecao('chamados', [
+      fabricaChamado({
+        id: 'c1',
+        descricao: '<img src=x onerror=alert(1)><script>alert(1)</script>',
+        formato: 'markdown',
+      }),
+    ]);
+
+    renderComProvedores(<TelaAluno />);
+
+    expect(document.querySelector('script')).toBeNull();
+    expect(document.querySelector('img[onerror]')).toBeNull();
+  });
+});
+
+describe('TelaAluno — o card de março continua o card de março (AC-COR-05)', () => {
+  it('não interpreta como markdown a descrição de um chamado sem formato', () => {
+    __semearColecao('chamados', [
+      {
+        id: 'antigo',
+        nome: 'Bruno',
+        email: 'b@senai.br',
+        horario: '2025-03-10T10:00:00.000Z',
+        cor: 'hsl(210, 70%, 80%)',
+        descricao: 'o arquivo C:\Users\*.log some e o _log_ fica vazio',
+      },
+    ]);
+
+    renderComProvedores(<TelaAluno />);
+
+    const [cartao] = cartoes();
+    expect(cartao.querySelector('em')).toBeNull();
+    expect(cartao.querySelector('strong.nada')).toBeNull();
+    expect(
+      within(cartao).getByText('o arquivo C:\Users\*.log some e o _log_ fica vazio')
+    ).toBeInTheDocument();
+  });
+
+  it('escapa HTML da descrição antiga em vez de executá-lo (AC-SEC-04)', () => {
+    __semearColecao('chamados', [
+      {
+        id: 'antigo',
+        nome: 'Bruno',
+        email: 'b@senai.br',
+        horario: '2025-03-10T10:00:00.000Z',
+        descricao: '<script>alert(1)</script>',
+      },
+    ]);
+
+    renderComProvedores(<TelaAluno />);
+
+    expect(document.querySelector('script')).toBeNull();
+    expect(screen.getByText('<script>alert(1)</script>')).toBeInTheDocument();
   });
 });
