@@ -441,19 +441,19 @@ responsável pelo AC-TEMPO-01. Estava errado: quem troca o relógio do cliente p
 | AC-SALA-01 | `src/components/__tests__/CriarSala.test.js:117` — nome, curso e ano letivo chegam ao banco com o dono da sala; `src/services/__tests__/salas.test.js` — a validação recusa nome vazio, curso vazio e ano fora da faixa antes de qualquer escrita; `tests/rules/salas.rules.test.js` — só professor cria, e só como dono de si mesmo |
 | AC-SALA-02 | `src/services/__tests__/pin.test.js` — 6 dígitos sorteados por Web Crypto, sem `Math.random()`; `src/services/__tests__/salas.test.js` — colisão no índice força novo sorteio; `tests/rules/salas.rules.test.js` — `indicePins` só aceita `create`, e é a recusa que garante a unicidade |
 | AC-SALA-03 | `src/components/__tests__/CriarSala.test.js:136` — o PIN aparece em destaque; `:145` — um clique copia; `:167` — a tela avisa que ele aparece uma vez só |
-| AC-SALA-04 | `src/components/__tests__/EntrarComPin.test.js:132` — PIN inexistente e PIN de sala arquivada dão **a mesma** frase; `:162` — o nome da sala recusada não aparece em lugar nenhum da tela |
+| AC-SALA-04 | `src/components/__tests__/EntrarComPin.test.js:134` — PIN inexistente e PIN de sala arquivada dão **a mesma** frase; `:165` — o nome da sala recusada não aparece em lugar nenhum da tela |
 | AC-SALA-05 | `src/components/__tests__/CriarSala.test.js:117` — `anoLetivo` e `ativa: true`; `src/components/__tests__/MinhasSalas.test.js` — a sala fica ativa até ser arquivada à mão |
-| AC-SALA-06 | `src/components/__tests__/MinhasSalas.test.js:120` — a sala abre pelo cartão, sem PIN; `src/components/__tests__/EntrarComPin.test.js:112` — reentrar não reinicia a data de entrada de ninguém |
+| AC-SALA-06 | `src/components/__tests__/MinhasSalas.test.js:112` — a sala abre pelo cartão, sem PIN; `src/components/__tests__/EntrarComPin.test.js:117` — reentrar não reinicia a data de entrada de ninguém |
 | AC-SALA-07 | `src/__tests__/escopoPorSala.test.js` — a sala A não vê chamado, mensagem nem fila global da sala B, na tela do aluno e na do professor; `:202` — o `!clear` para na porta da sala; `tests/rules/salas.rules.test.js` — o servidor nega, que é o que vale |
-| AC-SALA-08 | `src/components/__tests__/MinhasSalas.test.js:160` — contagem de membros e de chamados abertos, só para o dono |
+| AC-SALA-08 | `src/components/__tests__/MinhasSalas.test.js:156` — contagem de membros e de chamados abertos, só para o dono |
 | AC-SALA-09 | `src/components/__tests__/Sala.test.js:188` — remover o aluno e gerar PIN novo são um gesto só; `src/services/__tests__/salas.test.js` — o PIN anterior deixa de conferir; `tests/rules/salas.rules.test.js` — só o dono remove |
-| AC-SALA-10 | `src/components/__tests__/MinhasSalas.test.js:184` — arquivar; `src/components/__tests__/Sala.test.js:223` — arquivada é somente leitura e continua mostrando o que já existe; `tests/rules/salas.rules.test.js` — o servidor nega escrita e entrada nova em sala arquivada |
-| AC-SALA-12 | `src/components/__tests__/EntrarComPin.test.js:171` — a tela obedece ao bloqueio; `tests/rules/salas.rules.test.js` — a janela de 5 em 5 minutos é validada pelo **servidor**, com `request.time` |
+| AC-SALA-10 | `src/components/__tests__/MinhasSalas.test.js:187` — arquivar; `src/components/__tests__/Sala.test.js:224` — arquivada é somente leitura e continua mostrando o que já existe; `tests/rules/salas.rules.test.js` — o servidor nega escrita e entrada nova em sala arquivada |
+| AC-SALA-12 | `src/components/__tests__/EntrarComPin.test.js:177` — a tela obedece ao bloqueio; `tests/rules/salas.rules.test.js` — a janela de 5 em 5 minutos é validada pelo **servidor**, com `request.time` |
 | AC-SEC-01 | `firestore.rules` — `match /{documento=**} { allow read, write: if false; }` no fim, com cada caminho liberado explicitamente acima; `tests/rules/` — 141 testes, com o par concedido/negado por caminho |
 | AC-SEC-02 | `tests/rules/salas.rules.test.js` — aluno da sala A recebe `permission-denied` em tudo da sala B; `src/components/__tests__/Sala.test.js:137` — nem o professor de outra sala entra com a URL na mão |
 | AC-SEC-05 | `src/components/__tests__/CriarSala.test.js:156` — o número que a tela mostrou não está no documento da sala; `src/services/__tests__/salas.test.js` — o PIN em claro não é persistido em lugar nenhum; `tests/rules/salas.rules.test.js` — o segredo só é legível pelo dono |
-| AC-PERF-03 | `src/__tests__/escopoPorSala.test.js:289` — a fila é cortada no teto; `:311` — a conversa também; `src/components/__tests__/MinhasSalas.test.js` — a lista de salas idem. Nenhum `onSnapshot` sem `limit` no `src/` |
-| AC-PERF-04 | `src/__tests__/escopoPorSala.test.js:330` — trocar de sala não acumula listener, e desmontar zera; mesmo teste em `CriarSala`, `EntrarComPin`, `MinhasSalas` e `Sala` |
+| AC-PERF-03 | `src/__tests__/escopoPorSala.test.js:289` — a fila é cortada no teto; `:313` — a conversa também; `src/components/__tests__/MinhasSalas.test.js` — a lista de salas idem. Nenhum `onSnapshot` sem `limit` no `src/` |
+| AC-PERF-04 | `src/__tests__/escopoPorSala.test.js:334` — trocar de sala não acumula listener, e desmontar zera; mesmo teste em `CriarSala`, `EntrarComPin`, `MinhasSalas` e `Sala` |
 | AC-CHAMADO-05 | `tests/rules/salas.rules.test.js` — dentro da sala, o `delete` é do autor ou do dono; `tests/rules/firestore.rules.test.js` — na coleção global legada, do autor ou de professor. Inverte a caracterização da v0.2.0 |
 | AC-CHAT-10 | `src/__tests__/escopoPorSala.test.js:180` — a conversa vive em `salas/{salaId}/chat` |
 
@@ -467,8 +467,8 @@ responsável pelo AC-TEMPO-01. Estava errado: quem troca o relógio do cliente p
 
 | Sentido | Prova |
 |---|---|
-| Retroativa | `src/__tests__/escopoPorSala.test.js:217` — sem `salaId`, as telas leem as coleções globais da v0.4.0; `:243` — um chamado no formato antigo (`nome`, sem `autorNome`, sem `atendido`) continua legível dentro da sala; `src/__tests__/rotasDeSala.test.js:152` — `/aluno` e `/professor` continuam abrindo |
-| Futura | `src/__tests__/escopoPorSala.test.js:259` — o documento novo grava `autorNome` **e** `nome`, `autorUid` **e** `email`; `src/components/__tests__/TelaAluno.caracterizacao.test.js` — a igualdade exata do documento foi estendida, não afrouxada. `nome` sai só na 1.0.0 |
+| Retroativa | `src/__tests__/escopoPorSala.test.js:218` — sem `salaId`, as telas leem as coleções globais da v0.4.0; `:235` — um chamado no formato antigo (`nome`, sem `autorNome`, sem `atendido`) continua legível dentro da sala; `src/__tests__/rotasDeSala.test.js:158` — `/aluno` e `/professor` continuam abrindo |
+| Futura | `src/__tests__/escopoPorSala.test.js:256` — o documento novo grava `autorNome` **e** `nome`, `autorUid` **e** `email`; `src/components/__tests__/TelaAluno.caracterizacao.test.js` — a igualdade exata do documento foi estendida, não afrouxada. `nome` sai só na 1.0.0 |
 
 **Continuam não atendidos, de propósito**
 
