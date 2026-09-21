@@ -102,6 +102,88 @@ export function paraHtmlSeguro(texto) {
 }
 
 /**
+ * O que pode existir no HTML de uma **mensagem de chat** — AC-CHAT-12.
+ *
+ * A lista do card mais `a`. Nada além disso: a conta que manteve `img` de fora
+ * no card vale igual aqui, e com mais força, porque uma imagem remota num chat
+ * de 40 pessoas entrega o IP de todo mundo ao servidor de quem a postou.
+ */
+export const TAGS_PERMITIDAS_NA_MENSAGEM = [...TAGS_PERMITIDAS, 'a'];
+
+/**
+ * Os três atributos do link, e a razão de cada um.
+ *
+ * `href` é o link. `rel` e `target` **não vêm do autor** — são escritos pelo
+ * gancho abaixo, depois da sanitização. Estão na lista de permissão porque a
+ * lista é aplicada ao resultado final, não porque o markdown possa ditá-los.
+ */
+const ATRIBUTOS_DO_LINK = ['href', 'rel', 'target'];
+
+/**
+ * Os esquemas de URL que podem virar link.
+ *
+ * Lista de permissão, como as tags. `http` e `https` são a conversa real de
+ * uma sala de aula; `mailto` é o e-mail do professor. Fora disso não entra
+ * nada — nem `data:`, que embute uma página inteira dentro do próprio link, e
+ * muito menos o esquema que executa código.
+ */
+const ESQUEMAS_PERMITIDOS = /^(https?|mailto):/i;
+
+const OPCOES_DA_MENSAGEM = {
+  ...OPCOES_DE_SANITIZACAO,
+  ALLOWED_TAGS: TAGS_PERMITIDAS_NA_MENSAGEM,
+  ALLOWED_ATTR: ATRIBUTOS_DO_LINK,
+  ALLOWED_URI_REGEXP: ESQUEMAS_PERMITIDOS,
+};
+
+/**
+ * Carimba `rel` e `target` em todo link que sobreviveu à sanitização.
+ *
+ * `noopener` é o que importa: sem ele, a página aberta recebe `window.opener`
+ * e pode trocar o endereço da aba de origem por uma cópia da tela de login do
+ * SENAI, enquanto o aluno olha para a aba nova. `noreferrer` evita entregar de
+ * onde ele veio.
+ *
+ * O gancho reescreve o valor em vez de completá-lo: um `rel="opener"` escrito
+ * pelo autor do markdown precisa ser **substituído**, não respeitado.
+ */
+function carimbarLinkSeguro(elemento) {
+  if (!elemento.hasAttribute || !elemento.hasAttribute('href')) return;
+
+  elemento.setAttribute('rel', 'noopener noreferrer');
+  elemento.setAttribute('target', '_blank');
+}
+
+/**
+ * Converte a mensagem do chat em HTML seguro, com links clicáveis.
+ *
+ * É a mesma tranca de `paraHtmlSeguro`, com `a` na lista e os esquemas de URL
+ * cortados — não um sanitizador paralelo. Duplicar o sanitizador seria criar
+ * duas superfícies de ataque para manter iguais para sempre, e a segunda
+ * receberia a próxima correção com atraso, ou nunca.
+ *
+ * O gancho do DOMPurify é **global**, então ele é registrado e removido em
+ * volta desta chamada: sem o `finally`, a descrição do próximo chamado passaria
+ * a ser sanitizada com a configuração do chat, e ninguém veria isso acontecer.
+ *
+ * @param {string|null|undefined} texto o que o aluno escreveu.
+ * @returns {string} HTML com `a[href][rel][target]` e nada mais fora da lista.
+ */
+export function paraHtmlDeMensagem(texto) {
+  if (typeof texto !== 'string' || texto.trim() === '') return '';
+
+  const html = marked.parse(texto, OPCOES_DO_PARSER);
+
+  DOMPurify.addHook('afterSanitizeAttributes', carimbarLinkSeguro);
+
+  try {
+    return DOMPurify.sanitize(html, OPCOES_DA_MENSAGEM).trim();
+  } finally {
+    DOMPurify.removeHook('afterSanitizeAttributes');
+  }
+}
+
+/**
  * Como a descrição de um documento deve ser lida.
  *
  * O padrão é `texto`, e é o padrão porque é a verdade sobre o banco: todo
