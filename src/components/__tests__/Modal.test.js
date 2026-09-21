@@ -128,7 +128,12 @@ describe('Modal — o que ele entrega ao gravar', () => {
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'Sem print');
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
 
-    expect(aoEnviar).toHaveBeenCalledWith('Sem print', null, expect.any(String), COR_AUTOMATICA);
+    expect(aoEnviar).toHaveBeenCalledWith(
+      'Sem print',
+      null,
+      expect.any(String),
+      COR_AUTOMATICA
+    );
   });
 
   it('reserva um id diferente a cada modal aberto', () => {
@@ -244,7 +249,12 @@ describe('Modal — a cor que ele entrega (AC-COR-04, AC-COR-05)', () => {
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'A rede caiu');
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
 
-    expect(aoEnviar).toHaveBeenCalledWith('A rede caiu', null, expect.any(String), escolhida.fundo);
+    expect(aoEnviar).toHaveBeenCalledWith(
+      'A rede caiu',
+      null,
+      expect.any(String),
+      escolhida.fundo
+    );
   });
 
   it('entrega a cor sorteada de sempre quando o aluno não escolhe (AC-COR-05)', () => {
@@ -253,7 +263,12 @@ describe('Modal — a cor que ele entrega (AC-COR-04, AC-COR-05)', () => {
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'A rede caiu');
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
 
-    expect(aoEnviar).toHaveBeenCalledWith('A rede caiu', null, expect.any(String), COR_AUTOMATICA);
+    expect(aoEnviar).toHaveBeenCalledWith(
+      'A rede caiu',
+      null,
+      expect.any(String),
+      COR_AUTOMATICA
+    );
   });
 
   it('entrega a MESMA cor que a prévia mostrou, e não outra sorteada na hora', () => {
@@ -318,7 +333,12 @@ describe('Modal — a cor lembrada (AC-COR-10)', () => {
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'A rede caiu');
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
 
-    expect(aoEnviar).toHaveBeenCalledWith('A rede caiu', null, expect.any(String), PALETA[2].fundo);
+    expect(aoEnviar).toHaveBeenCalledWith(
+      'A rede caiu',
+      null,
+      expect.any(String),
+      PALETA[2].fundo
+    );
   });
 
   it('esquece a cor quando o aluno volta para a automática', () => {

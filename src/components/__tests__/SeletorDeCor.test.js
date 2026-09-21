@@ -59,9 +59,9 @@ describe('SeletorDeCor — semântica (AC-COR-06)', () => {
     montar({ valor: escolhida.fundo });
 
     expect(screen.getByRole('radio', { name: escolhida.nome })).toBeChecked();
-    expect(opcoes().filter((opcao) => opcao.getAttribute('aria-checked') === 'true')).toHaveLength(
-      1
-    );
+    expect(
+      opcoes().filter((opcao) => opcao.getAttribute('aria-checked') === 'true')
+    ).toHaveLength(1);
   });
 
   it('pinta cada opção com a cor que ela representa (AC-COR-03)', () => {
@@ -129,7 +129,9 @@ describe('SeletorDeCor — teclado (AC-COR-06)', () => {
   it('a seta para a esquerda volta uma opção', () => {
     const { aoEscolher } = montar({ valor: PALETA[1].fundo });
 
-    fireEvent.keyDown(screen.getByRole('radio', { name: PALETA[1].nome }), { key: 'ArrowLeft' });
+    fireEvent.keyDown(screen.getByRole('radio', { name: PALETA[1].nome }), {
+      key: 'ArrowLeft',
+    });
 
     expect(aoEscolher).toHaveBeenCalledWith(PALETA[0].fundo);
   });

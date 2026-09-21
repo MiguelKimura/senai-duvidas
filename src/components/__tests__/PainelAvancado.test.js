@@ -117,7 +117,9 @@ describe('PainelAvancado — animação (AC-COR-02)', () => {
   it('não anima nada para quem pediu menos movimento', () => {
     expect(CSS_DO_PAINEL).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
 
-    const [, blocoReduzido] = CSS_DO_PAINEL.split(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+    const [, blocoReduzido] = CSS_DO_PAINEL.split(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)/
+    );
     expect(blocoReduzido).toMatch(/transition:\s*none/);
   });
 });

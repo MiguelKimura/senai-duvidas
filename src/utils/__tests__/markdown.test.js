@@ -131,13 +131,18 @@ describe('paraHtmlSeguro — sanitização (AC-COR-08, AC-SEC-04)', () => {
     ['form com formaction', '<form><button formaction="javascript:alert(1)">x</button></form>'],
   ];
 
-  it.each(VETORES)('não deixa nenhum elemento executável chegar ao DOM em %s', (_nome, vetor) => {
-    const raiz = montar(vetor);
+  it.each(VETORES)(
+    'não deixa nenhum elemento executável chegar ao DOM em %s',
+    (_nome, vetor) => {
+      const raiz = montar(vetor);
 
-    expect(
-      raiz.querySelector('script, iframe, object, embed, svg, img, a, style, form, link, base')
-    ).toBeNull();
-  });
+      expect(
+        raiz.querySelector(
+          'script, iframe, object, embed, svg, img, a, style, form, link, base'
+        )
+      ).toBeNull();
+    }
+  );
 
   it.each(VETORES)('não deixa nenhum handler on* chegar ao DOM em %s', (_nome, vetor) => {
     expect(atributos(montar(vetor)).filter((nome) => nome.startsWith('on'))).toEqual([]);

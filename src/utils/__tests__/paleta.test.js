@@ -8,7 +8,13 @@
 // desta lista não está em ela existir — está em ela ser **verificada**: o
 // teste que percorre a paleta inteira exigindo 4,5:1 é o que impede que a
 // próxima cor bonita e ilegível entre no arquivo sem ninguém perceber.
-import { CONTRASTE_MINIMO, PALETA, corAutomatica, corDaPaleta, razaoContraste } from '../paleta';
+import {
+  CONTRASTE_MINIMO,
+  PALETA,
+  corAutomatica,
+  corDaPaleta,
+  razaoContraste,
+} from '../paleta';
 
 describe('razaoContraste (fórmula WCAG de luminância relativa)', () => {
   it('dá 21 para o par de maior contraste possível, preto sobre branco', () => {

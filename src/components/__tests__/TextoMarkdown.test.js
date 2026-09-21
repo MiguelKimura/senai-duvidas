@@ -55,7 +55,9 @@ describe('TextoMarkdown — formato novo, markdown (AC-COR-07)', () => {
   });
 
   it('rende lista como <ul><li>', () => {
-    render(<TextoMarkdown texto={'- reiniciei\n- troquei o cabo'} formato={FORMATO_MARKDOWN} />);
+    render(
+      <TextoMarkdown texto={'- reiniciei\n- troquei o cabo'} formato={FORMATO_MARKDOWN} />
+    );
 
     expect(bloco().querySelectorAll('ul li')).toHaveLength(2);
   });
