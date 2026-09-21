@@ -694,8 +694,10 @@ describe('TelaAluno — o card de março continua o card de março (AC-COR-05)',
     renderComProvedores(<TelaAluno />);
 
     const [cartao] = cartoes();
-    expect(cartao.querySelector('em')).toBeNull();
-    expect(cartao.querySelector('strong.nada')).toBeNull();
+    // Escopado ao texto da descrição: o `<em>` do horário do card é do card,
+    // não do markdown.
+    expect(cartao.querySelector('.texto-markdown em')).toBeNull();
+    expect(cartao.querySelector('.texto-markdown strong')).toBeNull();
     expect(
       within(cartao).getByText('o arquivo C:\Users\*.log some e o _log_ fica vazio')
     ).toBeInTheDocument();

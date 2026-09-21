@@ -401,7 +401,8 @@ describe('TelaProfessor — cor e markdown do card (AC-COR-04, AC-COR-07)', () =
     renderComProvedores(<TelaProfessor />);
 
     const [cartao] = cardsNaTela();
-    expect(cartao.querySelector('em')).toBeNull();
+    // Escopado ao texto da descrição: o `<em>` do horário é do card.
+    expect(cartao.querySelector('.texto-markdown em')).toBeNull();
     expect(within(cartao).getByText('o *.log some')).toBeInTheDocument();
     expect(cartao.style.color).toBe('');
   });
