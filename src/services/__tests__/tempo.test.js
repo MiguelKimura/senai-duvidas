@@ -17,6 +17,7 @@ import {
   formatarHora,
   formatarRelativo,
   FUSO_BRASILIA,
+  mesmoDiaEmBrasilia,
   msAteProximaMeiaNoiteBrasilia,
   paraData,
   proximaMeiaNoiteBrasilia,
@@ -404,5 +405,53 @@ describe('msAteProximaMeiaNoiteBrasilia', () => {
     expect(msAteProximaMeiaNoiteBrasilia(new Date('2026-09-20T03:00:00.000Z'))).toBeGreaterThan(
       0
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// O dia civil de Brasília — AC-TEMPO-07, usado pelo reset do chat (task 06).
+//
+// A v0.7.0 "resetava" o chat à meia-noite apagando os documentos com um
+// `setTimeout`. A task 06 troca a destruição por um filtro de exibição, e o
+// filtro precisa de uma pergunta que este módulo não sabia responder: **duas
+// datas caem no mesmo dia em Brasília?**
+//
+// A pergunta não é `data.getDate() === outra.getDate()`: isso usa o calendário
+// da máquina, que é exatamente o que a task 02 documentou não ser confiável nos
+// laboratórios.
+// ---------------------------------------------------------------------------
+describe('mesmoDiaEmBrasilia (AC-TEMPO-07)', () => {
+  it('dois instantes da mesma tarde caem no mesmo dia', () => {
+    expect(
+      mesmoDiaEmBrasilia('2026-03-10T13:00:00.000Z', '2026-03-10T20:00:00.000Z')
+    ).toBe(true);
+  });
+
+  it('a virada da meia-noite de Brasília separa os dias', () => {
+    // 02:59 UTC ainda é dia 9 em Brasília; 03:01 UTC já é dia 10.
+    expect(
+      mesmoDiaEmBrasilia('2026-03-10T02:59:00.000Z', '2026-03-10T03:01:00.000Z')
+    ).toBe(false);
+  });
+
+  it('usa o calendário de BRASÍLIA, não o da máquina', () => {
+    // Os dois instantes caem em dias diferentes em UTC (9 e 10 de março) e no
+    // MESMO dia em Brasília (9 de março, 21:00 e 23:00).
+    expect(
+      mesmoDiaEmBrasilia('2026-03-10T00:00:00.000Z', '2026-03-10T02:00:00.000Z')
+    ).toBe(true);
+  });
+
+  it('entende Timestamp, Date e string ISO, como o resto do módulo', () => {
+    const comoData = new Date('2026-03-10T13:00:00.000Z');
+    const comoTimestamp = { toDate: () => comoData };
+
+    expect(mesmoDiaEmBrasilia(comoTimestamp, '2026-03-10T14:00:00.000Z')).toBe(true);
+    expect(mesmoDiaEmBrasilia(comoData, comoTimestamp)).toBe(true);
+  });
+
+  it('sem data legível de um dos lados, responde false em vez de adivinhar', () => {
+    expect(mesmoDiaEmBrasilia(undefined, '2026-03-10T13:00:00.000Z')).toBe(false);
+    expect(mesmoDiaEmBrasilia('2026-03-10T13:00:00.000Z', 'não é data')).toBe(false);
   });
 });
