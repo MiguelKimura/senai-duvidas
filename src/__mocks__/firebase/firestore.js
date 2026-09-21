@@ -199,7 +199,12 @@ function notificar(caminho) {
     .filter((ouvinte) => ouvinte.caminho === caminho)
     .forEach((ouvinte) =>
       ouvinte.callback(
-        criarSnapshotDeConsulta(caminho, ouvinte.ordenacoes, ouvinte.filtros, ouvinte.quantidade)
+        criarSnapshotDeConsulta(
+          caminho,
+          ouvinte.ordenacoes,
+          ouvinte.filtros,
+          ouvinte.quantidade
+        )
       )
     );
 }
@@ -238,14 +243,22 @@ export function collection(_db, ...segmentos) {
 }
 
 export function doc(dbOuColecao, ...segmentos) {
-  const prefixo = dbOuColecao && dbOuColecao.__tipo === 'colecao' ? [dbOuColecao.__caminho] : [];
-  const caminho = [...prefixo, ...segmentos].join('/');
+  const ehColecao = dbOuColecao && dbOuColecao.__tipo === 'colecao';
+  const prefixo = ehColecao ? [dbOuColecao.__caminho] : [];
+
+  // `doc(colecao)` sem id sorteia um, como o SDK real: é assim que se reserva
+  // o id de um documento **antes** de escrevê-lo. A task 04 precisa disso para
+  // subir o anexo do chamado já na pasta definitiva, antes de o chamado
+  // existir (AC-IMG-11).
+  const gerados = ehColecao && segmentos.length === 0 ? [proximoIdGerado()] : segmentos;
+  const caminho = [...prefixo, ...gerados].join('/');
 
   return { __tipo: 'doc', __caminho: caminho, id: idDe(caminho) };
 }
 
 export function query(colecao, ...restricoes) {
-  const doTipo = (tipo) => restricoes.filter((restricao) => restricao && restricao.__tipo === tipo);
+  const doTipo = (tipo) =>
+    restricoes.filter((restricao) => restricao && restricao.__tipo === tipo);
 
   const [corte] = doTipo('limit');
 
@@ -270,9 +283,15 @@ export function where(campo, operador, valor) {
   return { __tipo: 'where', campo, operador, valor };
 }
 
-export async function addDoc(colecao, dados) {
+/** Um id de documento, no mesmo formato para `addDoc` e para `doc(colecao)`. */
+function proximoIdGerado() {
   contadorId += 1;
-  const id = `doc-gerado-${contadorId}`;
+
+  return `doc-gerado-${contadorId}`;
+}
+
+export async function addDoc(colecao, dados) {
+  const id = proximoIdGerado();
   conferirRecusa('escrita', `${colecao.__caminho}/${id}`);
   const { gravados, campos } = separarCarimbos(dados);
 
@@ -347,7 +366,12 @@ export function onSnapshot(consultaOuColecao, callback) {
 
   // O SDK real entrega o estado corrente assim que a inscrição é criada.
   callback(
-    criarSnapshotDeConsulta(ouvinte.caminho, ouvinte.ordenacoes, ouvinte.filtros, ouvinte.quantidade)
+    criarSnapshotDeConsulta(
+      ouvinte.caminho,
+      ouvinte.ordenacoes,
+      ouvinte.filtros,
+      ouvinte.quantidade
+    )
   );
 
   return () => {

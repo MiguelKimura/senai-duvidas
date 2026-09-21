@@ -115,7 +115,9 @@ export function validarDadosDaSala({ nome, curso, anoLetivo } = {}) {
 
   if (!nomeLimpo) throw new ErroDeSala('Informe o nome da sala.');
   if (nomeLimpo.length > TAMANHO_MAXIMO_DO_NOME) {
-    throw new ErroDeSala(`O nome da sala precisa ter até ${TAMANHO_MAXIMO_DO_NOME} caracteres.`);
+    throw new ErroDeSala(
+      `O nome da sala precisa ter até ${TAMANHO_MAXIMO_DO_NOME} caracteres.`
+    );
   }
 
   if (!cursoLimpo) throw new ErroDeSala('Informe o curso ou a turma.');
@@ -208,6 +210,22 @@ export function colecaoDeChamados(salaId) {
 /** A coleção de mensagens da sala — ou a global, pelo mesmo fallback. */
 export function colecaoDeChat(salaId) {
   return salaId ? collection(db, COLECAO_DE_SALAS, salaId, 'chat') : collection(db, 'chat');
+}
+
+/**
+ * Reserva o id de um chamado novo, sem escrever nada (AC-IMG-11).
+ *
+ * O anexo sobe antes de o chamado existir — o aluno escolhe a imagem enquanto
+ * ainda está escrevendo a descrição. Para que o arquivo já nasça em
+ * `salas/{salaId}/chamados/{chamadoId}/`, o id precisa ser conhecido antes da
+ * escrita. `doc(colecao)` sorteia o id no cliente e não toca no servidor; o
+ * documento só passa a existir no `setDoc` que vem depois.
+ *
+ * @param {string|null} salaId
+ * @returns {object} referência do documento ainda inexistente.
+ */
+export function reservarChamado(salaId) {
+  return doc(colecaoDeChamados(salaId));
 }
 
 /**
@@ -343,7 +361,6 @@ export async function criarSala(dados, professor) {
 
   return { salaId, pin };
 }
-
 
 // --- entrada por PIN --------------------------------------------------------
 
@@ -487,7 +504,6 @@ export async function entrarComPin(pinDigitado, pessoa) {
 
   return { salaId, jaEraMembro: false };
 }
-
 
 // --- gestão da sala ---------------------------------------------------------
 
