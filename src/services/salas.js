@@ -581,6 +581,23 @@ export async function lerSala(salaId) {
   }
 }
 
+/**
+ * As pessoas da sala, com teto (AC-SALA-08, AC-PERF-03).
+ *
+ * Só quem já é membro consegue ler esta coleção — é a rule que garante isso,
+ * não este código. O teto existe pela mesma razão do teto da fila: 40 alunos é
+ * o alvo, 60 é a folga, e uma leitura sem corte é uma conta que ninguém fez.
+ *
+ * @param {string} salaId
+ * @returns {Promise<Array<object>>}
+ */
+export async function listarMembros(salaId) {
+  const consulta = query(colecaoDeMembros(salaId), limit(LIMITE_DE_MEMBROS));
+  const snapshot = await getDocs(consulta);
+
+  return snapshot.docs.map((documento) => ({ uid: documento.id, ...documento.data() }));
+}
+
 /** Quantas pessoas estão na sala, com teto (AC-SALA-08, AC-PERF-03). */
 export async function contarMembros(salaId) {
   const consulta = query(colecaoDeMembros(salaId), limit(LIMITE_DE_MEMBROS + 1));

@@ -182,14 +182,14 @@ describe('Sala — o painel da turma (AC-SALA-09)', () => {
     renderComProvedores(<Sala />);
 
     const painel = await screen.findByRole('region', { name: /turma/i });
-    expect(within(painel).getByText('Ana Souza')).toBeInTheDocument();
+    expect(await within(painel).findByText('Ana Souza')).toBeInTheDocument();
   });
 
   it('remover um aluno apaga o vínculo e gera um PIN novo no mesmo gesto', async () => {
     renderComProvedores(<Sala />);
     const painel = await screen.findByRole('region', { name: /turma/i });
 
-    await userEvent.click(within(painel).getByRole('button', { name: /remover ana souza/i }));
+    await userEvent.click(await within(painel).findByRole('button', { name: /remover ana souza/i }));
     __confirmarCarimbos();
 
     await waitFor(() =>
@@ -206,6 +206,7 @@ describe('Sala — o painel da turma (AC-SALA-09)', () => {
     renderComProvedores(<Sala />);
     const painel = await screen.findByRole('region', { name: /turma/i });
 
+    await within(painel).findByText('Carlos Lima');
     expect(within(painel).queryByRole('button', { name: /remover carlos lima/i })).toBeNull();
   });
 

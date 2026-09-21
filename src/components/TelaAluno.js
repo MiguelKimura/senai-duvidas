@@ -24,7 +24,7 @@ import BotaoSair from './BotaoSair';
 // deliberado e tem prazo: ele é o que impede a tela vazia para quem abrir o
 // app no meio da migração, e sai na 1.0.0, junto com as coleções globais.
 
-function TelaAluno({ salaId = null }) {
+function TelaAluno({ salaId = null, somenteLeitura = false }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [problemas, setProblemas] = useState([]);
   const [usuarioNome, setUsuarioNome] = useState('');
@@ -116,7 +116,12 @@ function TelaAluno({ salaId = null }) {
       <BotaoSair />
       <h1>Bem-vindo, {usuarioNome}!</h1>
       <p>Aqui estão os problemas registrados.</p>
-      <button className="add-button" onClick={openModal}>+</button>
+      {/* Sala arquivada não aceita chamado novo (AC-SALA-10). O botão some em
+          vez de dar erro no clique: o aluno não tem o que fazer com um erro
+          que não é dele. Quem recusa de verdade continua sendo a rule. */}
+      {!somenteLeitura && (
+        <button className="add-button" onClick={openModal}>+</button>
+      )}
       <div className="problemas-list">
         {problemas.map((problema) => (
           <div
@@ -144,7 +149,7 @@ function TelaAluno({ salaId = null }) {
             <p>{problema.descricao}</p>
             <p><em>{formatarDataHora(problema.horario)}</em></p>
 
-            {problema.email === auth.currentUser?.email && (
+            {!somenteLeitura && problema.email === auth.currentUser?.email && (
               <button className="delete-button" onClick={() => removerProblema(problema.id)}>
                 Excluir
               </button>

@@ -11,7 +11,7 @@ import BotaoSair from './BotaoSair';
 // A fila que ele vê é a da turma dele, e não mais a da escola inteira. Sem
 // `salaId`, cai na coleção global da v0.4.0 pelo mesmo fallback da tela do
 // aluno — o que mantém a tela útil enquanto a migração não rodou.
-function TelaProfessor({ salaId = null }) {
+function TelaProfessor({ salaId = null, somenteLeitura = false }) {
   const [problemas, setProblemas] = useState([]);
 
   useEffect(() => {
@@ -80,15 +80,18 @@ function TelaProfessor({ salaId = null }) {
             <p>{problema.descricao}</p>
             <p><em>{formatarDataHora(problema.horario)}</em></p>
 
-            {/* Botão de exclusão posicionado abaixo do conteúdo do card */}
-            <div className="delete-button-container">
-              <button 
-                className="delete-button" 
-                onClick={() => handleDelete(problema.id)}
-              >
-                Excluir
-              </button>
-            </div>
+            {/* Botão de exclusão posicionado abaixo do conteúdo do card.
+                Some na sala arquivada, que é somente leitura (AC-SALA-10). */}
+            {!somenteLeitura && (
+              <div className="delete-button-container">
+                <button 
+                  className="delete-button" 
+                  onClick={() => handleDelete(problema.id)}
+                >
+                  Excluir
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

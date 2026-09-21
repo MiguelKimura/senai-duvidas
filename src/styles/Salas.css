@@ -147,3 +147,42 @@
   gap: var(--espaco-2);
   flex-wrap: wrap;
 }
+
+/* ---- Dentro da sala ---------------------------------------------------- */
+
+.sala-cabecalho {
+  font-family: var(--fonte-base);
+  background-color: var(--cor-superficie);
+  padding: var(--espaco-3) var(--espaco-4);
+  box-shadow: var(--sombra-caixa);
+}
+
+.sala-cabecalho h2 {
+  color: var(--cor-texto-titulo);
+  margin: 0;
+}
+
+.painel-da-turma {
+  font-family: var(--fonte-base);
+  background-color: var(--cor-fundo-caixa);
+  padding: var(--espaco-3) var(--espaco-4);
+}
+
+.painel-da-turma-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-2);
+  list-style: none;
+  padding: 0;
+}
+
+.painel-da-turma-lista li {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-1);
+  background-color: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-4);
+  padding: var(--espaco-1) var(--espaco-3);
+  color: var(--cor-texto-rotulo);
+}
