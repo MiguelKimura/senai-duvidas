@@ -460,3 +460,16 @@ export function __semearColecao(caminho, documentos) {
 export function __ouvintesAtivos() {
   return ouvintes.length;
 }
+
+/**
+ * Os documentos de uma coleção, já com o `id` dentro, para asserção direta.
+ *
+ * Existe para que um teste de tela possa afirmar o que **ficou no banco** sem
+ * montar uma consulta: "o PIN que apareceu na tela não está no documento da
+ * sala" é uma afirmação sobre o armazém, não sobre a interface.
+ *
+ * @param {string} caminho caminho da coleção.
+ */
+export function __documentosDe(caminho) {
+  return [...colecaoDe(caminho).entries()].map(([id, dados]) => ({ id, ...dados }));
+}
