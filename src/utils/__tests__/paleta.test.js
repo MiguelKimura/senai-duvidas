@@ -8,7 +8,7 @@
 // desta lista não está em ela existir — está em ela ser **verificada**: o
 // teste que percorre a paleta inteira exigindo 4,5:1 é o que impede que a
 // próxima cor bonita e ilegível entre no arquivo sem ninguém perceber.
-import { CONTRASTE_MINIMO, PALETA, corDaPaleta, razaoContraste } from '../paleta';
+import { CONTRASTE_MINIMO, PALETA, corAutomatica, corDaPaleta, razaoContraste } from '../paleta';
 
 describe('razaoContraste (fórmula WCAG de luminância relativa)', () => {
   it('dá 21 para o par de maior contraste possível, preto sobre branco', () => {
@@ -95,5 +95,30 @@ describe('corDaPaleta', () => {
 
   it('devolve null para chamado sem cor nenhuma', () => {
     expect(corDaPaleta(undefined)).toBeNull();
+  });
+});
+
+// A cor sorteada sai de `TelaAluno` e vira função aqui por um motivo prático:
+// a prévia do painel avançado precisa mostrar **a** cor que o card vai ter, e
+// não uma parecida. Duas expressões `Math.random()` em arquivos diferentes
+// seriam duas cores diferentes na mesma tela.
+describe('corAutomatica — o sorteio da v0.1.0, sem mudança de comportamento (AC-COR-05)', () => {
+  it('devolve exatamente o formato que a v0.1.0 gravava', () => {
+    expect(corAutomatica()).toMatch(/^hsl\(\d+(\.\d+)?, 70%, 80%\)$/);
+  });
+
+  it('varre o círculo de matizes inteiro, sem estourar 360', () => {
+    const matizes = Array.from({ length: 200 }, () =>
+      Number(/^hsl\(([\d.]+)/.exec(corAutomatica())[1])
+    );
+
+    expect(Math.min(...matizes)).toBeGreaterThanOrEqual(0);
+    expect(Math.max(...matizes)).toBeLessThan(360);
+  });
+
+  it('não devolve sempre a mesma cor', () => {
+    const sorteios = new Set(Array.from({ length: 20 }, () => corAutomatica()));
+
+    expect(sorteios.size).toBeGreaterThan(1);
   });
 });
