@@ -11,7 +11,7 @@
 // devolvê-lo a quem o abriu — senão quem usa teclado ou leitor de tela fica
 // preso atrás dele.
 import React, { useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Lightbox from '../Lightbox';
 
@@ -133,7 +133,7 @@ describe('Lightbox — a imagem que não carrega (AC-IMG-12)', () => {
       <Lightbox url="https://fora-do-ar.br/erro.png" descricao="print" onFechar={jest.fn()} />
     );
 
-    screen.getByRole('img').dispatchEvent(new Event('error'));
+    fireEvent.error(screen.getByRole('img'));
 
     expect(screen.getByText(/não foi possível carregar/i)).toBeInTheDocument();
   });

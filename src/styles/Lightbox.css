@@ -1,0 +1,79 @@
+/*
+ * O visualizador de anexo — AC-IMG-10.
+ *
+ * Escrito só com os tokens de `tokens.css`. A transição definitiva é da task
+ * 08 (AC-ANIM-09); o que existe aqui é o mínimo para que o diálogo não
+ * apareça de estalo sobre a tela de quem estava lendo a fila.
+ */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--espaco-4);
+  background: rgba(0, 0, 0, 0.75);
+  animation: lightbox-entrada 150ms ease-out;
+}
+
+@keyframes lightbox-entrada {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Quem pediu para o sistema não animar nada não recebe animação nenhuma. */
+@media (prefers-reduced-motion: reduce) {
+  .lightbox {
+    animation: none;
+  }
+}
+
+.lightbox-moldura {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--espaco-2);
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.lightbox-imagem {
+  max-width: 100%;
+  /* Desconta a altura do botão de fechar para que a imagem nunca empurre o
+     diálogo para fora da janela numa tela de laboratório de 768px. */
+  max-height: calc(100vh - 8 * var(--espaco-4));
+  object-fit: contain;
+  border-radius: var(--raio-2);
+  background: var(--cor-superficie);
+}
+
+.lightbox-fechar {
+  align-self: flex-end;
+  flex: 0 0 auto;
+  padding: var(--espaco-1) var(--espaco-3);
+  border: none;
+  border-radius: var(--raio-2);
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.lightbox-fechar:hover {
+  background-color: var(--cor-primaria-hover);
+}
+
+.lightbox-falha {
+  padding: var(--espaco-4);
+  border-radius: var(--raio-2);
+  background: var(--cor-superficie);
+  color: var(--cor-texto-titulo);
+  text-align: center;
+}
