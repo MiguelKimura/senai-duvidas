@@ -204,25 +204,25 @@ describe('concederPerk — a premiação e o registro dela (AC-PERK-01, AC-PERK-
 
 describe('revogarPerk — desfazer e registrar (AC-PERK-07, AC-PERK-10)', () => {
   async function comPerkConcedido() {
-    const { perkId } = await concederPerk(SALA, ANA, CARLOS, concessao());
+    await concederPerk(SALA, ANA, CARLOS, concessao());
     __confirmarCarimbos();
 
-    return perkId;
+    return __documentosDe(PERKS_DA_SALA)[0];
   }
 
   it('grava revogadoEm no perk', async () => {
-    const perkId = await comPerkConcedido();
+    const perk = await comPerkConcedido();
 
-    await revogarPerk(SALA, perkId, CARLOS);
+    await revogarPerk(SALA, perk, CARLOS);
     __confirmarCarimbos();
 
     expect(__documentosDe(PERKS_DA_SALA)[0].revogadoEm).not.toBeNull();
   });
 
   it('registra o evento de revogação ao lado do de concessão', async () => {
-    const perkId = await comPerkConcedido();
+    const perk = await comPerkConcedido();
 
-    await revogarPerk(SALA, perkId, CARLOS, 'concedi por engano');
+    await revogarPerk(SALA, perk, CARLOS, 'concedi por engano');
     __confirmarCarimbos();
 
     const eventos = __documentosDe(AUDITORIA_DA_SALA);
@@ -234,10 +234,28 @@ describe('revogarPerk — desfazer e registrar (AC-PERK-07, AC-PERK-10)', () => 
     );
   });
 
+  // A rule exige `alunoUid is string` em todo evento, e com razão: uma
+  // auditoria em que metade dos eventos não diz de quem se está falando não
+  // responde à pergunta que ela existe para responder. Sem isto, a revogação
+  // seria recusada pelo servidor — e só em produção.
+  it('o evento de revogação nomeia o aluno, como o de concessão', async () => {
+    const perk = await comPerkConcedido();
+
+    await revogarPerk(SALA, perk, CARLOS);
+    __confirmarCarimbos();
+
+    const revogacao = __documentosDe(AUDITORIA_DA_SALA).find(
+      (evento) => evento.acao === 'revogar'
+    );
+
+    expect(revogacao.alunoUid).toBe(ANA.uid);
+    expect(revogacao.perkId).toBe(perk.id);
+  });
+
   // O efeito na fila é o que o professor observa. Revogar sem que o chamado
   // volte para o lugar seria revogar só no papel.
   it('o chamado do aluno volta para a posição de quem não tem perk', async () => {
-    const perkId = await comPerkConcedido();
+    const perk = await comPerkConcedido();
     __confirmarCarimbos();
 
     const fila = [
@@ -248,7 +266,7 @@ describe('revogarPerk — desfazer e registrar (AC-PERK-07, AC-PERK-10)', () => 
     const antes = ordenarFila(fila, indexarPerksPorUid(__documentosDe(PERKS_DA_SALA)), AGORA);
     expect(antes.map((item) => item.id)).toEqual(['da-ana', 'do-bruno']);
 
-    await revogarPerk(SALA, perkId, CARLOS);
+    await revogarPerk(SALA, perk, CARLOS);
     __confirmarCarimbos();
 
     const depois = ordenarFila(fila, indexarPerksPorUid(__documentosDe(PERKS_DA_SALA)), AGORA);

@@ -382,6 +382,27 @@ describe('auditoriaPerks — append-only (AC-PERK-10)', () => {
     );
   });
 
+  // O evento de revogação precisa nomear o aluno como o de concessão: uma
+  // auditoria em que metade dos eventos não diz de quem se está falando não
+  // responde à pergunta que ela existe para responder (AC-PERK-10).
+  it('registra o evento de revogação nomeando o aluno', async () => {
+    await assertSucceeds(
+      setDoc(
+        doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA}/auditoriaPerks/${EVENTO}`),
+        eventoNovo({ acao: 'revogar', detalhes: 'concedi por engano' })
+      )
+    );
+  });
+
+  it('recusa evento de auditoria sem o aluno a que ele se refere', async () => {
+    await assertFails(
+      setDoc(
+        doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA}/auditoriaPerks/${EVENTO}`),
+        eventoNovo({ acao: 'revogar', alunoUid: null })
+      )
+    );
+  });
+
   it('recusa ação fora da lista e carimbo escolhido pelo cliente', async () => {
     await assertFails(
       setDoc(
