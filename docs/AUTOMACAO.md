@@ -108,6 +108,7 @@ e mescle. O script detecta o merge em até 30 segundos e segue.
 | Log com acento quebrado (`nÃ£o`) | O `Get-Content` do PowerShell 5.1 lê UTF-8 como ANSI | Acrescente `-Encoding UTF8` |
 | `ENOSPC: no space left on device` | Cada worktree instala seu próprio `node_modules` — centenas de MB por task | O preflight agora barra a fila abaixo de 5 GB livres (`project.espaco_minimo_gb`). Libere espaço e rode `--reset-failed` |
 | `PermissionError: [Errno 13]` + `lost sys.stderr` | O volume do repositório sumiu (SSD externo desconectado). Todo handle de arquivo aberto nele morre na hora, inclusive o do log | Corrigido: a fila detecta, avisa `[volume] ... foi desconectado?` e espera o drive voltar por até 1 hora |
+| Janelas de terminal abrindo sozinhas | Corrigido. O atalho sobe o Python oculto, mas um processo **sem console** que chama um programa **de console** faz o Windows alocar um console novo, visível. A fila chama `git`, `gh`, `claude` e `npm` o tempo todo | `CREATE_NO_WINDOW` nas chamadas de `subprocess`. Para parar de vez: `.\scripts\instalar-inicio-automatico.ps1 -Remover` |
 
 ## SSD externo desconectado no meio da fila
 

@@ -22,6 +22,13 @@ except ImportError:
     raise
 
 
+# Quando o processo pai não tem console — é o caso quando a fila sobe pelo atalho
+# oculto da Inicialização —, o Windows ALOCA UM CONSOLE NOVO para cada programa
+# de console que ele chama, e esse console aparece na tela. Como a fila chama
+# git, gh, claude e npm o tempo todo, o resultado são janelas abrindo sozinhas.
+# CREATE_NO_WINDOW suprime isso sem afetar a captura da saída pelos pipes.
+SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
+
 _EXECUTAVEIS: dict[str, list[str]] = {}
 
 
@@ -114,6 +121,7 @@ def run(cmd: list[str], cwd: Path, timeout: int | None = None) -> CommandResult:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         timeout=timeout,
+        creationflags=SEM_JANELA,
     )
     return CommandResult(p.returncode, p.stdout, p.stderr)
 
@@ -510,6 +518,7 @@ def validate(cfg: dict[str, Any], wt: Path) -> tuple[bool, str]:
             errors="replace",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            creationflags=SEM_JANELA,
         )
         logs.append(f"$ {command}\n{result.stdout}")
         if result.returncode != 0:
@@ -788,6 +797,7 @@ def processo_vivo(pid: int) -> bool:
         r = subprocess.run(
             ["tasklist", "/FI", f"PID eq {pid}"],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
+            creationflags=SEM_JANELA,
         )
         return str(pid) in (r.stdout or "")
     try:
@@ -809,7 +819,11 @@ def adquirir_trava(caminho: Path) -> bool:
             print(f"[trava] Já existe uma fila rodando (PID {pid_antigo}). Saindo.")
             return False
         print(f"[trava] Trava órfã do PID {pid_antigo} removida.")
-    caminho.write_text(str(os.getpid()), encoding="utf-8")
+    try:
+        caminho.write_text(str(os.getpid()), encoding="utf-8")
+    except OSError as exc:
+        print(f"[trava] Não foi possível gravar a trava: {exc}", file=sys.stderr)
+        return False
     return True
 
 
@@ -877,6 +891,12 @@ def main() -> int:
     sys.stdout = _Tee(sys.stdout, arquivo_log)
     sys.stderr = _Tee(sys.stderr, arquivo_log)
     print(f"\n===== fila iniciada em {datetime.now():%d/%m/%Y %H:%M:%S} (PID {os.getpid()}) =====")
+
+    # Subindo pelo atalho da Inicialização, o SSD externo pode ainda não estar
+    # montado. Esperar é melhor do que morrer tentando criar a trava nele.
+    if not esperar_repositorio(repo):
+        print(f"[volume] {repo} não ficou acessível. Encerrando.", file=sys.stderr)
+        return 1
 
     trava = repo / ".automation" / "queue.lock"
     if not adquirir_trava(trava):
