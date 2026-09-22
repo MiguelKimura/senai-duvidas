@@ -320,6 +320,129 @@ service cloud.firestore {
       }
 
       // ----------------------------------------------------------------------
+      // salas/{salaId}/perks — as premiações do professor (task 07)
+      // ----------------------------------------------------------------------
+      //
+      // O AC-PERK-07 é uma regra de servidor, e precisa ser: um perk de
+      // prioridade escrito pelo próprio premiado é furar a fila da turma, e
+      // quem abre o DevTools numa sala de informática de curso técnico é
+      // exatamente o público desta aplicação.
+      //
+      // Três assinaturas separam quem pode o quê:
+      //
+      //   * **conceder** — só o professor DONO desta sala, e só para quem tem
+      //     vínculo com ela. Ser professor no SENAI não basta (AC-SEC-02);
+      //   * **revogar**  — só o mesmo dono, e mexendo só em `revogadoEm`;
+      //   * **visualizar** — só o aluno premiado, e mexendo só em
+      //     `visualizadoEm`. É o recibo que impede a animação de repetir a
+      //     cada refresh (AC-PERK-04).
+      //
+      // A leitura é de qualquer membro da sala, e tem que ser: a fila do
+      // professor e a do aluno precisam ordenar igual, e a ordem depende dos
+      // perks de todo mundo (AC-PERK-09).
+      //
+      // Consequência aceita, pelo mesmo motivo que o PIN mora em documento
+      // separado: as rules não escondem campo, então a `justificativa` é
+      // legível por toda a turma. Quem decide mostrá-la é a interface, pelo
+      // `anunciarParaSala` — e o professor sabe disso ao marcar a caixa.
+      match /perks/{perkId} {
+
+        /// A pessoa tem vínculo com esta sala.
+        function ehMembro(uid) {
+          return exists(/databases/$(database)/documents/salas/$(salaId)/membros/$(uid));
+        }
+
+        function perkBemFormado() {
+          return request.resource.data.keys().hasOnly([
+              'alunoUid', 'alunoNome', 'tipo', 'nivel', 'justificativa',
+              'anunciarParaSala', 'concedidoPor', 'concedidoPorNome',
+              'concedidoEm', 'expiraEm', 'revogadoEm', 'visualizadoEm'
+            ])
+            && request.resource.data.alunoUid is string
+            && request.resource.data.alunoNome is string
+            && request.resource.data.tipo in
+                 ['prioridade', 'destaque', 'colaborador', 'resolvedor']
+            && request.resource.data.nivel is int
+            && request.resource.data.nivel >= 1
+            && request.resource.data.nivel <= 3
+            && (request.resource.data.justificativa == null
+                || (request.resource.data.justificativa is string
+                    && request.resource.data.justificativa.size() <= 280))
+            && request.resource.data.anunciarParaSala is bool
+            && request.resource.data.concedidoPorNome is string
+            && (request.resource.data.expiraEm == null
+                || request.resource.data.expiraEm is timestamp);
+        }
+
+        /// A escrita mexeu apenas nos campos listados.
+        function soMudou(campos) {
+          return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+        }
+
+        /// O dono da sala revogando — e só isso.
+        function ehRevogacaoDoDono() {
+          return ehDonoDaSala(salaId)
+            && soMudou(['revogadoEm'])
+            && request.resource.data.revogadoEm == request.time;
+        }
+
+        /// O premiado dando o recibo da animação — e só isso.
+        ///
+        /// Exigir que o valor anterior seja nulo fecha o caminho de volta:
+        /// sem isso, o aluno reescreveria `visualizadoEm: null` e reveria a
+        /// animação — ou a faria tocar no meio da aula de outra pessoa.
+        function ehVisualizacaoDoPremiado() {
+          return ehDono(resource.data.alunoUid)
+            && soMudou(['visualizadoEm'])
+            && resource.data.visualizadoEm == null
+            && request.resource.data.visualizadoEm == request.time;
+        }
+
+        allow get, list: if ehMembroDaSala(salaId);
+
+        allow create: if ehDonoDaSala(salaId)
+          && salaEstaAtiva(salaId)
+          && perkBemFormado()
+          && ehMembro(request.resource.data.alunoUid)
+          && request.resource.data.concedidoPor == request.auth.uid
+          && request.resource.data.concedidoEm == request.time
+          && request.resource.data.revogadoEm == null
+          && request.resource.data.visualizadoEm == null;
+
+        // Sem `salaEstaAtiva` de propósito, ao contrário do `create`: revogar
+        // é correção de um erro do professor, e o recibo de visualização
+        // precisa ser gravável mesmo depois do fim do ano letivo — senão a
+        // animação de um perk não visto repetiria para sempre.
+        allow update: if ehRevogacaoDoDono() || ehVisualizacaoDoPremiado();
+
+        // Apagar o perk apagaria o histórico que a vitrine mostra
+        // (AC-PERK-06). Revogar é um campo, não uma deleção.
+        allow delete: if false;
+      }
+
+      // ----------------------------------------------------------------------
+      // salas/{salaId}/auditoriaPerks — o log da premiação (AC-PERK-10)
+      // ----------------------------------------------------------------------
+      //
+      // Append-only no servidor. Um log que o autor do evento possa reescrever
+      // depois não é log — e o autor aqui é justamente quem a auditoria existe
+      // para registrar. Nem o dono da sala altera ou apaga o que já passou.
+      match /auditoriaPerks/{eventoId} {
+        allow get, list: if ehDonoDaSala(salaId);
+
+        allow create: if ehDonoDaSala(salaId)
+          && request.resource.data.keys()
+               .hasOnly(['acao', 'perkId', 'alunoUid', 'atorUid', 'em', 'detalhes'])
+          && request.resource.data.acao in ['conceder', 'revogar', 'expirar']
+          && request.resource.data.perkId is string
+          && request.resource.data.alunoUid is string
+          && request.resource.data.atorUid == request.auth.uid
+          && request.resource.data.em == request.time;
+
+        allow update, delete: if false;
+      }
+
+      // ----------------------------------------------------------------------
       // salas/{salaId}/conversas — as mensagens diretas (AC-DM-04)
       // ----------------------------------------------------------------------
       //
