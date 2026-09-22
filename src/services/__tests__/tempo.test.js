@@ -9,6 +9,7 @@
 // como se grava (carimbo do servidor), como se lê (formato antigo e novo) e
 // como se ordena (pendente por último, de forma estável).
 import {
+  agoraDoServidor,
   carimboServidor,
   comparar,
   criarComparadorPorHorario,
@@ -453,5 +454,79 @@ describe('mesmoDiaEmBrasilia (AC-TEMPO-07)', () => {
   it('sem data legível de um dos lados, responde false em vez de adivinhar', () => {
     expect(mesmoDiaEmBrasilia(undefined, '2026-03-10T13:00:00.000Z')).toBe(false);
     expect(mesmoDiaEmBrasilia('2026-03-10T13:00:00.000Z', 'não é data')).toBe(false);
+  });
+});
+
+// O relógio que a task 07 precisa — AC-PERK-03.
+//
+// Um perk de prioridade vence por data, e a data com que ele é comparado não
+// pode ser o relógio da máquina: atrasar o Windows manteria vivo um perk
+// vencido, e a fila passaria a premiar quem mexe no painel de controle.
+//
+// Não existe "perguntar as horas ao Firestore" — o SDK não expõe isso, e uma
+// API externa de horário seria falsificável do mesmo jeito, porque quem
+// aplicaria a resposta continuaria sendo o cliente. O que existe é um **piso**:
+// todo `Timestamp` que já chegou do banco foi carimbado pelo servidor, então o
+// servidor já passou por aquele instante. O agora do app é o maior entre o
+// relógio local e esse piso.
+//
+// A assimetria é deliberada: atrasar o relógio não ajuda (o piso vence), e
+// adiantá-lo só encurta o próprio perk de quem adiantou.
+describe('agoraDoServidor — o piso que o relógio do cliente não desfaz (AC-PERK-03)', () => {
+  const LOCAL = new Date('2026-09-22T12:00:00.000Z');
+
+  it('sem carimbo nenhum, devolve o relógio local', () => {
+    expect(agoraDoServidor([], LOCAL).getTime()).toBe(LOCAL.getTime());
+  });
+
+  it('usa o relógio local quando ele está à frente de todos os carimbos', () => {
+    const carimbos = ['2026-09-22T11:00:00.000Z', '2026-09-22T09:00:00.000Z'];
+
+    expect(agoraDoServidor(carimbos, LOCAL).getTime()).toBe(LOCAL.getTime());
+  });
+
+  // O cenário que importa: o aluno atrasa o relógio da máquina em dois dias
+  // para reviver o perk vencido. O último chamado da sala já carrega um
+  // carimbo do servidor posterior a isso, e é ele que vale.
+  it('ignora o relógio atrasado e devolve o maior carimbo do servidor', () => {
+    const atrasado = new Date('2026-09-20T12:00:00.000Z');
+    const carimbos = [
+      Timestamp.fromDate(new Date('2026-09-22T10:00:00.000Z')),
+      Timestamp.fromDate(new Date('2026-09-22T11:30:00.000Z')),
+    ];
+
+    expect(agoraDoServidor(carimbos, atrasado).toISOString()).toBe(
+      '2026-09-22T11:30:00.000Z'
+    );
+  });
+
+  it('entende a string ISO da v0.1.0 no meio dos Timestamp', () => {
+    const atrasado = new Date('2026-09-20T12:00:00.000Z');
+    const carimbos = [Timestamp.fromDate(new Date('2026-09-21T10:00:00.000Z')), '2026-09-22T08:00:00.000Z'];
+
+    expect(agoraDoServidor(carimbos, atrasado).toISOString()).toBe(
+      '2026-09-22T08:00:00.000Z'
+    );
+  });
+
+  it('descarta carimbo pendente, nulo ou ilegível sem derrubar a conta', () => {
+    const atrasado = new Date('2026-09-20T12:00:00.000Z');
+    const carimbos = [null, undefined, 'não é data', carimboServidor(), '2026-09-21T08:00:00.000Z'];
+
+    expect(agoraDoServidor(carimbos, atrasado).toISOString()).toBe(
+      '2026-09-21T08:00:00.000Z'
+    );
+  });
+
+  it('sem relógio informado, usa o da máquina como um dos candidatos', () => {
+    fixarRelogio('2026-09-22T12:00:00.000Z');
+
+    try {
+      expect(agoraDoServidor(['2026-09-22T09:00:00.000Z']).toISOString()).toBe(
+        '2026-09-22T12:00:00.000Z'
+      );
+    } finally {
+      restaurarRelogio();
+    }
   });
 });

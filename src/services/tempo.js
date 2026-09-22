@@ -262,6 +262,16 @@ export function criarComparadorPorHorario(criterioAnterior) {
 }
 
 /**
+ * ESBOÇO (task 07): o instante corrente com piso no relógio do servidor.
+ *
+ * A implementação real entra no ciclo GREEN. Por ora devolve o relógio da
+ * máquina, que é exatamente o que o AC-PERK-03 proíbe.
+ */
+export function agoraDoServidor(_carimbos = [], relogioLocal = new Date()) {
+  return relogioLocal;
+}
+
+/**
  * O carimbo de tempo de toda escrita do app (AC-TEMPO-01, AC-TEMPO-09).
  *
  * Devolve o sentinela do Firestore, que o **servidor** resolve no momento em

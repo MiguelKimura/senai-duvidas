@@ -10,7 +10,14 @@
 // instante do servidor, e não lê relógio nenhum. Tudo o que decide a ordem
 // entra por parâmetro, e é isso que torna cada regra abaixo verificável.
 import { Timestamp } from 'firebase/firestore';
-import { ordenarFila, indexarPerksPorUid, TIPO_PRIORIDADE } from '../filaChamados';
+import { agoraDoServidor } from '../tempo';
+import {
+  indexarPerksPorUid,
+  nivelDePrioridade,
+  ordenarFila,
+  perkEstaAtivo,
+  TIPO_PRIORIDADE,
+} from '../filaChamados';
 
 const AGORA = new Date('2026-09-22T12:00:00.000Z');
 
@@ -323,5 +330,99 @@ describe('ordenarFila — propriedade: a ordem não depende da entrada (AC-PERK-
     const ultimoAberto = resultado.map((item) => item.atendido === true).lastIndexOf(false);
 
     expect(primeiroAtendido).toBeGreaterThan(ultimoAberto);
+  });
+});
+
+describe('perkEstaAtivo — a validade conferida pelo servidor (AC-PERK-03)', () => {
+  it('o perk permanente, sem data de validade, vale sempre', () => {
+    expect(perkEstaAtivo(perkDePrioridade('uid-ana', 1), AGORA)).toBe(true);
+  });
+
+  it('o perk com validade no futuro vale', () => {
+    const perk = perkDePrioridade('uid-ana', 1, { expiraEm: '2026-09-29T12:00:00.000Z' });
+
+    expect(perkEstaAtivo(perk, AGORA)).toBe(true);
+  });
+
+  it('o perk com validade no passado não vale mais', () => {
+    const perk = perkDePrioridade('uid-ana', 1, { expiraEm: '2026-09-21T12:00:00.000Z' });
+
+    expect(perkEstaAtivo(perk, AGORA)).toBe(false);
+  });
+
+  it('o perk revogado não vale, mesmo com validade no futuro', () => {
+    const perk = perkDePrioridade('uid-ana', 1, {
+      expiraEm: '2026-09-29T12:00:00.000Z',
+      revogadoEm: '2026-09-22T09:00:00.000Z',
+    });
+
+    expect(perkEstaAtivo(perk, AGORA)).toBe(false);
+  });
+
+  // Conservador de propósito: sem instante confiável, o sistema não concede
+  // privilégio. O perk permanente não depende de relógio nenhum e continua.
+  it('sem instante de referência, o perk com validade não conta', () => {
+    const comValidade = perkDePrioridade('uid-ana', 1, { expiraEm: '2026-09-29T12:00:00.000Z' });
+
+    expect(perkEstaAtivo(comValidade, null)).toBe(false);
+    expect(perkEstaAtivo(perkDePrioridade('uid-ana', 1), null)).toBe(true);
+  });
+
+  it('nivelDePrioridade desconsidera o perk expirado e cai para a faixa 0', () => {
+    const perks = [perkDePrioridade('uid-ana', 3, { expiraEm: '2026-09-21T12:00:00.000Z' })];
+
+    expect(nivelDePrioridade(perks, AGORA)).toBe(0);
+  });
+});
+
+describe('ordenarFila — expiração pelo horário do servidor (AC-PERK-03, AC-SEC-03)', () => {
+  const EXPIRADO = '2026-09-21T12:00:00.000Z';
+
+  function filaDeDois() {
+    return [
+      chamado('com-perk-vencido', { autorUid: 'uid-ana', horario: '2026-09-22T10:00:00.000Z' }),
+      chamado('sem-perk', { autorUid: 'uid-bruno', horario: '2026-09-22T09:00:00.000Z' }),
+    ];
+  }
+
+  it('o perk vencido deixa de furar a fila', () => {
+    const perks = [perkDePrioridade('uid-ana', 3, { expiraEm: EXPIRADO })];
+
+    expect(ordem(filaDeDois(), perks)).toEqual(['sem-perk', 'com-perk-vencido']);
+  });
+
+  it('o perk revogado deixa de furar a fila na mesma hora', () => {
+    const perks = [
+      perkDePrioridade('uid-ana', 3, { revogadoEm: '2026-09-22T11:00:00.000Z' }),
+    ];
+
+    expect(ordem(filaDeDois(), perks)).toEqual(['sem-perk', 'com-perk-vencido']);
+  });
+
+  // O ataque: a aluna atrasa o relógio do Windows em dois dias para que o perk
+  // vencido volte a valer. O `agoraServidor` que a tela passa tem piso no
+  // carimbo que o próprio Firestore gravou nos chamados da sala, e o piso
+  // vence o relógio adulterado.
+  it('atrasar o relógio da máquina não revive o perk vencido', () => {
+    const fila = filaDeDois();
+    const relogioAdulterado = new Date('2026-09-20T12:00:00.000Z');
+    const carimbosDaSala = fila.map((item) => item.horario);
+
+    const agora = agoraDoServidor(carimbosDaSala, relogioAdulterado);
+    const perks = [perkDePrioridade('uid-ana', 3, { expiraEm: EXPIRADO })];
+
+    expect(ordem(fila, perks, agora)).toEqual(['sem-perk', 'com-perk-vencido']);
+  });
+
+  it('adiantar o relógio da máquina não estende perk nenhum — só encurta o próprio', () => {
+    const fila = filaDeDois();
+    const relogioAdiantado = new Date('2026-10-22T12:00:00.000Z');
+    const agora = agoraDoServidor(
+      fila.map((item) => item.horario),
+      relogioAdiantado
+    );
+    const perks = [perkDePrioridade('uid-ana', 3, { expiraEm: '2026-09-29T12:00:00.000Z' })];
+
+    expect(ordem(fila, perks, agora)).toEqual(['sem-perk', 'com-perk-vencido']);
   });
 });
