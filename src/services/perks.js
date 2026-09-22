@@ -251,21 +251,26 @@ export async function concederPerk(salaId, aluno, professor, dados = {}) {
  * na coluna do histórico. Apagá-lo reescreveria o passado da turma — e o
  * `delete` está negado na rule justamente por isso.
  *
+ * Recebe o **documento** do perk, e não só o id: o evento de auditoria precisa
+ * nomear o aluno, e a rule cobra isso (`alunoUid is string`). Com o id sozinho,
+ * a revogação seria recusada pelo servidor — e só em produção, porque o fake
+ * dos testes unitários não aplica rules.
+ *
  * @param {string} salaId
- * @param {string} perkId
+ * @param {{id: string, alunoUid: string}} perk o perk como foi lido da sala.
  * @param {{uid: string, nome: string}} professor
  * @param {string} [motivo] vai para `detalhes` do evento.
  */
-export async function revogarPerk(salaId, perkId, professor, motivo) {
+export async function revogarPerk(salaId, perk, professor, motivo) {
   const lote = writeBatch(db);
 
-  lote.update(doc(colecaoDePerks(salaId), perkId), { revogadoEm: carimboServidor() });
+  lote.update(doc(colecaoDePerks(salaId), perk.id), { revogadoEm: carimboServidor() });
 
   lote.set(
     doc(colecaoDeAuditoria(salaId)),
     eventoDeAuditoria(ACAO_REVOGAR, {
-      perkId,
-      alunoUid: null,
+      perkId: perk.id,
+      alunoUid: perk.alunoUid,
       ator: professor,
       detalhes: motivo || null,
     })
