@@ -18,4 +18,5 @@
 *.webp binary
 *.ico binary
 *.woff binary
+*.wav binary
 *.woff2 binary
