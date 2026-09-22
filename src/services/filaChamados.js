@@ -150,21 +150,39 @@ function compararIds(a, b) {
 }
 
 /**
+ * O chamado já foi atendido.
+ *
+ * Ausência do campo é "não atendido", e não "desconhecido": `atendido` nasceu
+ * na v0.5.0, e nenhum chamado da v0.1.0 o tem. Tratá-lo como atendido jogaria
+ * a fila inteira de antes da migração para o rodapé da tela.
+ */
+function estaAtendido(chamado) {
+  return Boolean(chamado && chamado.atendido === true);
+}
+
+/**
  * Ordena a fila de chamados da sala (AC-PERK-09, AC-CHAMADO-03).
  *
  * A ordem, nesta sequência exata:
  *
- *   1. prioridade do autor, **decrescente** — sem perk ativo é a faixa 0;
- *   2. horário do **servidor**, crescente — o mais antigo primeiro, dentro da
+ *   1. não atendidos antes dos atendidos;
+ *   2. prioridade do autor, **decrescente** — sem perk ativo é a faixa 0;
+ *   3. horário do **servidor**, crescente — o mais antigo primeiro, dentro da
  *      faixa. Quem ainda não tem carimbo confirmado vai para o fim da faixa,
  *      comportamento herdado de `criarComparadorPorHorario` (AC-TEMPO-06);
- *   3. id do chamado, crescente — o desempate que garante ordem idêntica em
+ *   4. id do chamado, crescente — o desempate que garante ordem idêntica em
  *      todos os dispositivos mesmo com carimbos iguais.
  *
- * O passo 2 é literalmente o comparador da task 02: ele já aceita um critério
- * anterior, e a prioridade é esse critério. Reescrever a comparação de horário
- * aqui duplicaria a leitura dupla de `Timestamp`/string ISO que aquele módulo
- * resolve — e as duas cópias divergiriam na primeira correção.
+ * Sobre o passo 3 e o pendente: ele vai para o fim da **faixa**, não para o fim
+ * da lista. A faixa é decidida pelo perk, que já é conhecido no instante em que
+ * o card aparece; o que ainda não se sabe é a posição dentro dela. Mandá-lo
+ * para o rodapé da tela e trazê-lo de volta meio segundo depois faria o card
+ * de quem acabou de enviar atravessar a fila duas vezes.
+ *
+ * O passo 3 é literalmente o comparador da task 02: ele já aceita um critério
+ * anterior, e os passos 1 e 2 são esse critério. Reescrever a comparação de
+ * horário aqui duplicaria a leitura dupla de `Timestamp`/string ISO que aquele
+ * módulo resolve — e as duas cópias divergiriam na primeira correção.
  *
  * @param {Array<object>} chamados documentos de `salas/{salaId}/chamados`.
  * @param {Map<string, Array<object>>|object} [perksAtivosPorUid] índice de
@@ -177,12 +195,13 @@ export function ordenarFila(chamados = [], perksAtivosPorUid = new Map(), agoraS
   const prioridadeDe = (chamado) =>
     nivelDePrioridade(perksDe(perksAtivosPorUid, chamado && chamado.autorUid), agoraServidor);
 
+  // O perk não resgata chamado já atendido: mantê-lo no topo empurraria para
+  // baixo quem ainda está esperando, que é o contrário do que o professor quis.
+  const porAtendimento = (a, b) => Number(estaAtendido(a)) - Number(estaAtendido(b));
   const porPrioridadeDesc = (a, b) => prioridadeDe(b) - prioridadeDe(a);
-  const porHorario = criarComparadorPorHorario(porPrioridadeDesc);
 
-  return [...chamados].sort((a, b) => {
-    const anterior = porHorario(a, b);
+  const porFaixa = (a, b) => porAtendimento(a, b) || porPrioridadeDesc(a, b);
+  const porHorario = criarComparadorPorHorario(porFaixa);
 
-    return anterior !== 0 ? anterior : compararIds(a, b);
-  });
+  return [...chamados].sort((a, b) => porHorario(a, b) || compararIds(a, b));
 }
