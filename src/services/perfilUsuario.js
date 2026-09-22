@@ -124,18 +124,62 @@ export async function garantirPerfil(usuario) {
 }
 
 /**
- * ESBOÇO (task 07): as preferências de animação e som (AC-PERK-08).
+ * As preferências de interface do usuário (AC-PERK-08).
  *
- * A implementação real entra no ciclo GREEN. Por ora devolve o que estiver
- * gravado, sem padrão nenhum — que é o que quebra a tela de quem nunca mexeu
- * nas preferências.
+ * `animacoes: true` porque a animação de premiação **é** o requisito do
+ * cliente, não um enfeite — quem não a quiser desliga. `som: false` por
+ * decisão de produto: são 40 pessoas numa sala com projetor, e um áudio que
+ * toca sozinho no primeiro carregamento é uma aula interrompida. Quem quiser
+ * som liga, uma vez, e o navegador já terá recebido o gesto do usuário que ele
+ * exige para tocar áudio.
  */
-export const PREFERENCIAS_PADRAO = { animacoes: true, som: false };
+export const PREFERENCIAS_PADRAO = Object.freeze({ animacoes: true, som: false });
 
+/**
+ * Lê `preferencias` de um perfil, completando o que faltar (AC-PERK-08).
+ *
+ * O campo é **aditivo**: ele nasce na v0.9.0 e nenhum documento gravado até a
+ * v0.8.0 o tem. É esta função que torna isso verdade — sem padrão na leitura,
+ * o primeiro aluno a abrir a sala depois do deploy encontraria
+ * `undefined.animacoes` e a tela quebraria por causa de um campo que ele nunca
+ * pediu.
+ *
+ * Valor que não é booleano cai no padrão em vez de ser usado como veio: um
+ * `animacoes: "não"` vindo de uma edição manual no console é `truthy`, e
+ * ligaria justamente o que quem digitou queria desligar.
+ *
+ * @param {object|null|undefined} perfil documento de `usuarios/{uid}`.
+ * @returns {{animacoes: boolean, som: boolean}}
+ */
 export function lerPreferencias(perfil) {
-  return (perfil && perfil.preferencias) || {};
+  const gravadas = (perfil && perfil.preferencias) || {};
+
+  return Object.keys(PREFERENCIAS_PADRAO).reduce((completas, chave) => {
+    completas[chave] =
+      typeof gravadas[chave] === 'boolean' ? gravadas[chave] : PREFERENCIAS_PADRAO[chave];
+
+    return completas;
+  }, {});
 }
 
-export async function salvarPreferencias(_uid, preferencias) {
-  return preferencias;
+/**
+ * Grava as preferências do próprio usuário, e só elas (AC-PERK-08).
+ *
+ * `merge: true` e um mapa completo: o resto do documento — `tipo`, sobretudo —
+ * não é tocado. Esta função não pode virar um caminho para mexer no papel de
+ * quem quer que seja, e a rule também não deixaria (AC-SEC-03).
+ *
+ * O que vai para o banco passa por `lerPreferencias` antes, então só chaves
+ * conhecidas e valores booleanos são gravados.
+ *
+ * @param {string} uid
+ * @param {{animacoes?: boolean, som?: boolean}} preferencias
+ * @returns {Promise<{animacoes: boolean, som: boolean}>} o que ficou gravado.
+ */
+export async function salvarPreferencias(uid, preferencias) {
+  const normalizadas = lerPreferencias({ preferencias });
+
+  await setDoc(doc(db, 'usuarios', uid), { preferencias: normalizadas }, { merge: true });
+
+  return normalizadas;
 }

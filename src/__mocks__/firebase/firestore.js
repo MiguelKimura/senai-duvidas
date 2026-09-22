@@ -372,11 +372,47 @@ export async function addDoc(colecao, dados) {
   return { __tipo: 'doc', __caminho: `${colecao.__caminho}/${id}`, id };
 }
 
-export async function setDoc(referencia, dados) {
+/**
+ * Funde a escrita no documento existente, como `setDoc(..., { merge: true })`.
+ *
+ * O SDK real funde recursivamente os mapas: gravar `{preferencias: {som: true}}`
+ * num documento que já tem `nome` e `tipo` preserva os dois. Sem isto, o fake
+ * sobrescreveria o documento inteiro e um teste de "grava sem tocar no resto"
+ * passaria a provar o contrário do que afirma.
+ */
+function fundir(existente, escrita) {
+  const resultado = { ...existente };
+
+  Object.entries(escrita).forEach(([chave, valor]) => {
+    const atual = resultado[chave];
+    const dosDoisLadosEhMapa = ehMapaSimples(atual) && ehMapaSimples(valor);
+
+    resultado[chave] = dosDoisLadosEhMapa ? fundir(atual, valor) : valor;
+  });
+
+  return resultado;
+}
+
+/** Objeto puro — e não `Timestamp`, `Date`, sentinela ou lista. */
+function ehMapaSimples(valor) {
+  return (
+    valor !== null &&
+    typeof valor === 'object' &&
+    !Array.isArray(valor) &&
+    !(valor instanceof Date) &&
+    !(valor instanceof Timestamp) &&
+    valor.__tipo === undefined
+  );
+}
+
+export async function setDoc(referencia, dados, opcoes) {
   conferirRecusa('escrita', referencia.__caminho);
   const caminhoDaColecao = caminhoDoPai(referencia.__caminho);
   const id = idDe(referencia.__caminho);
-  const { gravados, campos } = separarCarimbos(dados);
+
+  const base = opcoes && opcoes.merge === true ? colecaoDe(caminhoDaColecao).get(id) || {} : {};
+
+  const { gravados, campos } = separarCarimbos(fundir(base, dados));
 
   colecaoDe(caminhoDaColecao).set(id, gravados);
   anotarCarimbos(caminhoDaColecao, id, campos);

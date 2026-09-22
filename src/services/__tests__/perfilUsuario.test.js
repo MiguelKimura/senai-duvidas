@@ -355,7 +355,13 @@ describe('preferencias — campo aditivo com padrão seguro (AC-PERK-08)', () =>
 
   it('grava as preferências sem tocar no resto do perfil', async () => {
     __semearColecao('usuarios', [
-      { id: 'uid-ana', uid: 'uid-ana', nome: 'Ana Souza', email: 'ana@senai.br', tipo: 'aluno' },
+      {
+        id: 'uid-ana',
+        uid: 'uid-ana',
+        nome: 'Ana Souza',
+        email: 'ana@senai.br',
+        tipo: 'aluno',
+      },
     ]);
 
     await salvarPreferencias('uid-ana', { animacoes: false, som: true });
@@ -381,7 +387,13 @@ describe('preferencias — campo aditivo com padrão seguro (AC-PERK-08)', () =>
   // exatamente onde sempre estiveram.
   it('o documento continua legível por um leitor que não conhece o campo', async () => {
     __semearColecao('usuarios', [
-      { id: 'uid-ana', uid: 'uid-ana', nome: 'Ana Souza', email: 'ana@senai.br', tipo: 'aluno' },
+      {
+        id: 'uid-ana',
+        uid: 'uid-ana',
+        nome: 'Ana Souza',
+        email: 'ana@senai.br',
+        tipo: 'aluno',
+      },
     ]);
 
     await salvarPreferencias('uid-ana', { animacoes: false, som: false });
