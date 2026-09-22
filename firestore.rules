@@ -307,8 +307,125 @@ service cloud.firestore {
           && request.resource.data.autorUid == resource.data.autorUid
           && horarioEhDoServidor();
 
-        allow delete: if salaEstaAtiva(salaId)
-          && (resource.data.autorUid == request.auth.uid || ehDonoDaSala(salaId));
+        // ENDURECIDO pela task 06 (AC-CHAT-08). Era "o autor ou o professor", e
+        // parecia inofensivo. Junto com o `!clear` deixava de ser: enquanto o
+        // aluno pudesse apagar qualquer documento do chat, o comando dele
+        // apagaria tudo o que fosse dele — e a conversa da turma ficaria pela
+        // metade, com a metade que sumiu escolhida por quem digitou.
+        //
+        // Apagar mensagem é do professor dono da sala, e só dele. É esta linha
+        // — e não a checagem de papel em `services/chat.js` — que vale para um
+        // cliente adulterado chamando `deleteDoc` pelo DevTools.
+        allow delete: if salaEstaAtiva(salaId) && ehDonoDaSala(salaId);
+      }
+
+      // ----------------------------------------------------------------------
+      // salas/{salaId}/conversas — as mensagens diretas (AC-DM-04)
+      // ----------------------------------------------------------------------
+      //
+      // A rule que importa é a primeira: quem não está em `participantes` não
+      // lê nada. Isso vale para o colega de turma, para quem nem é da sala e
+      // também para o **professor dono**, que tem poder sobre a conversa
+      // pública e sobre os vínculos, mas não sobre a conversa privada de dois
+      // alunos. (A exportação pedagógica é o AC-DM-08, de outra versão, e
+      // pressupõe avisar os participantes antes.)
+      //
+      // Um detalhe do Firestore que muda o desenho do cliente: numa consulta de
+      // coleção, a rule **não filtra** o resultado — ela aceita ou nega a
+      // consulta inteira, e só aceita quando consegue provar pela forma dela
+      // que todo resultado possível passaria. É por isso que
+      // `services/chat.js` consulta com `where('participantes',
+      // 'array-contains', uid)`: sem o filtro, a listagem é negada.
+      match /conversas/{conversaId} {
+
+        /// Quem está pedindo participa da conversa já gravada.
+        function participa() {
+          return ehAutenticado() && request.auth.uid in resource.data.participantes;
+        }
+
+        /// A pessoa tem vínculo com esta sala.
+        function ehMembro(uid) {
+          return exists(/databases/$(database)/documents/salas/$(salaId)/membros/$(uid));
+        }
+
+        /// O documento proposto é uma conversa bem formada entre dois membros.
+        ///
+        /// A ordenação dos participantes e o id derivado deles não são
+        /// preciosismo: é o que garante que os dois lados caiam no MESMO
+        /// documento. Sem isto, um cliente adulterado criaria `carlos_ana` e
+        /// `ana_carlos`, cada um ficaria com metade da conversa, e nenhum dos
+        /// dois saberia que a outra metade existe.
+        function conversaBemFormada() {
+          return request.resource.data.participantes is list
+            && request.resource.data.participantes.size() == 2
+            && request.resource.data.participantes[0] is string
+            && request.resource.data.participantes[1] is string
+            && request.resource.data.participantes[0] < request.resource.data.participantes[1]
+            && conversaId == request.resource.data.participantes[0]
+                 + '_' + request.resource.data.participantes[1]
+            && ehMembro(request.resource.data.participantes[0])
+            && ehMembro(request.resource.data.participantes[1])
+            && request.resource.data.naoLidas[request.resource.data.participantes[0]] == 0
+            && request.resource.data.naoLidas[request.resource.data.participantes[1]] == 0
+            && request.resource.data.ultimaMensagem == null
+            && request.resource.data.criadaEm == request.time;
+        }
+
+        allow get, list: if participa();
+
+        allow create: if ehMembroDaSala(salaId)
+          && salaEstaAtiva(salaId)
+          && request.auth.uid in request.resource.data.participantes
+          && conversaBemFormada();
+
+        // Atualizar é mexer no resumo: `ultimaMensagem` e `naoLidas`. A lista
+        // de participantes é imutável — quem pudesse se acrescentar a ela
+        // entraria na conversa de duas outras pessoas e passaria a lê-la
+        // inteira, que é exatamente o que o AC-DM-04 proíbe.
+        allow update: if participa()
+          && salaEstaAtiva(salaId)
+          && request.resource.data.participantes == resource.data.participantes
+          && request.resource.data.criadaEm == resource.data.criadaEm;
+
+        // Apagar a conversa apagaria o histórico dos dois lados a pedido de um
+        // só. Não há caso de uso para isso nesta versão.
+        allow delete: if false;
+
+        match /mensagens/{mensagemId} {
+
+          /// Participa da conversa PAI — a subcoleção não repete a lista.
+          ///
+          /// O `get()` de rule enxerga o documento da conversa mesmo quando a
+          /// pessoa não poderia lê-lo, e é exatamente por isso que ele serve
+          /// de porteiro aqui.
+          function participaDaConversa() {
+            return ehAutenticado()
+              && request.auth.uid in
+                   get(/databases/$(database)/documents/salas/$(salaId)/conversas/$(conversaId))
+                     .data.participantes;
+          }
+
+          allow get, list: if participaDaConversa();
+
+          allow create: if participaDaConversa()
+            && salaEstaAtiva(salaId)
+            && request.resource.data.autorUid == request.auth.uid
+            && request.resource.data.autorNome is string
+            && request.resource.data.texto is string
+            && request.resource.data.texto.size() > 0
+            && request.resource.data.texto.size() <= 500
+            && horarioEhDoServidor();
+
+          // O update existe para `lidaEm`. A autoria e o horário não mudam:
+          // reescrever o que o outro disse, numa conversa que ninguém mais vê,
+          // seria indefensável.
+          allow update: if participaDaConversa()
+            && request.resource.data.autorUid == resource.data.autorUid
+            && request.resource.data.texto == resource.data.texto
+            && horarioEhDoServidor();
+
+          allow delete: if false;
+        }
       }
     }
 

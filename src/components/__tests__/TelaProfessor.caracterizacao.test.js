@@ -129,12 +129,17 @@ describe('TelaProfessor — lista de chamados (AC-CHAMADO-03)', () => {
     await waitFor(() => expect(autoresNaTela()).toEqual(['Ana Souza']));
   });
 
+  // AJUSTADO pela task 06 (AC-PERF-03). Eram dois listeners: o desta tela, em
+  // `chamados`, e o do `<Chat/>` embutido no rodapé — que assinava a conversa
+  // inteira **com o painel fechado**, em toda tela de toda pessoa, o dia todo.
+  //
+  // O chat da v0.8.0 só escuta quando o painel está aberto. O número cai de
+  // dois para um, e a asserção acompanha: a tela do professor passa a custar
+  // uma assinatura, não duas. O que o caso guarda continua sendo o mesmo —
+  // nenhuma delas sobrevive ao unmount.
   it('cancela os listeners ao desmontar (AC-PERF-04)', () => {
-    // São dois: o desta tela, em `chamados`, e o do `<Chat/>` embutido no
-    // rodapé, em `chat`. Montar a tela do professor custa duas assinaturas de
-    // coleção inteira — o dobro do que a task 03 vai precisar escopar por sala.
     const { unmount } = renderComProvedores(<TelaProfessor />);
-    expect(__ouvintesAtivos()).toBe(2);
+    expect(__ouvintesAtivos()).toBe(1);
 
     unmount();
 

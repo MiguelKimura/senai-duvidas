@@ -9,6 +9,46 @@ Todas as mudanças relevantes deste projeto são registradas aqui, no formato
 > intervalo e os agrupa. Escrever à mão é escrever de memória no fim do trabalho, e o que
 > fica de fora é justamente o que ninguém lembrou.
 
+> node scripts/gerarChangelog.js 33f1c01..HEAD --versao 0.8.0 --data 2026-09-22
+
+## [0.8.0] - 2026-09-22
+
+### Adicionado
+
+- **chat:** deriva a cor da mensagem so da semente, nunca do leitor
+- **chat:** clareia a cor ate o texto se ler, e para no primeiro tom aprovado
+- **chat:** poe o !clear atras do papel de professor e apaga em lote aguardado
+- **chat:** escuta a conversa em janela decrescente de 50, com paginacao
+- **chat:** acrescenta <a> a MESMA tranca, com rel escrito pelo sanitizador
+- **chat:** mostra horario, cor estavel, selo e estado de envio no balao
+- **chat:** rola sozinho para o fim, exceto para quem subiu ler o historico
+- **chat:** agrupa falas seguidas do mesmo autor e oferece as anteriores
+- **chat:** conta os 500 caracteres, quebra linha com Shift+Enter e nao perde texto
+- **chat:** faz o fake ler campo dentro de mapa, como orderBy e where fazem
+- **chat:** poe a privacidade da DM e o !clear no servidor
+- **chat:** entrega a aba de diretas, com lista, contador e conversa aberta
+- **chat:** monta as abas, pergunta antes do !clear e filtra o dia em vez de apagar
+- **chat:** liga as telas ao chat novo e aposenta o Chat.js da v0.7.0
+- **chat:** veste o chat novo e faz a mensagem entrar sem incomodar quem pediu calma
+
+### Alterado
+
+- **chat:** prova que a cor da mensagem nao pode depender de quem le
+- **chat:** exige contraste AA verificado, e nao luminosidade escolhida no olho
+- **chat:** exige papel, lote e relato de falha no !clear, e limite de 500
+- **chat:** exige janela de 50 mensagens recentes e paginacao para tras
+- **chat:** exige link clicavel no chat sem abrir o card do chamado
+- **chat:** exige horario, selo, agrupamento e estado de envio no balao
+- **chat:** alcanca os baloes pelo document, como o resto da suite faz
+- **chat:** exige rolagem que acompanha sem arrancar quem esta relendo
+- **chat:** exige agrupamento por autor e tempo, e o botao de anteriores
+- **chat:** exige contador de 500, Shift+Enter e texto preservado na falha
+- **chat:** fixa o modelo das conversas diretas e pega o unico furo que restou
+- **chat:** exige que a privacidade da DM seja do servidor, nao da interface
+- **chat:** fixa o fluxo inteiro da conversa direta, do contato ao contador
+- **chat:** exige abas, !clear com confirmacao e meia-noite que nao destroi
+- **chat:** exige estilo para o chat novo e animacao que some com movimento reduzido
+
 > node scripts/gerarChangelog.js a95c1b7..HEAD --versao 0.7.0 --data 2026-09-21
 
 ## [0.7.0] - 2026-09-21

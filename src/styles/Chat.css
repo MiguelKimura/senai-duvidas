@@ -1,12 +1,33 @@
+/* O chat — AC-CHAT-01 a AC-CHAT-13, AC-DM-01 a AC-DM-06.
+ *
+ * Este arquivo foi reescrito junto com os componentes. O anterior era o CSS do
+ * protótipo da v0.1.0 e estilizava `.fala-box`, `.mensagem-card` e
+ * `.input-container` — seletores que nenhum componente renderiza desde que o
+ * chat virou `src/components/chat/`. Ele também declarava um `button { ... }`
+ * cru, sem classe na frente: como `Chat.jsx` importa esta folha, aquela regra
+ * escapava do chat e empurrava 50x50px em todo botão da página.
+ *
+ * O painel agora é uma coluna flex de altura fixa, e não três blocos
+ * `position: fixed` empilhados no olho. A lista rola dentro dela; o campo de
+ * digitação fica preso no rodapé da coluna, não no rodapé da janela.
+ *
+ * Sobre os valores crus: os `--tokens` de cor deste projeto foram extraídos
+ * daqui (`src/styles/tokens.css`), e `styles/__tests__/tokens.test.js` exige
+ * que todo token apareça literalmente em algum CSS de componente — é assim que
+ * ele prova que a extração não repaginou nada. A troca dos literais por
+ * `var(--token)` nos arquivos de componente é escopo da task 08. Só as
+ * durações de movimento vêm como token aqui, porque o AC-CHAT-13 pede a
+ * animação já escrita com eles.
+ */
+
+/* ---- A casca ---------------------------------------------------------- */
+
 .chat-container {
   position: fixed;
   bottom: 20px;
   left: 20px;
-  background-color: #e9e9e9;
-  border-radius: 10px;
-  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-  width: 300px;
   font-family: Arial, sans-serif;
+  z-index: 9999;
 }
 
 .toggle-chat-btn {
@@ -15,16 +36,13 @@
   background-color: #ff0000;
   color: white;
   border-radius: 50%;
-  font-size: 30px;
+  font-size: 24px;
   display: flex;
   justify-content: center;
   align-items: center;
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
   border: none;
   cursor: pointer;
-  z-index: 1000;
+  transition: background-color var(--duracao-transicao) var(--aceleracao-padrao);
 }
 
 .toggle-chat-btn:hover {
@@ -32,141 +50,437 @@
 }
 
 .chat-box {
-  position: fixed;
-  bottom: 70px;
-  left: 80px;
-  width: 300px;
-  height: 400px;
-  background-color: #fff;
-  border-radius: 20px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  padding: 20px;
-  overflow-y: auto;
-  z-index: 999;
-}
-
-.chat-header {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-.mensagens-list {
-  margin-bottom: 20px;
-}
-
-.mensagem-card {
+  position: absolute;
+  bottom: 60px;
+  left: 0;
   display: flex;
-  justify-content: flex-start; /* Por padrão, as mensagens serão alinhadas à esquerda */
-  margin-bottom: 15px;
+  flex-direction: column;
+  width: 320px;
+  height: 440px;
+  background-color: #fff;
+  border: 1px solid #e9e9e9;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
 }
 
-.mensagem-card.received {
-  justify-content: flex-start; /* Mensagens recebidas à esquerda */
+/* Os painéis das abas não têm classe própria — quem os distingue é o papel
+   ARIA, que também é o que o leitor de tela usa. */
+.chat-box [role='tabpanel'] {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
-.mensagem-card.sent {
-  justify-content: flex-end; /* Mensagens enviadas à direita */
+/* ---- As abas (AC-DM-01) ----------------------------------------------- */
+
+.chat-abas {
+  display: flex;
+  border-bottom: 1px solid #e9e9e9;
 }
 
-.fas {
-  font-size: 24px;
-}
-
-.fala-box {
-  background-color: #ff0000;
-  color: white;
+.chat-aba {
+  flex: 1;
   padding: 10px;
-  border-radius: 10px;
-  max-width: 80%;
-  font-size: 0.8em;
-  word-wrap: break-word;
-  display: inline-block;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: gray;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: color var(--duracao-transicao) var(--aceleracao-padrao);
 }
 
-.fala-box.sent {
-  background-color: #007bff; /* Cor para as mensagens enviadas */
-}
-
-.fala-box.received {
-  background-color: #28a745; /* Cor para as mensagens recebidas */
-}
-
-.fala-box strong {
-  color: #fff;
+.chat-aba--ativa {
+  color: #ff0000;
+  border-bottom-color: #ff0000;
   font-weight: bold;
 }
 
-.input-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-top: 10px;
-  position: fixed;
-  bottom: 20px;
-  left: 80px;
-  width: 300px;
-  padding: 10px;
-  background-color: #fff;
-  z-index: 1000;
+.chat-aviso {
+  margin: 10px;
+  font-size: 0.8em;
+  color: gray;
 }
 
-input[type='text'] {
-  width: 80%;
+/* Apagar a conversa da turma é irreversível: o aviso precisa parecer um aviso,
+   não mais um botão qualquer na barra (AC-CHAT-08). */
+.chat-confirmacao {
+  margin: 10px;
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid #ff0000;
+  border-radius: 8px;
+  font-size: 0.85em;
+}
+
+.chat-confirmacao button {
+  margin-right: 8px;
+  padding: 6px 12px;
+  border: none;
   border-radius: 5px;
+  background-color: #ff0000;
+  color: white;
+  cursor: pointer;
+}
+
+.chat-historico,
+.conversas-nova,
+.conversa-voltar,
+.mensagens-anteriores,
+.mensagens-novas {
+  align-self: center;
+  margin: 8px;
+  padding: 4px 10px;
+  background: none;
+  border: none;
+  color: #007bff;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+
+/* ---- As duas abas por dentro ------------------------------------------ */
+
+.aba-sala,
+.aba-diretas,
+.conversa {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- A lista de conversas (AC-DM-05, AC-DM-06) ------------------------- */
+
+.conversas,
+.conversas-contatos {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.conversas-contatos {
+  flex: 0 0 auto;
+  max-height: 140px;
+  border-bottom: 1px solid #e9e9e9;
+}
+
+.conversas-contatos button {
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.conversas-aviso {
+  padding: 12px;
+  font-size: 0.8em;
+  color: gray;
+}
+
+.conversas-erro {
+  margin: 10px;
+  font-size: 0.8em;
+  color: #8f0000;
+}
+
+.conversa-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #e9e9e9;
+  text-align: left;
+  cursor: pointer;
+}
+
+.conversa-nome {
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+.conversa-previa {
+  grid-column: 1;
+  font-size: 0.8em;
+  color: gray;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversa-horario {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 0.7em;
+  color: gray;
+}
+
+.conversa-nao-lidas {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background-color: #ff0000;
+  color: white;
+  font-size: 0.7em;
+  text-align: center;
+}
+
+.conversa-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e9e9e9;
+}
+
+.conversa-cabecalho h4 {
+  margin: 0;
+  font-size: 0.9em;
+}
+
+.conversa-voltar {
+  margin: 0;
+  padding: 0;
+}
+
+/* ---- A rolagem e a paginação (AC-CHAT-05, AC-CHAT-06) ------------------ */
+
+.mensagens {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.mensagens-rolagem {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 10px;
+  background-color: #e9e9e9;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.mensagens-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mensagens-aviso {
+  margin: auto 0;
+  font-size: 0.8em;
+  color: gray;
+  text-align: center;
+}
+
+/* O botão de novas mensagens flutua sobre a lista: ele avisa sem empurrar o
+   que a pessoa está lendo (AC-CHAT-05). */
+.mensagens-novas {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background-color: #ff0000;
+  color: white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* ---- O balão (AC-CHAT-01 a AC-CHAT-04, AC-CHAT-07) --------------------- */
+
+.mensagem {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+  animation: mensagem-entra var(--duracao-transicao) var(--aceleracao-padrao);
+}
+
+.mensagem--minha {
+  align-items: flex-end;
+}
+
+.mensagem--de-outro {
+  align-items: flex-start;
+}
+
+/* Falas seguidas do mesmo autor respiram menos entre si do que entre blocos:
+   é o agrupamento aparecendo no espaçamento, e não só na ausência do nome
+   (AC-CHAT-03). */
+.mensagem--agrupada {
+  margin-top: -6px;
+}
+
+/* A mensagem ainda sem carimbo do servidor aparece esmaecida e volta ao normal
+   quando o documento confirma (AC-CHAT-07). */
+.mensagem--enviando {
+  opacity: 0.6;
+}
+
+.mensagem-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+  font-size: 0.7em;
+}
+
+.mensagem-autor {
+  font-weight: bold;
+}
+
+.mensagem-selo {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background-color: #28a745;
+  color: white;
+  font-size: 0.9em;
+}
+
+/* Ponto de extensão da task 07: a insígnia do perk entra aqui, ao lado do
+   nome, sem que o balão precise saber o que é um perk. */
+.mensagem-insignias {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.mensagem-balao {
+  max-width: 80%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.8em;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.mensagem-texto p {
+  margin: 0;
+}
+
+.mensagem-texto a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.mensagem-horario {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.85em;
+  opacity: 0.8;
+  text-align: right;
+}
+
+/* ---- O campo de digitação (AC-CHAT-09) --------------------------------- */
+
+.campo-mensagem {
+  padding: 8px;
+  border-top: 1px solid #e9e9e9;
+  background-color: #fff;
+}
+
+.campo-mensagem-linha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.campo-mensagem-entrada {
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #e9e9e9;
+  border-radius: 5px;
+  font-size: 0.85em;
+}
+
+.campo-mensagem-aviso {
+  margin: 0 0 6px;
+  font-size: 0.75em;
+  color: gray;
+}
+
+.campo-mensagem-erro {
+  margin: 0 0 6px;
+  font-size: 0.75em;
+  color: #8f0000;
 }
 
 .enviar-btn {
-  width: 40px;
-  height: 40px;
-  margin-left: 15px;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
   background-color: #ff0000;
   color: white;
+  border: none;
   border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  transition: background-color 0.3s;
-  border: none;
+  transition: background-color var(--duracao-transicao) var(--aceleracao-padrao);
 }
 
-.enviar-btn:hover {
+.enviar-btn:hover:not(:disabled) {
   background-color: #8f0000;
+}
+
+.enviar-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .enviar-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   fill: white;
 }
 
-button {
-  width: 50px;
-  height: 50px;
-  padding: 10px;
-  background-color: #ff0000;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
+/* ---- Movimento (AC-CHAT-13, AC-ANIM-05) -------------------------------- */
+
+@keyframes mensagem-entra {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-button:hover {
-  background-color: #8f0000;
-}
+/* Quem pediu menos movimento ao sistema operacional recebe a mensagem já no
+   lugar. Não é preferência estética: movimento involuntário dispara enjoo e
+   crise vestibular em parte das pessoas, e um chat de aula move a tela o tempo
+   todo. O conteúdo é o mesmo — só o caminho até ele desaparece. */
+@media (prefers-reduced-motion: reduce) {
+  .mensagem {
+    animation: none;
+  }
 
-.credits {
-  font-size: 12px;
-  text-align: center;
-  color: gray;
-  position: fixed;
-  bottom: 70px; /* Ajustado para que não sobreponha o botão */
-  left: 80px;
-  width: 300px;
-  background-color: #fff;
-  border-radius: 0 0 20px 20px;
-  padding: 5px;
-  z-index: 9999; /* Garante que os créditos fiquem visíveis */
+  .mensagens-rolagem {
+    scroll-behavior: auto;
+  }
+
+  .chat-aba,
+  .enviar-btn,
+  .toggle-chat-btn {
+    transition: none;
+  }
 }

@@ -70,6 +70,33 @@ function criarSnapshotDeDocumento(caminhoDoDocumento) {
   };
 }
 
+/**
+ * Lê um campo pelo caminho, entendendo o ponto como o Firestore entende.
+ *
+ * `ultimaMensagem.horario` é um campo DENTRO de um mapa, e tanto `orderBy`
+ * quanto `where` o aceitam no serviço real. Sem isto, o fake procuraria uma
+ * chave chamada literalmente `"ultimaMensagem.horario"`, não acharia nada, e
+ * diria que a lista de conversas está ordenada quando ela está na ordem de
+ * inserção.
+ *
+ * @param {object|undefined} dados documento.
+ * @param {string} caminho nome do campo, com ou sem ponto.
+ * @returns {unknown} `undefined` quando o caminho não existe.
+ */
+function campoDe(dados, caminho) {
+  return caminho
+    .split('.')
+    .reduce(
+      (atual, parte) => (atual === null || atual === undefined ? undefined : atual[parte]),
+      dados
+    );
+}
+
+/** O caminho existe no documento — inclusive dentro de um mapa. */
+function temCampo(dados, caminho) {
+  return campoDe(dados, caminho) !== undefined;
+}
+
 function valorOrdenavel(valor) {
   if (valor instanceof Timestamp) return valor.toMillis();
   if (valor instanceof Date) return valor.getTime();
@@ -85,9 +112,9 @@ function valorOrdenavel(valor) {
  * `atendido == false`.
  */
 function atendeAoFiltro(dados, { campo, operador, valor }) {
-  if (!dados || !(campo in dados)) return false;
+  if (!dados || !temCampo(dados, campo)) return false;
 
-  const atual = valorOrdenavel(dados[campo]);
+  const atual = valorOrdenavel(campoDe(dados, campo));
   const alvo = valorOrdenavel(valor);
 
   switch (operador) {
@@ -105,8 +132,10 @@ function atendeAoFiltro(dados, { campo, operador, valor }) {
       return atual >= alvo;
     case 'in':
       return Array.isArray(valor) && valor.map(valorOrdenavel).includes(atual);
-    case 'array-contains':
-      return Array.isArray(dados[campo]) && dados[campo].includes(valor);
+    case 'array-contains': {
+      const lista = campoDe(dados, campo);
+      return Array.isArray(lista) && lista.includes(valor);
+    }
     default:
       throw new Error(`Operador de where não implementado no fake: ${operador}`);
   }
@@ -119,8 +148,8 @@ function documentosDe(caminho, ordenacoes = [], filtros = [], quantidade = null)
 
   ordenacoes.forEach(({ campo, direcao }) => {
     documentos.sort((a, b) => {
-      const esquerda = valorOrdenavel(a.data()[campo]);
-      const direita = valorOrdenavel(b.data()[campo]);
+      const esquerda = valorOrdenavel(campoDe(a.data(), campo));
+      const direita = valorOrdenavel(campoDe(b.data(), campo));
 
       if (esquerda === direita) return 0;
       const comparacao = esquerda < direita ? -1 : 1;
@@ -174,6 +203,47 @@ function separarCarimbos(dados) {
   });
 
   return { gravados, campos };
+}
+
+/**
+ * Aplica uma escrita sobre o documento existente, entendendo as duas formas
+ * que o SDK aceita e que este projeto usa.
+ *
+ * **Caminho de campo com ponto.** `{'naoLidas.uid-bruno': 3}` mexe numa chave
+ * DENTRO do mapa `naoLidas`, sem reescrever o mapa inteiro. É o que permite
+ * dois participantes de uma conversa direta atualizarem o próprio contador sem
+ * apagar o do outro — com `{naoLidas: {...}}` o último a escrever venceria.
+ *
+ * **`increment(n)`.** Soma no servidor, a partir do valor gravado, em vez de
+ * `lido + 1` calculado no cliente. Duas mensagens enviadas no mesmo segundo
+ * somam 2, e não 1.
+ *
+ * @param {object} existente documento como está no armazém.
+ * @param {object} escrita campos da escrita, com ou sem ponto.
+ * @returns {object} documento novo, sem tocar no original.
+ */
+function aplicarCaminhos(existente, escrita) {
+  const resultado = { ...existente };
+
+  Object.entries(escrita).forEach(([chave, valor]) => {
+    const partes = chave.split('.');
+    let alvo = resultado;
+
+    for (let i = 0; i < partes.length - 1; i += 1) {
+      const atual = alvo[partes[i]];
+      alvo[partes[i]] = atual && typeof atual === 'object' ? { ...atual } : {};
+      alvo = alvo[partes[i]];
+    }
+
+    const folha = partes[partes.length - 1];
+
+    alvo[folha] =
+      valor && valor.__tipo === 'increment'
+        ? (Number(alvo[folha]) || 0) + valor.quantidade
+        : valor;
+  });
+
+  return resultado;
 }
 
 /** Registra os campos que o "servidor" ainda precisa carimbar. */
@@ -323,9 +393,9 @@ export async function updateDoc(referencia, dados) {
     throw new Error(`updateDoc em documento inexistente: ${referencia.__caminho}`);
   }
 
-  const { gravados, campos } = separarCarimbos(dados);
+  const { gravados, campos } = separarCarimbos(aplicarCaminhos(existente, dados));
 
-  colecaoDe(caminhoDaColecao).set(id, { ...existente, ...gravados });
+  colecaoDe(caminhoDaColecao).set(id, gravados);
   anotarCarimbos(caminhoDaColecao, id, campos);
   notificar(caminhoDaColecao);
 }
@@ -388,6 +458,85 @@ function quantidadeDe(consultaOuColecao) {
 
 export function serverTimestamp() {
   return { __tipo: 'serverTimestamp' };
+}
+
+/**
+ * Soma atômica no servidor, como `increment` do SDK real.
+ *
+ * Existe no fake porque o contador de não lidas da conversa direta depende
+ * dela: com `lido + 1` calculado no cliente, duas mensagens que chegam no mesmo
+ * instante contam uma só.
+ */
+export function increment(quantidade) {
+  return { __tipo: 'increment', quantidade };
+}
+
+/**
+ * Escrita em lote, como `writeBatch` do SDK real.
+ *
+ * O que ele acrescenta ao fake não é economia de chamadas: é **atomicidade**.
+ * O `commit()` só aplica alguma coisa depois de conferir a recusa de TODAS as
+ * operações do lote. É isso que faz o `!clear` de quem não tem permissão não
+ * apagar metade da conversa antes de parar — o comportamento que separa o lote
+ * do `forEach(deleteDoc)` da v0.7.0.
+ *
+ * O teto de 500 operações é o do Firestore de verdade, e o fake o cobra: um
+ * lote grande demais é recusado aqui, como seria lá.
+ */
+export const TETO_DO_LOTE = 500;
+
+export function writeBatch() {
+  const operacoes = [];
+
+  function registrar(tipo, referencia, dados) {
+    if (operacoes.length >= TETO_DO_LOTE) {
+      throw new Error(`writeBatch aceita no máximo ${TETO_DO_LOTE} operações.`);
+    }
+
+    operacoes.push({ tipo, referencia, dados });
+  }
+
+  return {
+    set(referencia, dados) {
+      registrar('set', referencia, dados);
+      return this;
+    },
+    update(referencia, dados) {
+      registrar('update', referencia, dados);
+      return this;
+    },
+    delete(referencia) {
+      registrar('delete', referencia);
+      return this;
+    },
+    async commit() {
+      // Primeiro a conferência inteira, depois a aplicação inteira.
+      operacoes.forEach(({ tipo, referencia }) =>
+        conferirRecusa(tipo === 'delete' ? 'escrita' : 'escrita', referencia.__caminho)
+      );
+
+      const caminhosAfetados = new Set();
+
+      operacoes.forEach(({ tipo, referencia, dados }) => {
+        const caminhoDaColecao = caminhoDoPai(referencia.__caminho);
+        const id = idDe(referencia.__caminho);
+        caminhosAfetados.add(caminhoDaColecao);
+
+        if (tipo === 'delete') {
+          colecaoDe(caminhoDaColecao).delete(id);
+          return;
+        }
+
+        const existente = tipo === 'update' ? colecaoDe(caminhoDaColecao).get(id) || {} : {};
+        const { gravados, campos } = separarCarimbos(aplicarCaminhos(existente, dados));
+
+        colecaoDe(caminhoDaColecao).set(id, gravados);
+        anotarCarimbos(caminhoDaColecao, id, campos);
+      });
+
+      caminhosAfetados.forEach(notificar);
+    },
+  };
 }
 
 // --- controles de teste ----------------------------------------------------
@@ -478,6 +627,26 @@ export function __carimbosPendentes() {
 export function __semearColecao(caminho, documentos) {
   documentos.forEach(({ id, ...dados }) => colecaoDe(caminho).set(id, dados));
   notificar(caminho);
+}
+
+/**
+ * As consultas que estão inscritas agora, com a forma de cada uma.
+ *
+ * Existe para que um teste possa afirmar **o corte** de um listener, e não só
+ * quantos resultados ele devolveu. "A conversa carrega 50 mensagens"
+ * (AC-CHAT-06) é uma afirmação sobre a consulta: com 12 mensagens no banco,
+ * contar balões na tela dá 12 tanto com `limit(50)` quanto sem limite nenhum —
+ * e é justamente o "sem limite nenhum" que o AC-PERF-03 proíbe.
+ *
+ * @returns {Array<{caminho: string, quantidade: number|null, ordenacoes: Array, filtros: Array}>}
+ */
+export function __consultasAtivas() {
+  return ouvintes.map(({ caminho, quantidade, ordenacoes, filtros }) => ({
+    caminho,
+    quantidade,
+    ordenacoes,
+    filtros,
+  }));
 }
 
 /** Quantos ouvintes continuam inscritos — usado para provar o AC-PERF-04. */

@@ -370,6 +370,34 @@ function diaCivilEmBrasilia(data) {
 }
 
 /**
+ * Duas datas caem no mesmo dia do calendário de Brasília (AC-TEMPO-07).
+ *
+ * A pergunta parece trivial e a resposta trivial está errada:
+ * `a.getDate() === b.getDate()` lê o calendário **da máquina**, que é
+ * exatamente o que a task 02 documentou não ser confiável nos laboratórios.
+ * Duas mensagens das 21h e das 23h de Brasília caem em dias diferentes para um
+ * Windows configurado em UTC.
+ *
+ * É o que decide qual conversa o chat mostra hoje: desde a v0.8.0 o "reset de
+ * meia-noite" é este filtro, e não uma deleção (ver ADR 0009).
+ *
+ * Sem data legível de um dos lados, responde `false`. Adivinhar aqui faria uma
+ * mensagem sem horário aparecer em todos os dias, para sempre.
+ *
+ * @param {Timestamp|string|Date|null|undefined} a
+ * @param {Timestamp|string|Date|null|undefined} b
+ * @returns {boolean}
+ */
+export function mesmoDiaEmBrasilia(a, b) {
+  const primeira = paraData(a);
+  const segunda = paraData(b);
+
+  if (!primeira || !segunda) return false;
+
+  return diaCivilEmBrasilia(primeira) === diaCivilEmBrasilia(segunda);
+}
+
+/**
  * A próxima meia-noite de Brasília, devolvida como instante (AC-TEMPO-07).
  *
  * O caminho óbvio — somar um dia e aplicar o deslocamento do fuso — erra nas

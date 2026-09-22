@@ -129,30 +129,30 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-CHAT-01 | Cada mensagem exibe o **horário de envio** (HH:mm no fuso de Brasília). | [MVP] |
-| AC-CHAT-02 | Mensagens do mesmo usuário mantêm **sempre a mesma cor**, estável entre sessões e entre dispositivos. | [MVP] |
-| AC-CHAT-03 | Mensagens consecutivas do mesmo autor são agrupadas, sem repetir nome e avatar. | [MVP] |
-| AC-CHAT-04 | Professores são visualmente identificados com selo/etiqueta distinta dos alunos. | [MVP] |
-| AC-CHAT-05 | O chat rola automaticamente para a mensagem mais recente — exceto quando o usuário rolou para cima, caso em que aparece o botão "novas mensagens". | [MVP] |
-| AC-CHAT-06 | O chat carrega apenas as **50 mensagens mais recentes** e busca as anteriores sob demanda (scroll infinito). | [MVP] |
-| AC-CHAT-07 | Enviar mensagem tem feedback otimista: a mensagem aparece imediatamente em estado "enviando" e confirma ao gravar. | [MVP] |
-| AC-CHAT-08 | O comando `!clear` só funciona para **professores** e pede confirmação; hoje qualquer aluno pode apagar o chat inteiro (falha de segurança a corrigir). | [MVP] |
-| AC-CHAT-09 | Mensagens são limitadas a 500 caracteres, com contador visível ao se aproximar do limite. | [MVP] |
+| AC-CHAT-01 ✅ | Cada mensagem exibe o **horário de envio** (HH:mm no fuso de Brasília). | [MVP] |
+| AC-CHAT-02 ✅ | Mensagens do mesmo usuário mantêm **sempre a mesma cor**, estável entre sessões e entre dispositivos. | [MVP] |
+| AC-CHAT-03 ✅ | Mensagens consecutivas do mesmo autor são agrupadas, sem repetir nome e avatar. | [MVP] |
+| AC-CHAT-04 ✅ | Professores são visualmente identificados com selo/etiqueta distinta dos alunos. | [MVP] |
+| AC-CHAT-05 ✅ | O chat rola automaticamente para a mensagem mais recente — exceto quando o usuário rolou para cima, caso em que aparece o botão "novas mensagens". | [MVP] |
+| AC-CHAT-06 ✅ | O chat carrega apenas as **50 mensagens mais recentes** e busca as anteriores sob demanda (scroll infinito). | [MVP] |
+| AC-CHAT-07 ✅ | Enviar mensagem tem feedback otimista: a mensagem aparece imediatamente em estado "enviando" e confirma ao gravar. | [MVP] |
+| AC-CHAT-08 ✅ | O comando `!clear` só funciona para **professores** e pede confirmação; hoje qualquer aluno pode apagar o chat inteiro (falha de segurança a corrigir). | [MVP] |
+| AC-CHAT-09 ✅ | Mensagens são limitadas a 500 caracteres, com contador visível ao se aproximar do limite. | [MVP] |
 | AC-CHAT-10 ✅ | O chat é escopado por sala (`salas/{salaId}/chat`). | [MVP] |
 | AC-CHAT-11 | Existe indicador de "digitando…" para os participantes da conversa. | [POS] |
-| AC-CHAT-12 | Links enviados no chat viram links clicáveis com `rel="noopener noreferrer"`; nenhum HTML do usuário é renderizado como markup. | [MVP] |
-| AC-CHAT-13 | Animação de entrada suave nas novas mensagens, respeitando `prefers-reduced-motion`. | [MVP] |
+| AC-CHAT-12 ✅ | Links enviados no chat viram links clicáveis com `rel="noopener noreferrer"`; nenhum HTML do usuário é renderizado como markup. | [MVP] |
+| AC-CHAT-13 ✅ | Animação de entrada suave nas novas mensagens, respeitando `prefers-reduced-motion`. | [MVP] |
 
 ## 9. Mensagens Diretas (`DM`)
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-DM-01 | O chat tem abas separadas: **"Sala"** (público) e **"Diretas"** (privado). | [MVP] |
-| AC-DM-02 | O professor consegue iniciar uma conversa privada com qualquer aluno da sua sala. | [MVP] |
-| AC-DM-03 | O aluno consegue iniciar conversa privada com o professor da sala. | [MVP] |
-| AC-DM-04 | Conversas privadas **não** são visíveis para nenhum terceiro, garantido por Firestore Rules — não apenas por filtro na interface. | [MVP] |
-| AC-DM-05 | Existe indicador de mensagens não lidas por conversa, com contador. | [MVP] |
-| AC-DM-06 | A lista de conversas é ordenada pela mensagem mais recente. | [MVP] |
+| AC-DM-01 ✅ | O chat tem abas separadas: **"Sala"** (público) e **"Diretas"** (privado). | [MVP] |
+| AC-DM-02 ✅ | O professor consegue iniciar uma conversa privada com qualquer aluno da sua sala. | [MVP] |
+| AC-DM-03 ✅ | O aluno consegue iniciar conversa privada com o professor da sala. | [MVP] |
+| AC-DM-04 ✅ | Conversas privadas **não** são visíveis para nenhum terceiro, garantido por Firestore Rules — não apenas por filtro na interface. | [MVP] |
+| AC-DM-05 ✅ | Existe indicador de mensagens não lidas por conversa, com contador. | [MVP] |
+| AC-DM-06 ✅ | A lista de conversas é ordenada pela mensagem mais recente. | [MVP] |
 | AC-DM-07 | Aluno↔aluno é configurável pelo professor e vem **desativado por padrão**. | [POS] |
 | AC-DM-08 | O professor consegue exportar/visualizar o histórico de uma DM para fins pedagógicos, e os participantes são avisados dessa possibilidade. | [POS] |
 
@@ -581,3 +581,76 @@ botões de formatação está fora do escopo desta versão.
 `![x](url)` desaparece. É decisão desta versão, registrada no ADR 0008: a imagem
 do chamado é o anexo validado do ADR 0007, e uma `<img>` na descrição entregaria
 o IP de toda a turma ao servidor do outro lado.
+
+---
+
+### v0.8.0 — Chat reescrito e mensagens diretas
+
+**Atendidos (✅)**
+
+| AC | Prova |
+|---|---|
+| AC-CHAT-01 | `src/components/chat/__tests__/Mensagem.test.js:43` — HH:mm; `:49` — o fuso é o de **Brasília**, e não o da máquina; `:59` — o horário é um `<time>` com instante legível por máquina; `:66` — mensagem antiga com `horario` em string ISO também mostra a hora; `:72` — sem horário nenhum sai travessão, nunca "Invalid Date" |
+| AC-CHAT-02 | `src/utils/__tests__/corUsuario.test.js:18` — determinismo; `:59` — **o e-mail de quem está lendo nunca entra na conta**, que era o defeito da v0.7.0; `:102` — contraste WCAG AA verificado em 1000 uids sintéticos; `:125` — o mesmo para as sementes legadas, que são e-mails; `:168` — a busca para no primeiro tom aprovado, em vez de clarear até o branco; `src/components/chat/__tests__/Mensagem.test.js:136` — a cor do balão não muda conforme quem abre |
+| AC-CHAT-03 | `src/components/chat/__tests__/ListaMensagens.test.js:51` — o nome aparece uma vez por bloco; `:66` — volta quando outra pessoa fala; `:80` — falas distantes no tempo **não** agrupam; `:97` — mensagem legada agrupa pelo e-mail, na falta de `autorUid`; `src/components/chat/__tests__/Mensagem.test.js:177` — a continuação é marcada por classe, para o CSS aproximar os balões |
+| AC-CHAT-04 | `src/components/chat/__tests__/Mensagem.test.js:191` — selo em quem fala como professor **da sala**; `:197` — aluno não tem; `:203` — mensagem antiga, sem `autorPapel`, também não; `:209` — o selo some junto com o nome na continuação |
+| AC-CHAT-05 | `src/hooks/__tests__/useRolagemAutomatica.test.js:86` — no fim da conversa, a mensagem nova rola sozinha; `:106` — rolado para cima, **nada arranca quem está relendo**; `:115` — e aparece o aviso de mensagem nova; `:124` — que leva ao fim quando a pessoa aceita; `:135` — e some sozinho quando ela desce por conta própria; `src/components/chat/__tests__/ListaMensagens.test.js` — o botão leva de volta ao fim |
+| AC-CHAT-06 | `src/hooks/__tests__/useMensagens.test.js:49` — `limit(50)`, e não o teto de 300 da v0.7.0; `:56` — ordem **decrescente**, isto é, as 50 mais recentes; `:67` — com 120 no banco, entrega 50; `:75` — as 50 chegam em ordem crescente para a tela; `:95` — as anteriores sob demanda; `src/components/chat/__tests__/ListaMensagens.test.js:151` |
+| AC-CHAT-07 | `src/components/chat/__tests__/Mensagem.test.js:80` — "enviando…" enquanto o servidor não carimbou; `:88` — o balão é marcado como pendente para o CSS esmaecê-lo; `:94` — o estado some quando o horário chega; `src/components/chat/__tests__/Chat.test.js:177` — o ciclo inteiro na tela |
+| AC-CHAT-08 | `tests/rules/salas.rules.test.js:716` — **o servidor nega**: o `!clear` de um aluno não apaga nenhuma mensagem da turma; `:737` — nem a do colega; `src/components/chat/__tests__/Chat.test.js:211` — o aluno recebe a recusa e a conversa continua inteira; `:232` — o professor **precisa confirmar**; `:243` — confirmar apaga; `:255` — cancelar não apaga nada; `:268` — o comando não vira mensagem visível |
+| AC-CHAT-09 | `src/components/chat/__tests__/CampoMensagem.test.js:92` — sem contador enquanto o limite é teórico; `:100` — contador ao se aproximar; `:114` — o campo não aceita além de 500; `:122` — texto colado acima do limite é **cortado**, não descartado em silêncio; `:131` — avisa em vez de só parar de aceitar letra |
+| AC-CHAT-10 | `src/__tests__/escopoPorSala.test.js:180` — a conversa vive em `salas/{salaId}/chat` (desde a v0.5.0, mantido) |
+| AC-CHAT-12 | `src/components/chat/__tests__/Mensagem.test.js:239` — `<script>` **não** vira markup; `:246` — `<img onerror>` idem; `:252` — URL vira link com `rel="noopener noreferrer"`; `src/utils/__tests__/markdown.test.js` — os links passam pela **mesma** tranca do card do chamado (task 05), com o `rel` escrito pelo sanitizador e não pelo texto de quem digitou |
+| AC-CHAT-13 | `src/styles/__tests__/Chat.css.test.js` — os quadros de `mensagem-entra` existem, a animação é aplicada no balão com `var(--duracao-transicao)` e `var(--aceleracao-padrao)`, e dentro de `@media (prefers-reduced-motion: reduce)` ela é `none` junto com a rolagem suave e as transições |
+| AC-DM-01 | `src/components/chat/__tests__/Chat.test.js:120` — abre na aba da sala; `:127` — troca para diretas; `:136` — a aba de diretas esconde a conversa da turma; `:147` — voltar não perde a conversa da turma |
+| AC-DM-02 | `src/components/chat/__tests__/AbaDiretas.test.js:56` — o professor vê os alunos da sala; `tests/rules/conversas.rules.test.js:226` — e o servidor deixa ele abrir a conversa |
+| AC-DM-03 | `src/components/chat/__tests__/AbaDiretas.test.js:65` — o aluno vê o professor da sala; `:73` — **não** vê os colegas (aluno↔aluno é o AC-DM-07, de outra versão); `tests/rules/conversas.rules.test.js:235` |
+| AC-DM-04 | `tests/rules/conversas.rules.test.js:149` — um terceiro da mesma sala recebe `permission-denied` no `get`; `:200` — e na **consulta** da coleção; `:193` — a consulta sem o filtro `array-contains` é negada mesmo para quem tem conversa; `:159` — nem o professor dono da sala lê a conversa de dois alunos; `:351` — o terceiro também não lê as mensagens; `:312` — nem atualiza o resumo; `:320` — participante não se acrescenta à lista |
+| AC-DM-05 | `src/components/chat/__tests__/ListaConversas.test.js:77` — o contador de quem está lendo; `:88` — **não** o do outro lado; `:100` — sem bolinha com zero dentro; `:111` — conversa sem o mapa `naoLidas` não quebra a lista; `src/components/chat/__tests__/AbaDiretas.test.js:168` — abrir zera o contador de quem abriu; `tests/rules/conversas.rules.test.js:295` e `:304` |
+| AC-DM-06 | `src/components/chat/__tests__/ListaConversas.test.js:119` — a lista preserva a ordem que o servidor entregou, e o servidor ordena por `ultimaMensagem.horario`; `src/services/__tests__/chatDiretas.test.js` — a consulta pede essa ordenação |
+| AC-PERF-04 | `src/components/chat/__tests__/Chat.test.js:357` — desmontar não deixa listener para trás; `:367` — fechar o painel solta o listener; `:377` — **o painel fechado não escuta nada**; `src/components/chat/__tests__/AbaDiretas.test.js:208` e `:217` — abrir e fechar conversas não acumula listener |
+| AC-TEMPO-07 | `src/components/chat/__tests__/Chat.test.js:286` — a tela mostra só a conversa de hoje; `:298` — **a de ontem continua no banco**; `:308` — o histórico está a um clique; `:324` — a mensagem em voo, ainda sem carimbo, não some da tela; `:335` — a virada da meia-noite esvazia a tela e não o banco |
+| Retroativa | `src/components/chat/__tests__/Mensagem.test.js:66` — `horario` em string ISO; `:183` — usa o `nome` gravado, e não o do autor logado; `:203` — sem `autorPapel`, sem selo; `src/utils/__tests__/corUsuario.test.js:53` — sem `autorUid`, a cor sai do `email` da **própria** mensagem; `:77` — mensagem sem nada não lança; `src/components/chat/__tests__/ListaMensagens.test.js:97` e `:111` — agrupamento por e-mail na coleção mista |
+| Futura | `src/components/chat/__tests__/Chat.test.js:160` — a mensagem nova grava `autorUid`, `autorNome` e `autorPapel` **e também** `nome` e `email`, para que um cliente da v0.7.0 continue renderizando o balão; `src/__tests__/compatibilidadeFutura.test.js:165` — uma mensagem com campos que a v0.1.0 não conhece é renderizada sem lançar, e `:174` — os campos desconhecidos não vazam para a tela |
+
+**Parcialmente atendidos (🟡)**
+
+| AC | O que já vale | O que falta |
+|---|---|---|
+| AC-PERF-06 | A conta de leitura antes/depois está em `docs/ARQUITETURA.md`: com `limit(50)` mais o painel que só escuta aberto, o chat deixa de ser o gargalo da cota | Continua sendo estimativa a partir dos cortes, não medição no console do Firebase com uso real |
+
+**Continuam não atendidos, de propósito**
+
+| AC | Por quê | Task que resolve |
+|---|---|---|
+| AC-CHAT-11 | [POS]. O ponto de extensão existe e está testado — `CampoMensagem` aceita `aoDigitar` e avisa ao começar, ao enviar e ao sair do campo (`src/components/chat/__tests__/CampoMensagem.test.js:179`) —, mas nada publica esse sinal no banco nem desenha o indicador para o outro lado. Publicá-lo custa uma escrita por tecla se for feito ingenuamente; fazer direito pede um documento de presença com expiração, que é desenho próprio. | pós-1.0.0 |
+| AC-DM-07 | [POS]. Aluno↔aluno continua fechado, e é o padrão correto: hoje o aluno só vê o professor na lista de contatos. Abrir isso exige a chave por sala e a moderação que vem com ela. | pós-1.0.0 |
+| AC-DM-08 | [POS]. Não há exportação de histórico de DM, e os participantes não são avisados de que ela poderia existir. Enquanto não existir, o aviso seria falso. | pós-1.0.0 |
+| AC-ANIM-09 | Inalterado por esta versão. O chat novo já nasceu com botão de verdade em tudo que é clicável — abas, paginação, conversas —, mas o ícone 👁️ dos cards continua sendo uma `<div>` com `onClick`, e as regras de lint continuam desligadas com `TODO(task-08)`. | 08 |
+| AC-CHAMADO-06 | Sem mudança nesta versão: marcar como atendido continua sem interface. | 07 |
+
+**Limites conhecidos**
+
+**A janela relê a janela inteira ao paginar.** Pedir as 50 anteriores refaz a
+consulta com `limit(100)`, em vez de buscar só a página nova com `startAfter`.
+É mais caro por clique e foi escolhido de propósito: um cursor cria um segundo
+conjunto de resultados fora do `onSnapshot`, que não recebe edição nem deleção
+em tempo real, e expira quando a mensagem-âncora some no `!clear`. Com o teto de
+300 por sala, o pior caso é seis releituras por aula. Está no ADR 0009.
+
+**Mensagem sem `horario` nenhum não aparece na visão do dia.** Ela não pode ser
+provada como de hoje, então fica no histórico, atrás do botão "Ver dias
+anteriores". O caso oposto — mensagem recém-enviada, ainda sem o carimbo do
+servidor — conta como de hoje de propósito, senão a própria fala que a pessoa
+acabou de escrever piscaria e sumiria enquanto o servidor responde.
+
+**A ordenação do servidor não intercala os dois formatos de `horario`.** O
+`orderBy` do Firestore ordena por tipo antes de ordenar por valor, e
+`Timestamp` vem antes de `string`. Uma mensagem da v0.1.0 com `horario` em
+string ISO é alcançada pela paginação, e a ordem que a tela mostra é decidida no
+cliente por `criarComparadorPorHorario`, como em toda tela do app.
+
+**A rule não valida o conteúdo da mensagem direta.** Ela confere participação,
+id determinístico e assinatura do autor, mas não o tamanho do texto — o limite
+de 500 é do cliente. Endurecer isso é o mesmo trabalho pendente do `formato` e
+da `cor` do chamado, e fica para a task 09.

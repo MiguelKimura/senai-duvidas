@@ -27,9 +27,10 @@ import {
 } from 'firebase/firestore';
 import TelaAluno from '../components/TelaAluno';
 import TelaProfessor from '../components/TelaProfessor';
-import Chat from '../components/Chat';
-import { LIMITE_DE_CHAMADOS, LIMITE_DE_MENSAGENS } from '../services/salas';
-import { renderComProvedores } from '../test-utils';
+import Chat from '../components/chat/Chat';
+import { MENSAGENS_POR_PAGINA } from '../services/chat';
+import { LIMITE_DE_CHAMADOS, LIMITE_DE_MENSAGENS, PAPEL_DE_PROFESSOR } from '../services/salas';
+import { fixarRelogio, renderComProvedores, restaurarRelogio } from '../test-utils';
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -49,13 +50,24 @@ function cartoes() {
   return document.querySelectorAll('.problema-card');
 }
 
-/** Os balões de fala que estão na tela. */
+/**
+ * Os balões de fala que estão na tela.
+ *
+ * `.fala-box` era a marcação da v0.7.0, quando o balão era um `div` solto. O
+ * chat da v0.8.0 monta cada mensagem como item de lista, e o texto — o único
+ * pedaço que este arquivo mede — mora em `.mensagem-texto`.
+ */
 function falas() {
-  return Array.from(document.querySelectorAll('.fala-box')).map((balao) => balao.textContent);
+  return Array.from(document.querySelectorAll('.mensagem-texto')).map((no) => no.textContent);
 }
 
+// O painel fechado nao escuta nada (AC-PERF-03), e a sessao resolve em outro
+// tick: abrir e perguntar na mesma linha alcanca o aviso de carregamento, nao a
+// conversa. Esperar a aba "Sala" aparecer e esperar as duas coisas de uma vez.
 async function abrirChat() {
   await userEvent.click(document.querySelector('.toggle-chat-btn'));
+
+  return screen.findByRole('tab', { name: 'Sala' });
 }
 
 function semearAsDuasSalas() {
@@ -83,6 +95,10 @@ function semearAsDuasSalas() {
       atendido: false,
     },
   ]);
+  // As duas falas são do dia de `HORARIO_DO_SERVIDOR`, fixado no `beforeEach`:
+  // a aba da sala mostra a conversa de hoje, e uma mensagem sem `horario` nao
+  // pode ser provada como de hoje — ela fica no histórico, atrás do botão.
+  // O que este arquivo mede é a porta da sala, não o filtro do dia.
   __semearColecao(CHAT_DA_SALA_A, [
     {
       id: 'ma',
@@ -90,6 +106,7 @@ function semearAsDuasSalas() {
       nome: 'Ana Souza',
       texto: 'Oi da sala A',
       email: ANA.email,
+      horario: new Date('2026-03-10T12:00:00.000Z'),
     },
   ]);
   __semearColecao(CHAT_DA_SALA_B, [
@@ -99,6 +116,7 @@ function semearAsDuasSalas() {
       nome: 'Bruno Dias',
       texto: 'Oi da sala B',
       email: 'bruno@senai.br',
+      horario: new Date('2026-03-10T12:00:00.000Z'),
     },
   ]);
 }
@@ -115,16 +133,32 @@ function semearColecoesGlobais() {
     },
   ]);
   __semearColecao('chat', [
-    { id: 'legado', nome: 'Ana Souza', email: ANA.email, texto: 'Mensagem global antiga' },
+    {
+      id: 'legado',
+      nome: 'Ana Souza',
+      email: ANA.email,
+      texto: 'Mensagem global antiga',
+      // `horario` como `Date`, que e exatamente a forma que a v0.4.0 gravava.
+      // O documento legado nao tem `autorUid` nem `autorNome`: a cor dele sai
+      // do e-mail, pelo caminho legado, e o nome exibido e o `nome`.
+      horario: new Date('2026-03-10T12:00:00.000Z'),
+    },
   ]);
 }
 
 beforeEach(() => {
+  // O relogio do LEITOR, nao so o do servidor. Desde a v0.8.0 a aba da sala
+  // mostra a conversa **de hoje** (ADR 0009): sem fixar o dia da maquina no
+  // mesmo dia dos dados semeados, toda fala deste arquivo nasce "de outro dia"
+  // e o que se estaria medindo era a data em que a suite rodou.
+  fixarRelogio(HORARIO_DO_SERVIDOR);
   __resetarAuth();
   __resetarFirestore();
   __definirRelogioDoServidor(HORARIO_DO_SERVIDOR);
   __definirUsuarioAtual(ANA);
 });
+
+afterEach(() => restaurarRelogio());
 
 describe('Chamados escopados por sala (AC-SALA-07)', () => {
   it('a tela do aluno da sala A não mostra o chamado da sala B', async () => {
@@ -205,12 +239,21 @@ describe('Chat escopado por sala (AC-SALA-07, AC-CHAT-10)', () => {
   it('o !clear limpa só a conversa da sala, nunca a das outras', async () => {
     // Antes da task 03 o `!clear` era global: um aluno apagava a conversa da
     // escola inteira digitando cinco letras.
+    //
+    // A task 06 fechou a outra metade do buraco: o comando passou a exigir
+    // papel de professor — garantido pela rule, não por esta tela — e a
+    // perguntar antes. O que ESTE caso mede continua sendo o escopo, então ele
+    // entra pelo caminho de quem tem permissão e responde à pergunta. Que o
+    // aluno seja recusado é provado em `Chat.caracterizacao.test.js` e, do
+    // lado que vale, em `tests/rules/salas.rules.test.js`.
     semearAsDuasSalas();
-    renderComProvedores(<Chat salaId="sala-a" />);
+    renderComProvedores(<Chat salaId="sala-a" papelNaSala={PAPEL_DE_PROFESSOR} />);
     await abrirChat();
 
     await userEvent.type(screen.getByPlaceholderText('Escreva uma mensagem'), '!clear');
     await userEvent.click(document.querySelector('.enviar-btn'));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Apagar' }));
 
     await waitFor(() => expect(__documentosDe(CHAT_DA_SALA_A)).toHaveLength(0));
     expect(__documentosDe(CHAT_DA_SALA_B)).toHaveLength(1);
@@ -331,7 +374,14 @@ describe('Custo de leitura e listeners (AC-PERF-03, AC-PERF-04)', () => {
     await abrirChat();
 
     await waitFor(() => expect(falas().length).toBeGreaterThan(0));
-    expect(falas().length).toBe(LIMITE_DE_MENSAGENS);
+
+    // O teto da v0.7.0 era o da PRIMEIRA leitura: 300 documentos baixados por
+    // cada aluno cada vez que a tela abria. Na v0.8.0 a janela abre em 50
+    // (AC-CHAT-06) e só cresce a pedido, e o `LIMITE_DE_MENSAGENS` virou o
+    // ponto em que a paginação para de crescer. Semeamos 302: a janela corta
+    // em 50, e nem paginando se passa de 300.
+    expect(falas().length).toBe(MENSAGENS_POR_PAGINA);
+    expect(MENSAGENS_POR_PAGINA).toBeLessThan(LIMITE_DE_MENSAGENS);
   });
 
   it('trocar de sala não acumula listener nenhum', async () => {

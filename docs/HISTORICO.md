@@ -535,7 +535,86 @@ precisa continuar abrindo o modal, escrevendo e enviando sem topar com opção n
 
 ## v0.8.0 — Chat novo e mensagens diretas
 
-*(a preencher pela task 06)*
+**O que existia**
+
+O chat era a peça mais velha do app. Enquanto papel, tempo, sala e anexo foram sendo reescritos
+uma task por vez, `Chat.js` continuou praticamente o arquivo do protótipo da v0.1.0 — a task 03
+mudou em que coleção ele lia, e parou aí.
+
+**Os problemas reais, e o que cada um custava**
+
+- **`!clear` era de todo mundo.** Qualquer aluno digitava cinco letras e apagava a conversa da
+  turma. E a deleção era um `forEach(async doc => deleteDoc(...))`: as chamadas saíam sem que
+  nenhuma fosse aguardada, entao uma falha no meio do caminho não aparecia para ninguém. O campo
+  limpava do mesmo jeito, e quem apagou ficava achando que tinha dado certo.
+- **A conversa inteira era baixada, na ordem errada.** A consulta cortava em 300, mas cortava
+  *crescente* — o que devolve as 300 mensagens **mais antigas** da sala. Em novembro, isso é a
+  conversa de março: trezentos documentos que ninguém vai ler, pagos por cada aluno cada vez que
+  a tela abria, enquanto a mensagem de agora nem cabia na janela. Pior: o `<Chat/>` ficava no
+  rodapé das duas telas e assinava o listener **com o painel fechado**, o dia inteiro.
+- **A cor da mensagem dependia de quem estava olhando.** `mensagem.email || usuarioEmail` — sem
+  e-mail gravado na mensagem, a cor saía do e-mail do **leitor**. A mesma fala tinha uma cor em
+  cada máquina do laboratório.
+- **Nenhum horário na tela**, embora `horario` fosse gravado desde sempre.
+- **A meia-noite apagava o banco.** Um `setTimeout` de até 24 horas chamava `deleteDoc` em cada
+  mensagem. Não sobrevivia a um refresh, usava a meia-noite da máquina do aluno, e o que
+  destruía não voltava.
+- **Sem limite de tamanho, sem rolagem automática, sem agrupamento, sem distinção entre
+  professor e aluno** — e sem nenhuma forma de conversar em particular.
+
+**As decisões, e por quê** (detalhe no ADR 0009)
+
+- **A autorização do `!clear` mudou de lugar, não de forma.** Ela saiu da tela e foi para a
+  Firestore Rule: só o professor dono da sala deleta mensagens. A confirmação que aparece na
+  interface é conforto — serve para ninguém apagar a conversa da turma por um Enter de reflexo.
+  Ela **não** é a proteção. Um aluno que fale direto com o SDK, sem passar pela nossa tela,
+  recebe `permission-denied`, e é esse o teste que vale.
+
+  Vale registrar por que isso é um bom exemplo: durante sete versões o `!clear` pareceu
+  protegido porque *a tela nao oferecia o comando de forma visível*. Autorização que mora no
+  cliente não é autorização — é sinalização. O cliente inteiro está na mão de quem usa.
+- **A janela virou decrescente, começa em 50 e só cresce a pedido.** E o painel fechado deixou
+  de escutar qualquer coisa. Juntas, as duas coisas derrubam o custo de chat de uma sala de
+  ~24 000 para ~2 000 leituras por dia letivo.
+- **A cor sai do `autorUid`, sem fallback nenhum para o leitor**, e a luminosidade é clareada em
+  passos até o contraste passar em AA — verificado contra 1000 uids sintéticos, não escolhido
+  no olho.
+- **A meia-noite virou filtro de exibição.** A promessa visível é a mesma de antes — *o chat
+  começa limpo a cada dia* — mas cumpri-la deixou de custar o histórico da turma.
+- **A conversa direta é um documento com `participantes`**, e o id sai dos dois uids ordenados.
+  A rule lê o array; a listagem usa `array-contains`. Privacidade por construção, não por
+  filtro de interface.
+
+**O que foi descartado**
+
+- **Paginar com cursor (`startAfter`).** Mais barato em muitas páginas, mas cria um segundo
+  conjunto de resultados fora do `onSnapshot` — que não recebe edição nem deleção em tempo
+  real — e um cursor que expira quando a mensagem-âncora é apagada pelo `!clear`.
+- **Continuar apagando o chat à meia-noite**, agora com o horário certo. Resolveria o fuso e
+  manteria a destruição do histórico, que era o problema maior.
+- **DMs numa coleção única com `de`/`para`.** A rule precisaria de um `||` que o Firestore não
+  consegue satisfazer numa listagem, e a caixa de entrada custaria duas consultas.
+- **Deixar a privacidade da DM por conta do filtro de query.** É exatamente o erro que o
+  `!clear` custou sete versões para ensinar.
+- **Escrever um sanitizador próprio para os links do chat.** O da task 05 já existia; os links
+  passaram pela **mesma** tranca, que ganhou `<a>` com `rel="noopener noreferrer"` escrito pelo
+  sanitizador — não pelo texto de quem digitou.
+
+**O que o usuário sente**
+
+- **O aluno** vê a hora de cada mensagem, a mesma cor para a mesma pessoa em qualquer máquina,
+  falas seguidas agrupadas sem repetir o nome, e quem é professor com selo. O chat abre no fim
+  da conversa; se ele subiu para reler, nada o arranca de lá — aparece um botão de "novas
+  mensagens". A mensagem que ele envia aparece na hora, marcada como enviando.
+- **O aluno com dúvida que não quer expor para a turma** abre a aba "Diretas" e fala só com o
+  professor.
+- **O professor** chama um aluno em particular sem constranger ninguém, vê quantas mensagens não
+  lidas tem em cada conversa, e as conversas ordenadas pela mais recente.
+- **A turma** não perde mais a conversa por causa de um aluno entediado — e não perde mais o
+  histórico à meia-noite: o chat continua "começando limpo" todo dia, mas o de ontem está a um
+  clique.
+- **Quem pediu menos movimento ao sistema operacional** vê as mensagens entrarem sem animação.
+- **A escola** paga menos: o chat deixou de ser o gargalo da cota de leitura do Firebase.
 
 ## v0.9.0 — Perks
 

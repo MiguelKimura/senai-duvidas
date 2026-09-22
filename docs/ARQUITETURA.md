@@ -49,6 +49,19 @@ salas/{salaId}/chamados/{chamadoId}
 
 salas/{salaId}/chat/{mensagemId}
   autorUid, autorNome, nome, email, texto, horario, horarioIso
+  autorPapel  "aluno" | "professor"   <- v0.8.0, aditivo (decide o selo)
+  editadaEm   Timestamp | null        <- v0.8.0, aditivo
+  ── `nome` e `email` continuam gravados: um cliente 0.7.0 ainda os lê.
+
+salas/{salaId}/conversas/{conversaId}   <- v0.8.0. conversaId = "uidA_uidB",
+  participantes: [uidA, uidB]              com os uids ORDENADOS e unidos
+  participantesNomes: {uidA, uidB}
+  ultimaMensagem: {texto, horario, autorUid}   <- desnormalizado (ADR 0009)
+  naoLidas: {uidA: 0, uidB: 3}                 <- desnormalizado (ADR 0009)
+  ── a rule lê `participantes`. A consulta do cliente PRECISA ser
+     `where('participantes', 'array-contains', uid)`, ou a listagem é negada.
+  └── mensagens/{mensagemId}
+        autorUid, autorNome, texto, horario, lidaEm | null
 
 usuarios/{uid}/salas/{salaId}       <- espelho, só para montar a lista
   salaId, papel, entrouEm
@@ -175,15 +188,47 @@ Alvo declarado do projeto: 10 salas ativas, 40 alunos por sala, 200 chamados e
 | Listener | Corte | Leituras por abertura |
 |---|---|---|
 | Fila de chamados | `limit(200)` | ≤ 200 |
-| Conversa da sala | `limit(300)` | ≤ 300 |
+| Conversa da sala | `limit(50)`, decrescente, **só com o painel aberto** | ≤ 50 |
+| Mensagens de uma DM | `limit(50)`, decrescente | ≤ 50 |
+| Lista de conversas | `array-contains` + `limit(50)` | ≤ 50 |
 | Lista de salas (espelho) | `limit(20)` | ≤ 20 |
 | Membros (só o dono) | `limit(60)` | ≤ 60 |
 
-Nenhum `onSnapshot` escuta coleção inteira sem corte. Com 40 alunos abrindo o
-app duas vezes por aula, uma sala custa cerca de 40 000 leituras por dia letivo
-— dentro do plano gratuito (50 000/dia) para o uso previsto, e o que o
-aproxima do teto é o chat, não a fila. Se o limite apertar, o próximo passo é
-paginar a conversa por data em vez de aumentar a cota.
+Nenhum `onSnapshot` escuta coleção inteira sem corte.
+
+### O que a v0.8.0 mudou nesta conta (AC-PERF-06)
+
+Esta é a maior economia de leitura do roadmap, e ela vem de duas mudanças
+independentes no chat.
+
+**A janela virou decrescente e começou em 50.** A v0.7.0 cortava em 300, mas
+cortava *crescente* — e `orderBy('horario') + limit(300)` devolve as 300
+mensagens **mais antigas** da sala. Numa sala em novembro, isso é a conversa de
+março: 300 documentos que ninguém vai ler, pagos por todo mundo, enquanto a
+mensagem de agora nem aparece. O corte existia; faltava a direção.
+
+**O painel fechado deixou de assinar.** Antes, `TelaAluno` e `TelaProfessor`
+montavam o `<Chat/>` no rodapé e ele assinava a conversa na hora — com o painel
+fechado, em toda tela de toda pessoa, o dia inteiro. A tela do professor custava
+duas assinaturas de coleção; passou a custar uma.
+
+Com 40 alunos abrindo o app duas vezes por aula, e supondo que metade deles
+abra o chat de fato:
+
+| | v0.7.0 | v0.8.0 |
+|---|---|---|
+| Leituras de chat por abertura de tela | 300 (sempre) | 0 com o painel fechado |
+| Leituras de chat por abertura do painel | — | 50, mais as novas que chegarem |
+| Chat por sala por dia letivo (40 alunos × 2) | ~24 000 | ~2 000 |
+| Sala inteira por dia letivo | ~40 000 | ~18 000 |
+
+O gargalo do plano gratuito (50 000 leituras/dia) deixa de ser o chat e volta a
+ser a fila de chamados. Dez salas ativas cabem com folga; antes, cinco salas em
+aula simultânea já raspavam o teto.
+
+As `conversas` acrescentam escrita, não leitura: cada mensagem direta custa duas
+escritas (a mensagem e o `ultimaMensagem`/`naoLidas` do documento pai), contra
+um limite de 20 000 escritas/dia. É a troca descrita no ADR 0009.
 
 ## 6. Compatibilidade
 

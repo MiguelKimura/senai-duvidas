@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { deleteDoc, doc, limit, onSnapshot, query } from 'firebase/firestore';
 import { criarComparadorPorHorario, formatarDataHora } from '../services/tempo';
-import { LIMITE_DE_CHAMADOS, colecaoDeChamados } from '../services/salas';
+import { LIMITE_DE_CHAMADOS, PAPEL_DE_PROFESSOR, colecaoDeChamados } from '../services/salas';
 import { removerAnexoDoChamado } from '../services/anexos';
 import { formatoDoTexto } from '../utils/markdown';
 import { estiloDoCard } from '../utils/cardDoChamado';
 import '../styles/TelaProfessor.css';
 import AnexoDoCard from './AnexoDoCard';
 import TextoMarkdown from './TextoMarkdown';
-import Chat from './Chat';
+import Chat from './chat/Chat';
 import BotaoSair from './BotaoSair';
 
 // A tela do professor, agora dentro de uma sala (AC-SALA-07).
@@ -94,7 +94,10 @@ function TelaProfessor({ salaId = null, somenteLeitura = false }) {
           </div>
         ))}
       </div>
-      <Chat salaId={salaId} />
+      {/* Quem chega a esta tela é o professor da sala, pelo vínculo que
+          `Sala.jsx` conferiu. O papel vai junto porque é ele que libera o
+          `!clear` na interface — a autorização que vale é a da rule. */}
+      <Chat salaId={salaId} papelNaSala={PAPEL_DE_PROFESSOR} somenteLeitura={somenteLeitura} />
     </div>
   );
 }

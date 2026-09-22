@@ -1,14 +1,39 @@
-// Caracterização do chat da sala.
+// Caracterização do chat da sala — INVERTIDA PELA TASK 06.
 //
-// O chat é o componente com mais dívida estrutural da v0.1.0, e é inteiro
-// reescrito pela task 06. Antes disso, este arquivo fixa o que ele faz hoje:
-//   * `onSnapshot` na coleção `chat` INTEIRA, sem `where` nem `limit` — com o
-//     alvo de 1000 mensagens por sala isso é leitura de coleção cheia a cada
-//     abertura de tela (viola AC-PERF-03);
-//   * `!clear` apaga o chat inteiro para QUALQUER usuário, sem checar papel —
-//     um aluno apaga a conversa da turma toda (task 06 restringe ao professor);
-//   * `horario` é `new Date()` do cliente (task 02 troca por serverTimestamp);
-//   * o botão que abre o chat não tem nome acessível (task 08, AC-ANIM-09).
+// Este arquivo nasceu na task 00 fixando o que o chat fazia, **inclusive o que
+// ele fazia de errado**, para que a task que o corrigisse precisasse virar cada
+// asserção uma a uma. É a inversão que comprova a correção; apagar os casos
+// teria deixado o CI verde sem prova nenhuma.
+//
+// O que era fixado aqui, e o que virou:
+//
+//   `onSnapshot` na coleção `chat` INTEIRA, sem `limit` útil
+//       -> janela decrescente de 50, com paginação (AC-CHAT-06). A prova da
+//          consulta está em `src/hooks/__tests__/useMensagens.test.js`.
+//
+//   `!clear` de qualquer aluno apaga a conversa da turma
+//       -> só o professor, com confirmação, e garantido pela rule
+//          (AC-CHAT-08). A prova do servidor está em
+//          `tests/rules/salas.rules.test.js`.
+//
+//   cor do balão caindo no e-mail de QUEM ESTÁ OLHANDO
+//       -> cor derivada do autor, estável entre sessões e dispositivos
+//          (AC-CHAT-02).
+//
+//   nenhum horário na mensagem, embora `horario` fosse gravado
+//       -> HH:mm de Brasília em cada balão (AC-CHAT-01).
+//
+//   reset de meia-noite por `setTimeout` de até 24 horas, apagando documentos
+//       -> filtro do dia corrente, sem destruir histórico (ADR 0009).
+//
+//   botão do chat sem nome acessível
+//       -> "Abrir o chat" / "Fechar o chat". A marcação é nova desta versão, e
+//          nascer sem nome seria um defeito autorado aqui. O resto do
+//          AC-ANIM-09 continua sendo da task 08.
+//
+// O comportamento que **não** mudou — abrir, fechar, digitar, enviar com
+// Enter, ver a mensagem de outra pessoa chegar — continua fixado abaixo, com
+// as mesmas asserções de antes.
 import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -24,9 +49,9 @@ import {
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
-import Chat from '../Chat';
+import Chat from '../chat/Chat';
+import { PAPEL_DE_ALUNO, PAPEL_DE_PROFESSOR } from '../../services/salas';
 import {
-  corDeFundo,
   fabricaMensagem,
   fixarRelogio,
   renderComProvedores,
@@ -36,14 +61,16 @@ import {
 const db = getFirestore();
 
 const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
+const BRUNO = { uid: 'uid-bruno', email: 'bruno@senai.br', displayName: 'Bruno Dias' };
 
 /** O instante que o servidor carimba, longe de qualquer relógio de máquina. */
 const HORARIO_DO_SERVIDOR = '2025-03-10T13:45:00.000Z';
-const BRUNO = { uid: 'uid-bruno', email: 'bruno@senai.br', displayName: 'Bruno Dias' };
 
-/** Abre o painel do chat, que começa fechado. */
+/** Abre o painel do chat e espera a sessão resolver. */
 async function abrirChat() {
-  await userEvent.click(document.querySelector('.toggle-chat-btn'));
+  await userEvent.click(screen.getByRole('button', { name: /abrir o chat/i }));
+
+  return screen.findByRole('tab', { name: 'Sala' });
 }
 
 /** O campo de digitação — só existe com o painel aberto. */
@@ -51,17 +78,31 @@ function campoDeMensagem() {
   return screen.getByPlaceholderText('Escreva uma mensagem');
 }
 
-/** Os balões de fala, na ordem em que aparecem no DOM. */
+/** Os textos das falas, na ordem em que aparecem no DOM. */
 function falasNaTela() {
-  return Array.from(document.querySelectorAll('.fala-box')).map((balao) => balao.textContent);
+  return [...document.querySelectorAll('.mensagem-texto')].map((balao) => balao.textContent);
+}
+
+/** Os autores exibidos, na ordem do DOM. */
+function autoresNaTela() {
+  return [...document.querySelectorAll('.mensagem-autor')].map((no) => no.textContent);
+}
+
+function enviar() {
+  return userEvent.click(screen.getByRole('button', { name: /enviar mensagem/i }));
 }
 
 beforeEach(() => {
+  // As fábricas produzem mensagens de 10/03/2025; o relógio do leitor precisa
+  // estar no mesmo dia, porque a aba da sala mostra a conversa **de hoje**.
+  fixarRelogio(HORARIO_DO_SERVIDOR);
   __resetarFirestore();
   __resetarAuth();
   __definirRelogioDoServidor(HORARIO_DO_SERVIDOR);
   __definirUsuarioAtual(ANA);
 });
+
+afterEach(() => restaurarRelogio());
 
 describe('Chat — abertura do painel', () => {
   it('começa fechado: o campo de mensagem não está no DOM', () => {
@@ -78,12 +119,13 @@ describe('Chat — abertura do painel', () => {
     expect(campoDeMensagem()).toBeInTheDocument();
   });
 
-  it('o botão que abre o chat não tem nome acessível — AC-ANIM-09 corrige na task 08', () => {
+  // INVERTIDO pela task 06. O caso nasceu fixando `toHaveAccessibleName('')`
+  // com um TODO para a task 08. A marcação do botão é reescrita aqui, e
+  // reescrevê-la sem nome seria autorar o defeito em vez de herdá-lo.
+  it('o botão que abre o chat tem nome acessível', () => {
     renderComProvedores(<Chat />);
 
-    const botao = document.querySelector('.toggle-chat-btn');
-    expect(botao).toBeInTheDocument();
-    expect(botao).toHaveAccessibleName('');
+    expect(screen.getByRole('button', { name: 'Abrir o chat' })).toBeInTheDocument();
   });
 });
 
@@ -96,7 +138,8 @@ describe('Chat — leitura das mensagens (AC-CHAT-01)', () => {
     renderComProvedores(<Chat />);
     await abrirChat();
 
-    expect(falasNaTela()).toEqual(['Ana Souza: Bom dia, turma']);
+    await waitFor(() => expect(falasNaTela()).toEqual(['Bom dia, turma']));
+    expect(autoresNaTela()).toEqual(['Ana Souza']);
   });
 
   it('ordena as mensagens por horário crescente', async () => {
@@ -116,10 +159,10 @@ describe('Chat — leitura das mensagens (AC-CHAT-01)', () => {
     renderComProvedores(<Chat />);
     await abrirChat();
 
-    expect(falasNaTela()).toEqual(['Ana Souza: primeira', 'Ana Souza: segunda']);
+    await waitFor(() => expect(falasNaTela()).toEqual(['primeira', 'segunda']));
   });
 
-  it('reage em tempo real a uma mensagem de outra pessoa (AC-CHAT-02)', async () => {
+  it('reage em tempo real a uma mensagem de outra pessoa', async () => {
     renderComProvedores(<Chat />);
     await abrirChat();
     expect(falasNaTela()).toEqual([]);
@@ -128,12 +171,27 @@ describe('Chat — leitura das mensagens (AC-CHAT-01)', () => {
       fabricaMensagem({ id: 'm1', nome: 'Bruno Dias', texto: 'Alguém tem o link?' }),
     ]);
 
-    await waitFor(() => expect(falasNaTela()).toEqual(['Bruno Dias: Alguém tem o link?']));
+    await waitFor(() => expect(falasNaTela()).toEqual(['Alguém tem o link?']));
   });
 
-  it('cancela o listener ao desmontar (AC-PERF-04)', () => {
+  // ACRESCENTADO pela task 06 (AC-CHAT-01). O campo `horario` era gravado
+  // desde a v0.1.0 e nunca exibido.
+  it('mostra o horário de cada mensagem, em HH:mm de Brasília', async () => {
+    __semearColecao('chat', [
+      fabricaMensagem({ id: 'm1', horario: new Date('2025-03-10T15:30:00.000Z') }),
+    ]);
+
+    renderComProvedores(<Chat />);
+    await abrirChat();
+
+    // 15:30 em UTC é 12:30 em Brasília.
+    expect(await screen.findByText('12:30')).toBeInTheDocument();
+  });
+
+  it('cancela o listener ao desmontar (AC-PERF-04)', async () => {
     const { unmount } = renderComProvedores(<Chat />);
-    expect(__ouvintesAtivos()).toBe(1);
+    await abrirChat();
+    await waitFor(() => expect(__ouvintesAtivos()).toBe(1));
 
     unmount();
 
@@ -141,13 +199,13 @@ describe('Chat — leitura das mensagens (AC-CHAT-01)', () => {
   });
 });
 
-describe('Chat — envio de mensagem (AC-CHAT-01)', () => {
+describe('Chat — envio de mensagem', () => {
   it('grava texto, nome e email do autor', async () => {
     renderComProvedores(<Chat />);
     await abrirChat();
 
     await userEvent.type(campoDeMensagem(), 'Consegui rodar aqui');
-    await userEvent.click(document.querySelector('.enviar-btn'));
+    await enviar();
 
     await waitFor(async () => {
       const gravadas = await getDocs(collection(db, 'chat'));
@@ -167,7 +225,7 @@ describe('Chat — envio de mensagem (AC-CHAT-01)', () => {
     await abrirChat();
 
     await userEvent.type(campoDeMensagem(), 'Consegui rodar aqui');
-    await userEvent.click(document.querySelector('.enviar-btn'));
+    await enviar();
 
     await waitFor(() => expect(campoDeMensagem()).toHaveValue(''));
   });
@@ -189,21 +247,20 @@ describe('Chat — envio de mensagem (AC-CHAT-01)', () => {
     await abrirChat();
 
     await userEvent.type(campoDeMensagem(), '    ');
-    await userEvent.click(document.querySelector('.enviar-btn'));
+    await enviar();
 
     const gravadas = await getDocs(collection(db, 'chat'));
     expect(gravadas.size).toBe(0);
   });
 
-  // INVERTIDO pela task 02. O caso nasceu na task 00 provando que o horário da
-  // mensagem era um `Date` do navegador — o relógio do aluno. A asserção vira
-  // para o carimbo do servidor; o caso continua aqui.
+  // INVERTIDO pela task 02 e mantido pela 06. O caso nasceu provando que o
+  // horário era um `Date` do navegador — o relógio do aluno.
   it('carimba o horário com o relógio DO SERVIDOR (AC-TEMPO-01)', async () => {
     renderComProvedores(<Chat />);
     await abrirChat();
 
     await userEvent.type(campoDeMensagem(), 'Que horas são?');
-    await userEvent.click(document.querySelector('.enviar-btn'));
+    await enviar();
 
     await waitFor(async () => {
       const gravadas = await getDocs(collection(db, 'chat'));
@@ -223,7 +280,10 @@ describe('Chat — envio de mensagem (AC-CHAT-01)', () => {
   });
 });
 
-describe('Chat — cor por e-mail (AC-COR-05)', () => {
+// INVERTIDO pela task 06 (AC-CHAT-02). O bloco original se chamava "cor por
+// e-mail" e fixava, entre outras coisas, que uma mensagem sem `email` herdava a
+// cor de quem estava lendo. Os casos continuam; o que mudou é de onde a cor sai.
+describe('Chat — cor estável por autor (AC-CHAT-02)', () => {
   it('dá a mesma cor à mesma pessoa em mensagens diferentes', async () => {
     __semearColecao('chat', [
       fabricaMensagem({ id: 'm1', email: 'ana@senai.br', texto: 'primeira' }),
@@ -232,10 +292,10 @@ describe('Chat — cor por e-mail (AC-COR-05)', () => {
 
     renderComProvedores(<Chat />);
     await abrirChat();
+    await waitFor(() => expect(falasNaTela()).toHaveLength(2));
 
-    const [primeira, segunda] = document.querySelectorAll('.fala-box');
-    expect(corDeFundo(primeira)).toBe(corDeFundo(segunda));
-    expect(corDeFundo(primeira)).toMatch(/^hsl\(/);
+    const [primeira, segunda] = document.querySelectorAll('.mensagem-balao');
+    expect(primeira.style.backgroundColor).toBe(segunda.style.backgroundColor);
   });
 
   it('dá cores diferentes a pessoas diferentes', async () => {
@@ -246,88 +306,145 @@ describe('Chat — cor por e-mail (AC-COR-05)', () => {
 
     renderComProvedores(<Chat />);
     await abrirChat();
+    await waitFor(() => expect(falasNaTela()).toHaveLength(2));
 
-    const [daAna, doBruno] = document.querySelectorAll('.fala-box');
-    expect(corDeFundo(daAna)).not.toBe(corDeFundo(doBruno));
+    const [daAna, doBruno] = document.querySelectorAll('.mensagem-balao');
+    expect(daAna.style.backgroundColor).not.toBe(doBruno.style.backgroundColor);
   });
 
-  it('a cor é derivada do e-mail, então é estável entre sessões', async () => {
+  it('a cor é estável entre sessões', async () => {
     __semearColecao('chat', [fabricaMensagem({ id: 'm1', email: 'ana@senai.br' })]);
 
-    const { unmount } = renderComProvedores(<Chat />);
+    const view = renderComProvedores(<Chat />);
     await abrirChat();
-    const corNaPrimeiraSessao = corDeFundo(document.querySelector('.fala-box'));
-    unmount();
+    await waitFor(() => expect(falasNaTela()).toHaveLength(1));
+    const corNaPrimeiraSessao = document.querySelector('.mensagem-balao').style.backgroundColor;
+    view.unmount();
 
     renderComProvedores(<Chat />);
     await abrirChat();
+    await waitFor(() => expect(falasNaTela()).toHaveLength(1));
 
-    expect(corDeFundo(document.querySelector('.fala-box'))).toBe(corNaPrimeiraSessao);
+    expect(document.querySelector('.mensagem-balao').style.backgroundColor).toBe(
+      corNaPrimeiraSessao
+    );
+  });
+
+  // INVERTIDO. Era: "renderiza mensagem antiga sem o campo email, caindo no
+  // e-mail da sessão". Cair no e-mail da sessão é o defeito — a mesma mensagem
+  // ficava de uma cor para a Ana e de outra para o Bruno.
+  it('a cor NÃO cai no e-mail de quem está lendo', async () => {
+    const semIdentidade = fabricaMensagem({
+      id: 'm1',
+      nome: 'Autor Antigo',
+      texto: 'sem email',
+      email: undefined,
+    });
+
+    __definirUsuarioAtual(ANA);
+    const view = renderComProvedores(<Chat />);
+    await abrirChat();
+    __semearColecao('chat', [semIdentidade]);
+    await waitFor(() => expect(falasNaTela()).toEqual(['sem email']));
+    const corParaAna = document.querySelector('.mensagem-balao').style.backgroundColor;
+    view.unmount();
+
+    __resetarFirestore();
+    __definirUsuarioAtual(BRUNO);
+    renderComProvedores(<Chat />);
+    await abrirChat();
+    __semearColecao('chat', [semIdentidade]);
+    await waitFor(() => expect(falasNaTela()).toEqual(['sem email']));
+
+    expect(document.querySelector('.mensagem-balao').style.backgroundColor).toBe(corParaAna);
   });
 
   it('marca a mensagem do próprio usuário com uma classe diferente', async () => {
     __semearColecao('chat', [
-      fabricaMensagem({ id: 'm1', email: 'ana@senai.br' }),
-      fabricaMensagem({ id: 'm2', email: 'bruno@senai.br' }),
+      fabricaMensagem({ id: 'm1', autorUid: ANA.uid, email: 'ana@senai.br' }),
+      fabricaMensagem({ id: 'm2', autorUid: BRUNO.uid, email: 'bruno@senai.br' }),
     ]);
 
     renderComProvedores(<Chat />);
     await abrirChat();
+    await waitFor(() => expect(falasNaTela()).toHaveLength(2));
 
-    const cards = document.querySelectorAll('.mensagem-card');
-    expect(cards[0]).toHaveClass('minha-mensagem');
-    expect(cards[1]).toHaveClass('mensagem-outro-usuario');
+    const cards = document.querySelectorAll('.mensagem');
+    expect(cards[0]).toHaveClass('mensagem--minha');
+    expect(cards[1]).toHaveClass('mensagem--de-outro');
   });
 });
 
-describe('Chat — comando !clear sem restrição', () => {
-  it('um ALUNO apaga o chat inteiro da turma — task 06 restringe ao professor', async () => {
+// INVERTIDO pela task 06 (AC-CHAT-08). O bloco original se chamava "comando
+// !clear sem restrição" e o primeiro caso provava, em código executável, que um
+// aluno apagava o chat inteiro da turma. É a falha grave que esta task corrige,
+// e o caso continua aqui com a asserção virada.
+describe('Chat — comando !clear, agora só do professor (AC-CHAT-08)', () => {
+  it('um ALUNO não apaga o chat da turma: recebe a recusa', async () => {
     __semearColecao('chat', [
       fabricaMensagem({ id: 'm1', email: 'bruno@senai.br', texto: 'da outra pessoa' }),
       fabricaMensagem({ id: 'm2', email: 'ana@senai.br', texto: 'minha' }),
     ]);
     __definirUsuarioAtual(ANA);
 
-    renderComProvedores(<Chat />);
+    renderComProvedores(<Chat papelNaSala={PAPEL_DE_ALUNO} />);
     await abrirChat();
-    expect(falasNaTela()).toHaveLength(2);
+    await waitFor(() => expect(falasNaTela()).toHaveLength(2));
 
     await userEvent.type(campoDeMensagem(), '!clear');
-    await userEvent.click(document.querySelector('.enviar-btn'));
+    await enviar();
 
-    await waitFor(() => expect(falasNaTela()).toHaveLength(0));
-    const restantes = await getDocs(collection(db, 'chat'));
-    expect(restantes.size).toBe(0);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/professor/i);
+    expect(falasNaTela()).toHaveLength(2);
+    expect((await getDocs(collection(db, 'chat'))).size).toBe(2);
+  });
+
+  it('o professor precisa confirmar, e só então a conversa é apagada', async () => {
+    __semearColecao('chat', [fabricaMensagem({ id: 'm1' })]);
+
+    renderComProvedores(<Chat papelNaSala={PAPEL_DE_PROFESSOR} />);
+    await abrirChat();
+    await waitFor(() => expect(falasNaTela()).toHaveLength(1));
+
+    await userEvent.type(campoDeMensagem(), '!clear');
+    await enviar();
+
+    expect(await screen.findByText(/apagar a conversa da turma/i)).toBeInTheDocument();
+    expect((await getDocs(collection(db, 'chat'))).size).toBe(1);
+
+    await userEvent.click(screen.getByRole('button', { name: /^apagar$/i }));
+
+    await waitFor(async () =>
+      expect((await getDocs(collection(db, 'chat'))).size).toBe(0)
+    );
   });
 
   it('reconhece o comando sem diferenciar maiúsculas de minúsculas', async () => {
     __semearColecao('chat', [fabricaMensagem({ id: 'm1' })]);
 
-    renderComProvedores(<Chat />);
+    renderComProvedores(<Chat papelNaSala={PAPEL_DE_PROFESSOR} />);
     await abrirChat();
 
     await userEvent.type(campoDeMensagem(), '!CLEAR');
-    await userEvent.click(document.querySelector('.enviar-btn'));
+    await enviar();
 
-    await waitFor(() => expect(falasNaTela()).toHaveLength(0));
+    expect(await screen.findByText(/apagar a conversa da turma/i)).toBeInTheDocument();
   });
 
   it('não grava o !clear como mensagem visível', async () => {
-    renderComProvedores(<Chat />);
+    renderComProvedores(<Chat papelNaSala={PAPEL_DE_PROFESSOR} />);
     await abrirChat();
 
     await userEvent.type(campoDeMensagem(), '!clear');
-    await userEvent.click(document.querySelector('.enviar-btn'));
+    await enviar();
 
     await waitFor(() => expect(campoDeMensagem()).toHaveValue(''));
-    const gravadas = await getDocs(collection(db, 'chat'));
-    expect(gravadas.size).toBe(0);
+    expect((await getDocs(collection(db, 'chat'))).size).toBe(0);
   });
 });
 
 describe('Chat — compatibilidade retroativa', () => {
-  it('renderiza mensagem antiga sem o campo email, caindo no e-mail da sessão', async () => {
-    __definirUsuarioAtual(BRUNO);
+  it('renderiza mensagem antiga sem autorUid, com o nome gravado', async () => {
     __semearColecao('chat', [
       fabricaMensagem({ id: 'm1', nome: 'Autor Antigo', texto: 'sem email', email: undefined }),
     ]);
@@ -335,56 +452,73 @@ describe('Chat — compatibilidade retroativa', () => {
     renderComProvedores(<Chat />);
     await abrirChat();
 
-    expect(falasNaTela()).toEqual(['Autor Antigo: sem email']);
-    expect(corDeFundo(document.querySelector('.fala-box'))).toMatch(/^hsl\(/);
+    await waitFor(() => expect(falasNaTela()).toEqual(['sem email']));
+    expect(autoresNaTela()).toEqual(['Autor Antigo']);
   });
 });
 
-// O chat se limpa à meia-noite. **Qual** meia-noite não é detalhe: a da
-// máquina pode estar a horas da de Brasília, e a conversa da turma sumiria no
-// meio da aula seguinte — ou sobreviveria um dia a mais.
-//
-// Este arquivo roda também em `npm run test:fusos`, com o processo em UTC e em
-// America/New_York. É lá que o caso ganha os dentes: numa máquina já em
-// Brasília, `setHours(24, 0, 0, 0)` acerta por coincidência.
-describe('Chat — reset à meia-noite de Brasília (AC-TEMPO-07)', () => {
+// INVERTIDO pela task 06 (ADR 0009). O bloco original provava que o chat
+// APAGAVA as mensagens à meia-noite de Brasília, com um `setTimeout` de até 24
+// horas. A promessa visível ao usuário continua a mesma — a conversa começa
+// limpa a cada dia — e o histórico deixa de ser destruído para cumpri-la.
+describe('Chat — o dia vira à meia-noite de Brasília (AC-TEMPO-07)', () => {
   // 19/09/2026, 14:32 em Brasília. Faltam 9h28min para a meia-noite de lá.
   const TARDE_DE_SABADO = '2026-09-19T17:32:00.000Z';
   const MS_ATE_A_MEIA_NOITE = 9 * 3600000 + 28 * 60000;
 
-  afterEach(() => restaurarRelogio());
+  /** Uma mensagem da tarde de sábado, no mesmo dia do relógio fixado. */
+  function daTarde() {
+    return fabricaMensagem({
+      id: 'm1',
+      texto: 'conversa da tarde',
+      horario: new Date(TARDE_DE_SABADO),
+    });
+  }
 
-  it('não limpa nada um milissegundo antes da meia-noite de Brasília', async () => {
+  it('a conversa da tarde continua na tela um instante antes da meia-noite', async () => {
     const relogio = fixarRelogio(TARDE_DE_SABADO);
-    __semearColecao('chat', [fabricaMensagem({ id: 'm1', texto: 'conversa da tarde' })]);
+    __semearColecao('chat', [daTarde()]);
     renderComProvedores(<Chat />);
     await abrirChat();
-    expect(jest.getTimerCount()).toBe(1);
+    await waitFor(() => expect(falasNaTela()).toHaveLength(1));
 
     relogio.avancar(MS_ATE_A_MEIA_NOITE - 1);
 
-    // A asserção que importa é a do timer, não a da tela: a limpeza é
-    // assíncrona, então olhar só para os balões daria verde mesmo com o timer
-    // já disparado — o `deleteDoc` ainda não teria chegado ao DOM. Um timer
-    // que continua armado é prova de que nada foi disparado.
-    expect(jest.getTimerCount()).toBe(1);
     expect(falasNaTela()).toHaveLength(1);
   });
 
-  it('limpa a conversa exatamente na meia-noite de Brasília', async () => {
+  it('na meia-noite de Brasília a tela começa limpa', async () => {
     const relogio = fixarRelogio(TARDE_DE_SABADO);
-    __semearColecao('chat', [fabricaMensagem({ id: 'm1', texto: 'conversa da tarde' })]);
+    __semearColecao('chat', [daTarde()]);
     renderComProvedores(<Chat />);
     await abrirChat();
+    await waitFor(() => expect(falasNaTela()).toHaveLength(1));
 
-    relogio.avancar(MS_ATE_A_MEIA_NOITE);
+    relogio.avancar(MS_ATE_A_MEIA_NOITE + 1000);
 
     await waitFor(() => expect(falasNaTela()).toHaveLength(0));
   });
 
-  it('cancela o timer ao desmontar, para não limpar o chat de outra tela', () => {
+  // INVERTIDO. Era `deleteDoc` em cada mensagem. A conversa de ontem sai da
+  // tela e **fica no banco**: um professor que precise mostrar hoje o que foi
+  // combinado ontem não deveria depender de alguém ter deixado a aba aberta.
+  it('a virada do dia NÃO apaga nenhuma mensagem do banco', async () => {
+    const relogio = fixarRelogio(TARDE_DE_SABADO);
+    __semearColecao('chat', [daTarde()]);
+    renderComProvedores(<Chat />);
+    await abrirChat();
+    await waitFor(() => expect(falasNaTela()).toHaveLength(1));
+
+    relogio.avancar(MS_ATE_A_MEIA_NOITE + 1000);
+
+    await waitFor(() => expect(falasNaTela()).toHaveLength(0));
+    expect((await getDocs(collection(db, 'chat'))).size).toBe(1);
+  });
+
+  it('cancela o temporizador ao desmontar', async () => {
     fixarRelogio(TARDE_DE_SABADO);
     const { unmount } = renderComProvedores(<Chat />);
+    await abrirChat();
     expect(jest.getTimerCount()).toBeGreaterThan(0);
 
     unmount();
