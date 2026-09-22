@@ -26,15 +26,21 @@ function semComentarios(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
-/** O corpo do `@media (prefers-reduced-motion: reduce)`, ou string vazia. */
-function blocoDeMovimentoReduzido(css) {
-  const abertura = /@media\s*\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)\s*\{/.exec(css);
+/**
+ * O intervalo `{ ... }` aberto por `abertura`, com as chaves balanceadas.
+ *
+ * Regex não conta chave, e CSS aninha: `@media { .a { } }` e `@keyframes { from
+ * { } }` são a regra, não a exceção. Devolve `null` quando a abertura não
+ * aparece.
+ */
+function localizarBloco(css, abertura) {
+  const encontrado = abertura.exec(css);
 
-  if (!abertura) return '';
+  if (!encontrado) return null;
 
+  const inicio = encontrado.index + encontrado[0].length;
   let profundidade = 1;
-  let i = abertura.index + abertura[0].length;
-  const inicio = i;
+  let i = inicio;
 
   while (i < css.length && profundidade > 0) {
     if (css[i] === '{') profundidade += 1;
@@ -42,7 +48,35 @@ function blocoDeMovimentoReduzido(css) {
     i += 1;
   }
 
-  return css.slice(inicio, i - 1);
+  return { inicio: encontrado.index, fim: i, corpo: css.slice(inicio, i - 1) };
+}
+
+/** O corpo do `@media (prefers-reduced-motion: reduce)`, ou string vazia. */
+function blocoDeMovimentoReduzido(css) {
+  const bloco = localizarBloco(
+    css,
+    /@media\s*\(\s*prefers-reduced-motion\s*:\s*reduce\s*\)\s*\{/
+  );
+
+  return bloco ? bloco.corpo : '';
+}
+
+/**
+ * O CSS sem os `@keyframes`.
+ *
+ * Os passos de um quadro-chave (`from`, `to`, `50%`) têm a forma de um seletor
+ * de elemento cru, e não são um: eles só valem dentro da animação. Quem procura
+ * seletor vazado precisa olhar para o CSS sem eles.
+ */
+function semQuadrosChave(css) {
+  let limpo = css;
+
+  for (let bloco = localizarBloco(limpo, /@keyframes\s[^{]*\{/); bloco;) {
+    limpo = limpo.slice(0, bloco.inicio) + limpo.slice(bloco.fim);
+    bloco = localizarBloco(limpo, /@keyframes\s[^{]*\{/);
+  }
+
+  return limpo;
 }
 
 /**
@@ -112,7 +146,7 @@ describe('Chat.css — a superfície visível do chat novo', () => {
     const css = semComentarios(lerChatCss());
 
     const semEstilo = CLASSES_DO_CHAT.filter(
-      (classe) => !new RegExp(`\\.${classe.replace(/--/g, '--')}(?![\\w-])`).test(css)
+      (classe) => !new RegExp(`\\.${classe}(?![\\w-])`).test(css)
     );
 
     expect(semEstilo).toEqual([]);
@@ -121,17 +155,32 @@ describe('Chat.css — a superfície visível do chat novo', () => {
   it('não estiliza mais classes que a v0.7.0 renderizava e ninguém renderiza hoje', () => {
     const css = semComentarios(lerChatCss());
 
-    for (const morta of ['.fala-box', '.mensagem-card', '.input-container', '.mensagens-list']) {
-      expect(css).not.toContain(morta);
-    }
+    // A fronteira `(?![\w-])` importa: `.mensagens-list` é prefixo de
+    // `.mensagens-lista`, que é a classe **viva**. Sem ela, este teste acusaria
+    // a lista nova de ser a morta.
+    const mortas = ['fala-box', 'mensagem-card', 'input-container', 'mensagens-list'].filter(
+      (classe) => new RegExp(`\\.${classe}(?![\\w-])`).test(css)
+    );
+
+    expect(mortas).toEqual([]);
   });
 
   it('não solta um seletor de elemento cru sobre `button`, que vaza para a tela toda', () => {
     // A v0.7.0 declarava `button { width: 50px; height: 50px; }` sem nenhuma
-    // classe na frente: era o chat mandando no botão de enviar chamado.
-    const css = semComentarios(lerChatCss());
+    // classe na frente. Como `Chat.jsx` importa esta folha, a regra escapava do
+    // chat e empurrava 50x50px em todo botão da página.
+    //
+    // O que se proíbe é o seletor **inteiro** ser um elemento cru. Descendente
+    // com escopo — `.chat-confirmacao button` — é o oposto disso: é a forma de
+    // estilizar o botão sem vazar, e precisa continuar permitida.
+    const css = semQuadrosChave(semComentarios(lerChatCss()));
 
-    expect(css).not.toMatch(/(^|[}\s])button\s*(,[^{]*)?\{/);
+    const crus = [...css.matchAll(/([^{}@]+)\{/g)]
+      .flatMap(([, lista]) => lista.split(','))
+      .map((seletor) => seletor.trim())
+      .filter((seletor) => /^[a-z]+[0-9]*$/.test(seletor));
+
+    expect(crus).toEqual([]);
   });
 });
 
