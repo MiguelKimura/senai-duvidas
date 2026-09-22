@@ -246,7 +246,8 @@ def is_max_turns(text: str) -> bool:
     return any(m in lower for m in markers)
 
 
-def wait_for_quota_retry(cfg: dict[str, Any], text: str, safety_margin: int = 5) -> bool:
+def wait_for_quota_retry(cfg: dict[str, Any], text: str, safety_margin: int = 5,
+                         repo: Path | None = None) -> bool:
     """
     Handle quota exhaustion without consuming transient-failure attempts.
 
@@ -254,6 +255,12 @@ def wait_for_quota_retry(cfg: dict[str, Any], text: str, safety_margin: int = 5)
     weekly/session quota is exhausted, keep the queue alive and probe again at
     a conservative interval rather than burning through retries.
     """
+    def dormir(caminho: Path | None, segundos: int) -> None:
+        if caminho is not None:
+            dormir_vigiando_volume(caminho, segundos)
+        else:
+            time.sleep(segundos)
+
     target = parse_reset_at(text)
     if target is not None:
         now = datetime.now(target.tzinfo)
@@ -261,21 +268,21 @@ def wait_for_quota_retry(cfg: dict[str, Any], text: str, safety_margin: int = 5)
         kind = "semanal" if is_weekly_limit(text) else "de sessão"
         print(f"[quota] Limite {kind} atingido. Reset informado pelo Claude: {target:%d/%m %H:%M}.")
         print(f"[quota] Aguardando {seconds // 3600}h {(seconds % 3600) // 60}m e tentando novamente automaticamente.")
-        time.sleep(seconds)
+        dormir(repo, seconds)
         return True
 
     if is_weekly_limit(text):
         interval = int(cfg.get("quota_watch", {}).get("weekly_poll_seconds", 900))
         print("[quota] Limite semanal atingido, mas o Claude não informou o horário de reset.")
         print(f"[quota] Estado preservado; nova tentativa em {interval // 60}m.")
-        time.sleep(interval)
+        dormir(repo, interval)
         return True
 
     if is_session_limit(text):
         interval = int(cfg.get("quota_watch", {}).get("session_poll_seconds", 300))
         print("[quota] Limite de sessão atingido, mas o Claude não informou o horário de reset.")
         print(f"[quota] Estado preservado; nova tentativa em {interval // 60}m.")
-        time.sleep(interval)
+        dormir(repo, interval)
         return True
 
     return False
@@ -316,6 +323,60 @@ def parse_reset_at(text: str) -> datetime | None:
     if target <= now:
         target += timedelta(days=1)
     return target
+
+
+def repositorio_acessivel(repo: Path) -> bool:
+    """Testa leitura E escrita: um volume removido falha nas duas."""
+    try:
+        if not (repo / ".git").exists():
+            return False
+        sonda = repo / ".automation" / ".sonda"
+        sonda.parent.mkdir(parents=True, exist_ok=True)
+        sonda.write_text("ok", encoding="utf-8")
+        sonda.unlink(missing_ok=True)
+        return True
+    except OSError:
+        return False
+
+
+def esperar_repositorio(repo: Path, tentativas: int = 120, intervalo: int = 30) -> bool:
+    """
+    Aguarda o volume do repositório voltar.
+
+    Num SSD externo isso acontece o tempo todo: desconectar o drive, levar o
+    notebook para outro lugar, o volume ressurgir com a mesma letra. Vale mais
+    esperar do que abortar uma task que já custou tempo e API.
+    """
+    if repositorio_acessivel(repo):
+        return True
+
+    print(f"[volume] {repo} ficou inacessível. O drive foi desconectado?", file=sys.stderr)
+    print(f"[volume] Reconecte-o: a fila tenta de novo a cada {intervalo}s.", file=sys.stderr)
+
+    for tentativa in range(1, tentativas + 1):
+        time.sleep(intervalo)
+        if repositorio_acessivel(repo):
+            print(f"[volume] Voltou após {tentativa * intervalo // 60} min. Retomando.")
+            return True
+
+    print(f"[volume] Desisti após {tentativas * intervalo // 60} min.", file=sys.stderr)
+    return False
+
+
+def dormir_vigiando_volume(repo: Path, segundos: int, fatia: int = 300) -> None:
+    """
+    Dorme em fatias, conferindo o volume entre elas.
+
+    Uma espera de quota pode durar horas — é justamente quando o notebook sai
+    da mesa e o SSD é desconectado.
+    """
+    restante = segundos
+    while restante > 0:
+        atual = min(fatia, restante)
+        time.sleep(atual)
+        restante -= atual
+        if not repositorio_acessivel(repo):
+            esperar_repositorio(repo)
 
 
 def backoff_seconds(cfg: dict[str, Any], failure_count: int) -> int:
@@ -625,6 +686,8 @@ def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, A
         save_state(repo / cfg["project"]["state_file"], state)
 
         try:
+            if not esperar_repositorio(repo):
+                raise RuntimeError(f"O volume de {repo} continua inacessível.")
             ensure_clean(repo, base)
             wt = create_worktree(repo, wt_root, branch, base)
             # Uma execução anterior pode ter sido interrompida (rede, quota, max_turns)
@@ -641,7 +704,7 @@ def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, A
                 ok, claude_log = run_claude(cfg, wt, task, continuation=retomando, run_number=run_number)
             if not ok:
                 # Session/quota reset is special: keep the worktree alive and wait.
-                if is_transient(claude_log, patterns) and wait_for_quota_retry(cfg, claude_log, safety_margin):
+                if is_transient(claude_log, patterns) and wait_for_quota_retry(cfg, claude_log, safety_margin, repo):
                     preserve_worktree = True
                     print("[quota] Janela de quota aguardada. Reexecutando a mesma task e preservando o worktree.")
                     continue
@@ -680,7 +743,7 @@ def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, A
 
         except Exception as exc:
             msg = str(exc)
-            if is_transient(msg, patterns) and wait_for_quota_retry(cfg, msg, safety_margin):
+            if is_transient(msg, patterns) and wait_for_quota_retry(cfg, msg, safety_margin, repo):
                 preserve_worktree = True
                 print("[quota] Janela de quota finalizada/aguardada. Reexecutando a mesma task.")
                 continue
@@ -784,15 +847,32 @@ def main() -> int:
     arquivo_log = log_path.open("a", encoding="utf-8", errors="replace")
 
     class _Tee:
-        def __init__(self, *destinos): self.destinos = destinos
+        """
+        Espelha a saída no console e no arquivo.
+
+        Se o arquivo ficar inacessível — o caso típico é o SSD externo sendo
+        desconectado — o destino é descartado e a fila segue escrevendo no
+        console. Perder o log jamais pode derrubar o processo nem levar o
+        sys.stderr junto.
+        """
+        def __init__(self, *destinos):
+            self.destinos = list(destinos)
+
         def write(self, texto):
-            for d in self.destinos:
-                d.write(texto)
-                d.flush()
+            for d in list(self.destinos):
+                try:
+                    d.write(texto)
+                    d.flush()
+                except (OSError, ValueError):
+                    self.destinos.remove(d)
             return len(texto)
+
         def flush(self):
-            for d in self.destinos:
-                d.flush()
+            for d in list(self.destinos):
+                try:
+                    d.flush()
+                except (OSError, ValueError):
+                    self.destinos.remove(d)
 
     sys.stdout = _Tee(sys.stdout, arquivo_log)
     sys.stderr = _Tee(sys.stderr, arquivo_log)

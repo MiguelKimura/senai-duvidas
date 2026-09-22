@@ -107,6 +107,29 @@ e mescle. O script detecta o merge em até 30 segundos e segue.
 | `[WinError 2] O sistema não pode encontrar o arquivo especificado` | Corrigido. O `subprocess` do Windows usa `CreateProcess`, que só acha `.exe` — não aplica `PATHEXT`, então shims `.cmd` do npm (como o `claude`) não eram encontrados | `git pull origin dev`. O preflight agora nomeia a ferramenta que falta e imprime o PATH |
 | Log com acento quebrado (`nÃ£o`) | O `Get-Content` do PowerShell 5.1 lê UTF-8 como ANSI | Acrescente `-Encoding UTF8` |
 | `ENOSPC: no space left on device` | Cada worktree instala seu próprio `node_modules` — centenas de MB por task | O preflight agora barra a fila abaixo de 5 GB livres (`project.espaco_minimo_gb`). Libere espaço e rode `--reset-failed` |
+| `PermissionError: [Errno 13]` + `lost sys.stderr` | O volume do repositório sumiu (SSD externo desconectado). Todo handle de arquivo aberto nele morre na hora, inclusive o do log | Corrigido: a fila detecta, avisa `[volume] ... foi desconectado?` e espera o drive voltar por até 1 hora |
+
+## SSD externo desconectado no meio da fila
+
+Num drive portátil isso acontece: você desconecta para levar o notebook. A fila lida com isso em
+três pontos:
+
+- **Antes de cada task** — confere se o volume responde a leitura e escrita; se não, avisa e espera
+  o drive voltar, testando a cada 30 segundos por até uma hora.
+- **Durante a espera de quota** — o sono de horas é fatiado em blocos de 5 minutos, com verificação
+  entre eles. É justamente na espera longa que o notebook sai da mesa.
+- **No log** — se o `queue.log` ficar inacessível, o destino é descartado e a fila continua
+  escrevendo no console. Perder o log nunca derruba a fila nem leva o `sys.stderr` junto.
+
+O trabalho não se perde: ao reconectar, o worktree e os commits dos ciclos red-green-refactor
+continuam lá. Se a fila chegou a encerrar, `--reset-failed` retoma de onde parou.
+
+**Depois de uma desconexão abrupta**, vale conferir a integridade antes de continuar:
+
+```powershell
+git fsck --no-progress
+git status
+```
 
 ## Espaço em disco
 
