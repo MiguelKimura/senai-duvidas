@@ -122,3 +122,20 @@ export async function garantirPerfil(usuario) {
 
   return { perfil, papel: PAPEL_ALUNO, criado: true, rebaixado: false };
 }
+
+/**
+ * ESBOÇO (task 07): as preferências de animação e som (AC-PERK-08).
+ *
+ * A implementação real entra no ciclo GREEN. Por ora devolve o que estiver
+ * gravado, sem padrão nenhum — que é o que quebra a tela de quem nunca mexeu
+ * nas preferências.
+ */
+export const PREFERENCIAS_PADRAO = { animacoes: true, som: false };
+
+export function lerPreferencias(perfil) {
+  return (perfil && perfil.preferencias) || {};
+}
+
+export async function salvarPreferencias(_uid, preferencias) {
+  return preferencias;
+}

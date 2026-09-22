@@ -18,7 +18,12 @@ import {
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
-import { garantirPerfil } from '../perfilUsuario';
+import {
+  garantirPerfil,
+  lerPreferencias,
+  PREFERENCIAS_PADRAO,
+  salvarPreferencias,
+} from '../perfilUsuario';
 
 const db = getFirestore();
 
@@ -303,5 +308,92 @@ describe('falha ao ler o Firestore não vira papel (regra 4 do desenho)', () => 
     });
 
     await expect(garantirPerfil(ANA_DO_GOOGLE)).rejects.toThrow('rede caiu em autorizados');
+  });
+});
+
+// As preferências de animação e som — AC-PERK-08, compatibilidade futura.
+//
+// O campo `preferencias` nasce na v0.9.0 e é **aditivo**: nenhum documento
+// gravado até a v0.8.0 o tem, e todos eles continuam válidos. Isso só é
+// verdade se a leitura tiver padrão seguro — sem ele, o primeiro aluno a
+// abrir a sala depois do deploy encontraria `undefined.animacoes` e a tela
+// quebraria em cima de um campo que ninguém pediu.
+//
+// O padrão do som é `false` por decisão de produto, não por descuido: 40
+// pessoas numa sala com projetor, e um áudio que toca sozinho no primeiro
+// carregamento é uma aula interrompida.
+describe('preferencias — campo aditivo com padrão seguro (AC-PERK-08)', () => {
+  it('o perfil da v0.8.0, sem o campo, lê o padrão inteiro', () => {
+    const perfilAntigo = { uid: 'uid-ana', nome: 'Ana Souza', tipo: 'aluno' };
+
+    expect(lerPreferencias(perfilAntigo)).toEqual({ animacoes: true, som: false });
+  });
+
+  it('o som vem desligado por padrão', () => {
+    expect(PREFERENCIAS_PADRAO.som).toBe(false);
+    expect(PREFERENCIAS_PADRAO.animacoes).toBe(true);
+  });
+
+  it('completa o que faltar quando o documento traz só uma das preferências', () => {
+    expect(lerPreferencias({ preferencias: { som: true } })).toEqual({
+      animacoes: true,
+      som: true,
+    });
+  });
+
+  it('ignora valor que não é booleano e cai no padrão', () => {
+    expect(lerPreferencias({ preferencias: { animacoes: 'sim', som: 1 } })).toEqual({
+      animacoes: true,
+      som: false,
+    });
+  });
+
+  it('aguenta perfil nulo sem lançar', () => {
+    expect(lerPreferencias(null)).toEqual({ animacoes: true, som: false });
+    expect(lerPreferencias(undefined)).toEqual({ animacoes: true, som: false });
+  });
+
+  it('grava as preferências sem tocar no resto do perfil', async () => {
+    __semearColecao('usuarios', [
+      { id: 'uid-ana', uid: 'uid-ana', nome: 'Ana Souza', email: 'ana@senai.br', tipo: 'aluno' },
+    ]);
+
+    await salvarPreferencias('uid-ana', { animacoes: false, som: true });
+
+    const [gravado] = await usuariosGravados();
+
+    expect(gravado.preferencias).toEqual({ animacoes: false, som: true });
+    expect(gravado).toMatchObject({ nome: 'Ana Souza', tipo: 'aluno' });
+  });
+
+  it('normaliza o que grava: nada de valor solto no documento', async () => {
+    __semearColecao('usuarios', [{ id: 'uid-ana', uid: 'uid-ana', tipo: 'aluno' }]);
+
+    await salvarPreferencias('uid-ana', { animacoes: 'talvez', pontos: 10 });
+
+    const [gravado] = await usuariosGravados();
+
+    expect(gravado.preferencias).toEqual({ animacoes: true, som: false });
+  });
+
+  // Compatibilidade futura: um cliente da v0.8.0 lê este documento e não
+  // conhece `preferencias`. Ele continua achando uid, nome, email e tipo
+  // exatamente onde sempre estiveram.
+  it('o documento continua legível por um leitor que não conhece o campo', async () => {
+    __semearColecao('usuarios', [
+      { id: 'uid-ana', uid: 'uid-ana', nome: 'Ana Souza', email: 'ana@senai.br', tipo: 'aluno' },
+    ]);
+
+    await salvarPreferencias('uid-ana', { animacoes: false, som: false });
+
+    const [gravado] = await usuariosGravados();
+    const { preferencias: _ignorado, id: _id, ...comoAV080Le } = gravado;
+
+    expect(comoAV080Le).toEqual({
+      uid: 'uid-ana',
+      nome: 'Ana Souza',
+      email: 'ana@senai.br',
+      tipo: 'aluno',
+    });
   });
 });
