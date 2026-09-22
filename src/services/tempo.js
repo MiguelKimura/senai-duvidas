@@ -262,13 +262,50 @@ export function criarComparadorPorHorario(criterioAnterior) {
 }
 
 /**
- * ESBOÇO (task 07): o instante corrente com piso no relógio do servidor.
+ * O instante corrente, com piso no maior carimbo do servidor já observado
+ * (AC-PERK-03, AC-SEC-03).
  *
- * A implementação real entra no ciclo GREEN. Por ora devolve o relógio da
- * máquina, que é exatamente o que o AC-PERK-03 proíbe.
+ * O problema: um perk de prioridade vence por data, e comparar essa data com
+ * `new Date()` devolve a decisão ao relógio da máquina — que, nos laboratórios,
+ * está errado com frequência e é editável por qualquer aluno. Atrasar o Windows
+ * em dois dias reviveria um perk vencido, e a fila passaria a premiar quem mexe
+ * no painel de controle.
+ *
+ * O caminho óbvio seria perguntar as horas ao Firestore. Ele não existe: o SDK
+ * não expõe o relógio do servidor, e uma API externa de horário seria
+ * falsificável do mesmo jeito, porque quem aplicaria a resposta continuaria
+ * sendo o cliente — é o mesmo argumento que `carimboServidor` já faz.
+ *
+ * O que existe é um **piso**. Todo `Timestamp` que chegou do banco foi
+ * carimbado pelo servidor, então o servidor comprovadamente já passou por
+ * aquele instante. O agora do app é o maior entre o relógio local e esse piso,
+ * e a assimetria resultante é exatamente a desejada:
+ *
+ *   * atrasar o relógio **não ajuda** — o piso vence, e o perk continua vencido;
+ *   * adiantá-lo **só encurta** o perk de quem adiantou.
+ *
+ * O limite conhecido: numa sala em silêncio absoluto, sem nenhuma escrita nova,
+ * o piso envelhece junto com o último carimbo lido, e um relógio atrasado pode
+ * esticar o perk até ali. Em aula, o piso é de segundos atrás — qualquer
+ * chamado, mensagem ou perk da sala o atualiza.
+ *
+ * Função pura: os carimbos entram por parâmetro e o relógio local também, o que
+ * a torna verificável sem congelar o tempo do processo.
+ *
+ * @param {Array<Timestamp|string|Date|null|undefined>} [carimbos] valores já
+ *   carimbados pelo servidor — `horario` de chamados, `concedidoEm` de perks.
+ *   Pendentes e ilegíveis são descartados.
+ * @param {Date} [relogioLocal] o relógio do leitor.
+ * @returns {Date}
  */
-export function agoraDoServidor(_carimbos = [], relogioLocal = new Date()) {
-  return relogioLocal;
+export function agoraDoServidor(carimbos = [], relogioLocal = new Date()) {
+  const piso = carimbos.reduce((maior, valor) => {
+    const data = paraData(valor);
+
+    return data && data.getTime() > maior ? data.getTime() : maior;
+  }, 0);
+
+  return new Date(Math.max(relogioLocal.getTime(), piso));
 }
 
 /**
