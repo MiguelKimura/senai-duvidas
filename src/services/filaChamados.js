@@ -191,7 +191,11 @@ function estaAtendido(chamado) {
  *   instante do servidor para a checagem de expiração (AC-PERK-03).
  * @returns {Array<object>} lista nova, ordenada. A recebida não é tocada.
  */
-export function ordenarFila(chamados = [], perksAtivosPorUid = new Map(), agoraServidor = null) {
+export function ordenarFila(
+  chamados = [],
+  perksAtivosPorUid = new Map(),
+  agoraServidor = null
+) {
   const prioridadeDe = (chamado) =>
     nivelDePrioridade(perksDe(perksAtivosPorUid, chamado && chamado.autorUid), agoraServidor);
 

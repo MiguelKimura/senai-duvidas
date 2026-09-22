@@ -423,24 +423,24 @@ describe('msAteProximaMeiaNoiteBrasilia', () => {
 // ---------------------------------------------------------------------------
 describe('mesmoDiaEmBrasilia (AC-TEMPO-07)', () => {
   it('dois instantes da mesma tarde caem no mesmo dia', () => {
-    expect(
-      mesmoDiaEmBrasilia('2026-03-10T13:00:00.000Z', '2026-03-10T20:00:00.000Z')
-    ).toBe(true);
+    expect(mesmoDiaEmBrasilia('2026-03-10T13:00:00.000Z', '2026-03-10T20:00:00.000Z')).toBe(
+      true
+    );
   });
 
   it('a virada da meia-noite de Brasília separa os dias', () => {
     // 02:59 UTC ainda é dia 9 em Brasília; 03:01 UTC já é dia 10.
-    expect(
-      mesmoDiaEmBrasilia('2026-03-10T02:59:00.000Z', '2026-03-10T03:01:00.000Z')
-    ).toBe(false);
+    expect(mesmoDiaEmBrasilia('2026-03-10T02:59:00.000Z', '2026-03-10T03:01:00.000Z')).toBe(
+      false
+    );
   });
 
   it('usa o calendário de BRASÍLIA, não o da máquina', () => {
     // Os dois instantes caem em dias diferentes em UTC (9 e 10 de março) e no
     // MESMO dia em Brasília (9 de março, 21:00 e 23:00).
-    expect(
-      mesmoDiaEmBrasilia('2026-03-10T00:00:00.000Z', '2026-03-10T02:00:00.000Z')
-    ).toBe(true);
+    expect(mesmoDiaEmBrasilia('2026-03-10T00:00:00.000Z', '2026-03-10T02:00:00.000Z')).toBe(
+      true
+    );
   });
 
   it('entende Timestamp, Date e string ISO, como o resto do módulo', () => {
@@ -495,27 +495,30 @@ describe('agoraDoServidor — o piso que o relógio do cliente não desfaz (AC-P
       Timestamp.fromDate(new Date('2026-09-22T11:30:00.000Z')),
     ];
 
-    expect(agoraDoServidor(carimbos, atrasado).toISOString()).toBe(
-      '2026-09-22T11:30:00.000Z'
-    );
+    expect(agoraDoServidor(carimbos, atrasado).toISOString()).toBe('2026-09-22T11:30:00.000Z');
   });
 
   it('entende a string ISO da v0.1.0 no meio dos Timestamp', () => {
     const atrasado = new Date('2026-09-20T12:00:00.000Z');
-    const carimbos = [Timestamp.fromDate(new Date('2026-09-21T10:00:00.000Z')), '2026-09-22T08:00:00.000Z'];
+    const carimbos = [
+      Timestamp.fromDate(new Date('2026-09-21T10:00:00.000Z')),
+      '2026-09-22T08:00:00.000Z',
+    ];
 
-    expect(agoraDoServidor(carimbos, atrasado).toISOString()).toBe(
-      '2026-09-22T08:00:00.000Z'
-    );
+    expect(agoraDoServidor(carimbos, atrasado).toISOString()).toBe('2026-09-22T08:00:00.000Z');
   });
 
   it('descarta carimbo pendente, nulo ou ilegível sem derrubar a conta', () => {
     const atrasado = new Date('2026-09-20T12:00:00.000Z');
-    const carimbos = [null, undefined, 'não é data', carimboServidor(), '2026-09-21T08:00:00.000Z'];
+    const carimbos = [
+      null,
+      undefined,
+      'não é data',
+      carimboServidor(),
+      '2026-09-21T08:00:00.000Z',
+    ];
 
-    expect(agoraDoServidor(carimbos, atrasado).toISOString()).toBe(
-      '2026-09-21T08:00:00.000Z'
-    );
+    expect(agoraDoServidor(carimbos, atrasado).toISOString()).toBe('2026-09-21T08:00:00.000Z');
   });
 
   it('sem relógio informado, usa o da máquina como um dos candidatos', () => {

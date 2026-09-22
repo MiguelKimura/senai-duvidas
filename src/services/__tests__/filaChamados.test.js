@@ -238,10 +238,7 @@ describe('ordenarFila — atendidos e pendentes (AC-CHAMADO-03, AC-TEMPO-06)', (
   });
 
   it('desempata dois pendentes da mesma faixa pelo id, como faz com os confirmados', () => {
-    const fila = [
-      chamado('p-zeta', { horario: null }),
-      chamado('p-alfa', { horario: null }),
-    ];
+    const fila = [chamado('p-zeta', { horario: null }), chamado('p-alfa', { horario: null })];
 
     expect(ordem(fila)).toEqual(['p-alfa', 'p-zeta']);
   });
@@ -362,7 +359,9 @@ describe('perkEstaAtivo — a validade conferida pelo servidor (AC-PERK-03)', ()
   // Conservador de propósito: sem instante confiável, o sistema não concede
   // privilégio. O perk permanente não depende de relógio nenhum e continua.
   it('sem instante de referência, o perk com validade não conta', () => {
-    const comValidade = perkDePrioridade('uid-ana', 1, { expiraEm: '2026-09-29T12:00:00.000Z' });
+    const comValidade = perkDePrioridade('uid-ana', 1, {
+      expiraEm: '2026-09-29T12:00:00.000Z',
+    });
 
     expect(perkEstaAtivo(comValidade, null)).toBe(false);
     expect(perkEstaAtivo(perkDePrioridade('uid-ana', 1), null)).toBe(true);
@@ -392,9 +391,7 @@ describe('ordenarFila — expiração pelo horário do servidor (AC-PERK-03, AC-
   });
 
   it('o perk revogado deixa de furar a fila na mesma hora', () => {
-    const perks = [
-      perkDePrioridade('uid-ana', 3, { revogadoEm: '2026-09-22T11:00:00.000Z' }),
-    ];
+    const perks = [perkDePrioridade('uid-ana', 3, { revogadoEm: '2026-09-22T11:00:00.000Z' })];
 
     expect(ordem(filaDeDois(), perks)).toEqual(['sem-perk', 'com-perk-vencido']);
   });
