@@ -19,6 +19,7 @@ import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
   __confirmarCarimbos,
+  __consultasAtivas,
   __definirRelogioDoServidor,
   __documentosDe,
   __ouvintesAtivos,
@@ -28,6 +29,7 @@ import {
 import TelaAluno, { ROTULO_DO_NOVO_CHAMADO } from '../components/TelaAluno';
 import TelaProfessor from '../components/TelaProfessor';
 import Chat from '../components/chat/Chat';
+import { CHAMADOS_POR_PAGINA } from '../components/FilaDeChamados';
 import { MENSAGENS_POR_PAGINA } from '../services/chat';
 import { LIMITE_DE_CHAMADOS, LIMITE_DE_MENSAGENS, PAPEL_DE_PROFESSOR } from '../services/salas';
 import {
@@ -364,7 +366,21 @@ describe('Custo de leitura e listeners (AC-PERF-03, AC-PERF-04)', () => {
     renderComProvedores(<TelaAluno salaId="sala-a" />);
 
     await waitFor(() => expect(cartoes().length).toBeGreaterThan(0));
-    expect(cartoes().length).toBe(LIMITE_DE_CHAMADOS);
+
+    // A afirmação é sobre **o corte do listener**, e é nele que ela passa a
+    // ser feita. Até a v0.9.0 ela era medida contando cards na tela, o que
+    // funcionava porque a tela desenhava tudo o que lia. A v0.10.0 pagina a
+    // renderização (AC-CHAMADO-09), e contar cards passaria a medir a
+    // paginação em vez do teto da consulta — que é o que o AC-PERF-03 cobra.
+    const [consulta] = __consultasAtivas().filter(
+      (ativa) => ativa.caminho === CHAMADOS_DA_SALA_A
+    );
+
+    expect(consulta.quantidade).toBe(LIMITE_DE_CHAMADOS);
+
+    // E a paginação, que é a outra metade: os 200 chegam num snapshot só, mas
+    // só 30 viram nó no DOM (AC-CHAMADO-09).
+    expect(cartoes().length).toBe(CHAMADOS_POR_PAGINA);
   });
 
   it('a conversa da sala também tem teto', async () => {

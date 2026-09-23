@@ -1,0 +1,89 @@
+/* A fila de chamados: vazio, esqueleto, erro e paginação — AC-CHAMADO-09,
+ * AC-CHAMADO-10, AC-ANIM-04, AC-ANIM-08.
+ *
+ * `.problemas-list` continua sendo estilizada por `TelaAluno.css` e
+ * `TelaProfessor.css`, que são quem sabe a altura disponível em cada tela.
+ * Aqui ficam só os estados que as duas compartilham.
+ */
+
+.fila-vazia,
+.fila-aviso {
+  margin: var(--espaco-4) 0;
+  padding: var(--espaco-4);
+  border: 1px dashed var(--cor-borda);
+  border-radius: var(--raio-2);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto-rotulo);
+  text-align: center;
+  font-family: var(--fonte-base);
+  max-width: 400px;
+}
+
+.fila-erro {
+  margin: var(--espaco-4) 0;
+  padding: var(--espaco-4);
+  border-left: 4px solid var(--cor-erro);
+  border-radius: var(--raio-2);
+  background-color: var(--cor-superficie);
+  font-family: var(--fonte-base);
+  max-width: 400px;
+}
+
+.fila-erro p {
+  margin: 0 0 var(--espaco-2);
+  color: var(--cor-texto-titulo);
+}
+
+.fila-tentar,
+.fila-carregar-mais {
+  width: auto;
+  padding: var(--espaco-2) var(--espaco-4);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto-titulo);
+  cursor: pointer;
+  font-family: var(--fonte-base);
+  font-size: 14px;
+}
+
+.fila-tentar:hover,
+.fila-carregar-mais:hover {
+  background-color: var(--cor-fundo-caixa);
+}
+
+.fila-carregar-mais {
+  /* Alinhado com os cards, e não centralizado na tela: o olho desce pela
+     coluna dos cards e encontra o botão onde a coluna termina. */
+  display: block;
+  margin: var(--espaco-2) 0 var(--espaco-5);
+  max-width: 400px;
+  width: 100%;
+}
+
+/* O esqueleto imita a forma do card — nome, texto, horário —, e não uma barra
+   genérica: a silhueta certa é o que faz a espera parecer curta. */
+.fila-esqueleto-card {
+  padding: var(--espaco-2);
+  margin-bottom: var(--espaco-2);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-superficie);
+  max-width: 400px;
+}
+
+.fila-esqueleto-nome {
+  width: 40%;
+  height: var(--espaco-3);
+  margin: 0 auto var(--espaco-2);
+}
+
+.fila-esqueleto-texto {
+  width: 100%;
+  height: var(--espaco-4);
+  margin-bottom: var(--espaco-2);
+}
+
+.fila-esqueleto-horario {
+  width: 30%;
+  height: var(--espaco-campo);
+}

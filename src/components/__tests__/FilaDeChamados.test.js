@@ -16,9 +16,25 @@
 //      via "nenhuma dúvida" por um instante e podia abrir a dúvida duas vezes
 //      (AC-ANIM-04).
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
+import {
+  Timestamp,
+  __definirRelogioDoServidor,
+  __recusarLeituraEm,
+  __resetarFirestore,
+  __semearColecao,
+} from 'firebase/firestore';
 import FilaDeChamados, { CHAMADOS_POR_PAGINA } from '../FilaDeChamados';
+import TelaAluno from '../TelaAluno';
+import TelaProfessor from '../TelaProfessor';
+import { renderComProvedores } from '../../test-utils';
+
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => jest.fn(),
+}));
 
 /** `quantos` chamados prontos para semear, do mais antigo para o mais novo. */
 function chamados(quantos) {
@@ -148,7 +164,9 @@ describe('estado vazio (AC-CHAMADO-10)', () => {
   it('aceita uma mensagem própria — a tela do professor não abre chamado', () => {
     montar({ chamados: [], textoVazio: 'A turma ainda não abriu nenhuma dúvida hoje.' });
 
-    expect(screen.getByText('A turma ainda não abriu nenhuma dúvida hoje.')).toBeInTheDocument();
+    expect(
+      screen.getByText('A turma ainda não abriu nenhuma dúvida hoje.')
+    ).toBeInTheDocument();
   });
 
   it('não mostra o vazio enquanto ainda está carregando', () => {
@@ -201,7 +219,92 @@ describe('erro de leitura (AC-ANIM-04)', () => {
     montar({ chamados: [], erro: 'Não foi possível carregar a fila.' });
 
     expect(screen.queryByText(/Nenhuma dúvida por aqui ainda/i)).toBeNull();
-    expect(within(screen.getByRole('alert')).getByText(/Não foi possível carregar/)).
-      toBeInTheDocument();
+    expect(
+      within(screen.getByRole('alert')).getByText(/Não foi possível carregar/)
+    ).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A fila montada pelas telas de verdade. Os casos acima provam a casca
+// isolada; estes provam que as duas telas a ligaram nos estados certos.
+
+describe('a fila nas telas de verdade (AC-ANIM-04, AC-CHAMADO-09)', () => {
+  const SALA = 'sala-a';
+  const CHAMADOS = `salas/${SALA}/chamados`;
+  const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
+
+  beforeEach(() => {
+    __resetarAuth();
+    __resetarFirestore();
+    __definirRelogioDoServidor('2026-09-23T12:00:00.000Z');
+    __definirUsuarioAtual(ANA);
+  });
+
+  it('a recusa do servidor vira erro com "tentar novamente", e não fila vazia', async () => {
+    // "Não deu para ler" e "não há dúvida nenhuma" são coisas diferentes. Até
+    // a v0.9.0 as duas produziam a mesma área vazia, e o aluno não tinha como
+    // saber que devia recarregar (AC-ANIM-04).
+    __recusarLeituraEm(CHAMADOS);
+
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Não foi possível carregar/);
+    expect(screen.queryByText(/Nenhuma dúvida por aqui ainda/i)).toBeNull();
+  });
+
+  it('"tentar novamente" refaz a inscrição e a fila carrega', async () => {
+    __recusarLeituraEm(CHAMADOS);
+    __semearColecao(CHAMADOS, [
+      {
+        id: 'c1',
+        autorUid: ANA.uid,
+        autorNome: 'Ana Souza',
+        email: ANA.email,
+        descricao: 'o VS Code não abre',
+        horario: Timestamp.fromDate(new Date('2026-09-23T10:00:00.000Z')),
+        atendido: false,
+      },
+    ]);
+
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+    await screen.findByRole('alert');
+
+    await userEvent.click(screen.getByRole('button', { name: /tentar novamente/i }));
+
+    expect(await screen.findByText('o VS Code não abre')).toBeInTheDocument();
+  });
+
+  it('sala sem chamado nenhum explica o vazio (AC-CHAMADO-10)', async () => {
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    expect(await screen.findByText(/Nenhuma dúvida por aqui ainda/i)).toBeInTheDocument();
+  });
+
+  it('a tela do professor diz que a turma não chamou, e não "toque no +"', async () => {
+    renderComProvedores(<TelaProfessor salaId={SALA} />);
+
+    expect(await screen.findByText(/A turma ainda não chamou/i)).toBeInTheDocument();
+  });
+
+  it('200 chamados na sala desenham 30 cards, e não 200 (AC-CHAMADO-09)', async () => {
+    __semearColecao(
+      CHAMADOS,
+      Array.from({ length: 200 }, (_, indice) => ({
+        id: `c${indice}`,
+        autorUid: ANA.uid,
+        autorNome: 'Ana Souza',
+        email: ANA.email,
+        descricao: `dúvida ${indice}`,
+        horario: Timestamp.fromDate(new Date(Date.UTC(2026, 8, 23, 10, indice))),
+        horarioIso: new Date(Date.UTC(2026, 8, 23, 10, indice)).toISOString(),
+        atendido: false,
+      }))
+    );
+
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    await waitFor(() => expect(cardsNaTela().length).toBeGreaterThan(0));
+    expect(cardsNaTela()).toHaveLength(CHAMADOS_POR_PAGINA);
   });
 });

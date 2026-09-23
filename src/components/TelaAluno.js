@@ -1,15 +1,15 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import Modal from './Modal';
-import AnexoDoCard from './AnexoDoCard';
+import CardDoChamado from './CardDoChamado';
 import ConfirmarAcao from './ConfirmarAcao';
-import TextoMarkdown from './TextoMarkdown';
+import FilaDeChamados from './FilaDeChamados';
 import { auth } from '../firebase';
 import { doc, limit, onSnapshot, query, setDoc } from 'firebase/firestore';
 import { camposDoAnexo } from '../services/anexos';
 import { excluirChamado } from '../services/chamados';
-import { carimboServidor, completarHorariosIso, formatarDataHora } from '../services/tempo';
+import { carimboServidor, completarHorariosIso } from '../services/tempo';
 import { LIMITE_DE_CHAMADOS, PAPEL_DE_ALUNO, colecaoDeChamados } from '../services/salas';
-import { FORMATO_MARKDOWN, formatoDoTexto } from '../utils/markdown';
+import { FORMATO_MARKDOWN } from '../utils/markdown';
 import { corAutomatica } from '../utils/paleta';
 
 import { usePerksDaSala } from '../hooks/usePerksDaSala';
@@ -18,7 +18,6 @@ import {
   TITULO_DA_CONFIRMACAO,
   useExclusaoComDesfazer,
 } from '../hooks/useExclusaoComDesfazer';
-import { classesDoCard, estiloDoCard } from '../utils/cardDoChamado';
 import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import VitrineDeConquistas from './perks/VitrineDeConquistas';
 import PreferenciasDePremiacao from './perks/PreferenciasDePremiacao';
@@ -57,9 +56,21 @@ import BotaoSair from './BotaoSair';
  */
 export const ROTULO_DO_NOVO_CHAMADO = 'Abrir novo chamado';
 
+/** O que a tela diz quando o servidor recusa a leitura da fila. */
+export const ERRO_AO_CARREGAR =
+  'Não foi possível carregar a fila de dúvidas. Verifique a conexão.';
+
 function TelaAluno({ salaId = null, somenteLeitura = false }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [problemas, setProblemas] = useState([]);
+  // `true` até o primeiro snapshot chegar. Sem isso a fila aparecia vazia por
+  // um instante e depois se enchia: o aluno lia "nenhuma dúvida por aqui" e
+  // abria a mesma dúvida duas vezes (AC-ANIM-04).
+  const [carregando, setCarregando] = useState(true);
+  const [erroDaFila, setErroDaFila] = useState(null);
+  // Incrementado pelo "tentar novamente": é ele que refaz a inscrição, em vez
+  // de um `retry` escondido que ninguém consegue disparar de propósito.
+  const [tentativa, setTentativa] = useState(0);
   const [usuarioNome, setUsuarioNome] = useState('');
 
   // A ordem da fila passa a depender dos perks da sala (AC-PERK-02). O aluno
@@ -109,22 +120,63 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
     // projeto (200 chamados por sala).
     const consulta = query(colecaoDeChamados(salaId), limit(LIMITE_DE_CHAMADOS));
 
-    const unsubscribe = onSnapshot(consulta, (querySnapshot) => {
-      // `horario` fica cru: quem entende os formatos que convivem no banco é
-      // `services/tempo.js`, na hora de ordenar e na hora de exibir. A lista
-      // também fica crua — ordená-la aqui, sem os perks, faria os cards
-      // trocarem de lugar sozinhos assim que a consulta de perks respondesse.
-      setProblemas(
-        querySnapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }))
-      );
+    setCarregando(true);
+    setErroDaFila(null);
 
-      // Depois de publicar a lista, para que a reemissão provocada pela
-      // escrita chegue por último e a tela fique com os dados mais novos.
-      completarHorariosIso(querySnapshot.docs, auth.currentUser?.email);
-    });
+    const unsubscribe = onSnapshot(
+      consulta,
+      (querySnapshot) => {
+        // `horario` fica cru: quem entende os formatos que convivem no banco é
+        // `services/tempo.js`, na hora de ordenar e na hora de exibir. A lista
+        // também fica crua — ordená-la aqui, sem os perks, faria os cards
+        // trocarem de lugar sozinhos assim que a consulta de perks respondesse.
+        setProblemas(
+          querySnapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }))
+        );
+
+        setCarregando(false);
+
+        // Depois de publicar a lista, para que a reemissão provocada pela
+        // escrita chegue por último e a tela fique com os dados mais novos.
+        completarHorariosIso(querySnapshot.docs, auth.currentUser?.email);
+      },
+      () => {
+        // A recusa do servidor não pode virar fila vazia: "não deu para ler" e
+        // "não há dúvida nenhuma" são coisas diferentes, e o aluno precisa de
+        // um caminho de volta (AC-ANIM-04).
+        setCarregando(false);
+        setErroDaFila(ERRO_AO_CARREGAR);
+      }
+    );
 
     return () => unsubscribe(); // Limpar o listener quando o componente for desmontado
-  }, [salaId]);
+  }, [salaId, tentativa]);
+
+  const tentarNovamente = useCallback(() => setTentativa((atual) => atual + 1), []);
+
+  // `useCallback` porque o card é `React.memo`: uma seta nova a cada render
+  // faria os 30 cards reconciliarem a cada mensagem de qualquer colega no
+  // chat, que é exatamente o que o memo existe para evitar (AC-CHAMADO-09).
+  const renderizarCard = useCallback(
+    (problema, indice) => (
+      <CardDoChamado
+        key={problema.id}
+        chamado={problema}
+        indice={indice}
+        saindo={estaSaindo(problema.id)}
+        perksPorUid={perksPorUid}
+        agoraServidor={agoraServidor}
+        acoes={
+          !somenteLeitura && problema.email === auth.currentUser?.email ? (
+            <button className="delete-button" onClick={() => pedirExclusao(problema)}>
+              Excluir
+            </button>
+          ) : null
+        }
+      />
+    ),
+    [estaSaindo, perksPorUid, agoraServidor, somenteLeitura, pedirExclusao]
+  );
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
@@ -197,47 +249,14 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
           +
         </button>
       )}
-      <div className="problemas-list">
-        {visiveis.map((problema, indice) => (
-          <div
-            key={problema.id}
-            className={classesDoCard({ saindo: estaSaindo(problema.id) })}
-            style={{ ...estiloDoCard(problema), '--indice-na-lista': indice }}
-          >
-            <div className="card-header">
-              {/* `autorNome` primeiro, `nome` como leitura do formato antigo:
-                  é o outro lado da escrita dupla, e é o que mantém legível o
-                  chamado que a migração copiou da coleção global. */}
-              <p className="user-name">
-                <strong>{problema.autorNome || problema.nome}</strong>
-                <InsigniasDoAluno
-                  perks={perksPorUid}
-                  uid={problema.autorUid}
-                  agoraServidor={agoraServidor}
-                />
-              </p>
-              {/* A miniatura do anexo, no mesmo canto onde o olho 👁️ ficava.
-                  Clicar abre o visualizador na própria página — `window.open`
-                  vinha bloqueado em parte dos laboratórios (AC-IMG-10). */}
-              <AnexoDoCard chamado={problema} />
-            </div>
+      <FilaDeChamados
+        chamados={visiveis}
+        carregando={carregando}
+        erro={erroDaFila}
+        tentarNovamente={tentarNovamente}
+        renderizarCard={renderizarCard}
+      />
 
-            {/* A descrição passa por um componente só, o mesmo do card do
-                professor e da prévia do modal. Chamado sem `formato` é texto
-                puro e continua sendo renderizado como texto (AC-COR-05). */}
-            <TextoMarkdown texto={problema.descricao} formato={formatoDoTexto(problema)} />
-            <p>
-              <em>{formatarDataHora(problema.horario)}</em>
-            </p>
-
-            {!somenteLeitura && problema.email === auth.currentUser?.email && (
-              <button className="delete-button" onClick={() => pedirExclusao(problema)}>
-                Excluir
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
       {/* A vitrine fica depois da fila, e não antes: o que o aluno vem fazer
           aqui é abrir e acompanhar chamado. As conquistas dele são o que ele
           encontra ao rolar, não o que empurra a fila para fora da tela

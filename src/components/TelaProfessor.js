@@ -1,10 +1,9 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { limit, onSnapshot, query } from 'firebase/firestore';
-import { formatarDataHora } from '../services/tempo';
+
 import { LIMITE_DE_CHAMADOS, PAPEL_DE_PROFESSOR, colecaoDeChamados } from '../services/salas';
 import { excluirChamado, marcarAtendido } from '../services/chamados';
-import { formatoDoTexto } from '../utils/markdown';
-import { classesDoCard, estiloDoCard } from '../utils/cardDoChamado';
+
 import { usePerksDaSala } from '../hooks/usePerksDaSala';
 import {
   DESCRICAO_DA_CONFIRMACAO,
@@ -12,18 +11,25 @@ import {
   useExclusaoComDesfazer,
 } from '../hooks/useExclusaoComDesfazer';
 import { TIPO_ERRO, useToasts } from './Toast';
+import CardDoChamado from './CardDoChamado';
 import ConfirmarAcao from './ConfirmarAcao';
+import FilaDeChamados from './FilaDeChamados';
 import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import PainelDePerks from './perks/PainelDePerks';
 import '../styles/TelaProfessor.css';
-import AnexoDoCard from './AnexoDoCard';
-import TextoMarkdown from './TextoMarkdown';
 import Chat from './chat/Chat';
 import BotaoSair from './BotaoSair';
 
 /** O que a tela diz quando o servidor recusa marcar o chamado. */
 export const AVISO_DE_FALHA_AO_ATENDER =
   'Não foi possível atualizar o chamado. Tente de novo em instantes.';
+
+/** O que a tela diz quando o servidor recusa a leitura da fila. */
+export const ERRO_AO_CARREGAR =
+  'Não foi possível carregar a fila de dúvidas. Verifique a conexão.';
+
+/** A turma ainda não abriu nada — o professor não é quem abre chamado. */
+export const FILA_VAZIA = 'Nenhuma dúvida por aqui ainda. A turma ainda não chamou.';
 
 // A tela do professor, agora dentro de uma sala (AC-SALA-07).
 //
@@ -38,6 +44,12 @@ export const AVISO_DE_FALHA_AO_ATENDER =
 // apagar pede confirmação.
 function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }) {
   const [problemas, setProblemas] = useState([]);
+  // Mesma distinção da tela do aluno: "ainda carregando", "não há dúvida" e
+  // "não deu para ler" são três coisas, e a v0.9.0 mostrava a mesma área vazia
+  // para as três (AC-ANIM-04, AC-CHAMADO-10).
+  const [carregando, setCarregando] = useState(true);
+  const [erroDaFila, setErroDaFila] = useState(null);
+  const [tentativa, setTentativa] = useState(0);
   const { mostrar } = useToasts();
 
   // A fila que a tela desenha sai daqui, e não do estado cru: a ordem dela
@@ -87,25 +99,77 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
     [perksPorUid, agoraServidor]
   );
 
+  const tentarNovamente = useCallback(() => setTentativa((atual) => atual + 1), []);
+
   useEffect(() => {
     // AC-PERF-03: mesmo teto da tela do aluno, pela mesma razão.
     const consulta = query(colecaoDeChamados(salaId), limit(LIMITE_DE_CHAMADOS));
 
-    const unsubscribe = onSnapshot(consulta, (querySnapshot) => {
-      // A fila do professor é a mesma do aluno, e a ordem dela é decidida no
-      // mesmo lugar: `services/filaChamados.js`. O professor não preenche
-      // `horarioIso` de ninguém — quem faz isso é o cliente do autor.
-      //
-      // O estado guarda a lista **crua**: ordenar aqui, antes de os perks
-      // chegarem, faria a fila reordenar sozinha na frente da turma quando o
-      // segundo snapshot chegasse.
-      setProblemas(
-        querySnapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }))
-      );
-    });
+    setCarregando(true);
+    setErroDaFila(null);
+
+    const unsubscribe = onSnapshot(
+      consulta,
+      (querySnapshot) => {
+        // A fila do professor é a mesma do aluno, e a ordem dela é decidida no
+        // mesmo lugar: `services/filaChamados.js`. O professor não preenche
+        // `horarioIso` de ninguém — quem faz isso é o cliente do autor.
+        //
+        // O estado guarda a lista **crua**: ordenar aqui, antes de os perks
+        // chegarem, faria a fila reordenar sozinha na frente da turma quando o
+        // segundo snapshot chegasse.
+        setProblemas(
+          querySnapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }))
+        );
+        setCarregando(false);
+      },
+      () => {
+        setCarregando(false);
+        setErroDaFila(ERRO_AO_CARREGAR);
+      }
+    );
 
     return () => unsubscribe();
-  }, [salaId]);
+  }, [salaId, tentativa]);
+
+  // `useCallback` porque o card é `React.memo`: sem ela, os 30 cards da página
+  // reconciliariam a cada reemissão do `onSnapshot` (AC-CHAMADO-09).
+  const renderizarCard = useCallback(
+    (problema, indice) => (
+      <CardDoChamado
+        key={problema.id}
+        chamado={problema}
+        indice={indice}
+        saindo={estaSaindo(problema.id)}
+        perksPorUid={perksPorUid}
+        agoraServidor={agoraServidor}
+        acoes={
+          somenteLeitura ? null : (
+            /* As duas ações do professor sobre o chamado. Somem na sala
+               arquivada, que é somente leitura (AC-SALA-10). */
+            <div className="delete-button-container">
+              {/* `aria-pressed` porque é um interruptor, e não um comando: o
+                  leitor de tela anuncia "Atendido, ativado" em vez de deixar a
+                  pessoa adivinhar qual é o estado atual. */}
+              <button
+                type="button"
+                className="atendido-button"
+                aria-pressed={Boolean(problema.atendido)}
+                onClick={() => alternarAtendido(problema)}
+              >
+                Atendido
+              </button>
+
+              <button className="delete-button" onClick={() => pedirExclusao(problema)}>
+                Excluir
+              </button>
+            </div>
+          )
+        }
+      />
+    ),
+    [estaSaindo, perksPorUid, agoraServidor, somenteLeitura, alternarAtendido, pedirExclusao]
+  );
 
   return (
     <div className="tela-professor">
@@ -124,63 +188,14 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
         />
       )}
 
-      <div className="problemas-list">
-        {visiveis.map((problema, indice) => (
-          <div
-            key={problema.id}
-            className={classesDoCard({ saindo: estaSaindo(problema.id) })}
-            style={{ ...estiloDoCard(problema), '--indice-na-lista': indice }}
-          >
-            <div className="card-header">
-              <div className="user-name-wrapper">
-                <p className="user-name">
-                  <strong>{problema.autorNome || problema.nome}</strong>
-                  <InsigniasDoAluno
-                    perks={perksPorUid}
-                    uid={problema.autorUid}
-                    agoraServidor={agoraServidor}
-                  />
-                </p>
-              </div>
-
-              {/* A mesma miniatura do card do aluno, pelo mesmo componente.
-                  Até a v0.5.0 eram dois trechos de JSX copiados, e já tinham
-                  divergido no nome da função que abriam. */}
-              <AnexoDoCard chamado={problema} />
-            </div>
-
-            {/* O mesmo componente do card do aluno, pelo mesmo motivo do
-                `AnexoDoCard`: a fila e a mesma, e o card precisa ser o
-                mesmo (AC-COR-07). */}
-            <TextoMarkdown texto={problema.descricao} formato={formatoDoTexto(problema)} />
-            <p>
-              <em>{formatarDataHora(problema.horario)}</em>
-            </p>
-
-            {/* As duas ações do professor sobre o chamado. Somem na sala
-                arquivada, que é somente leitura (AC-SALA-10). */}
-            {!somenteLeitura && (
-              <div className="delete-button-container">
-                {/* `aria-pressed` porque é um interruptor, e não um comando:
-                    o leitor de tela anuncia "Atendido, ativado" em vez de
-                    deixar a pessoa adivinhar qual é o estado atual. */}
-                <button
-                  type="button"
-                  className="atendido-button"
-                  aria-pressed={Boolean(problema.atendido)}
-                  onClick={() => alternarAtendido(problema)}
-                >
-                  Atendido
-                </button>
-
-                <button className="delete-button" onClick={() => pedirExclusao(problema)}>
-                  Excluir
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      <FilaDeChamados
+        chamados={visiveis}
+        carregando={carregando}
+        erro={erroDaFila}
+        tentarNovamente={tentarNovamente}
+        textoVazio={FILA_VAZIA}
+        renderizarCard={renderizarCard}
+      />
 
       {/* A confirmação do AC-CHAMADO-04. O professor apaga o chamado de um
           aluno: o clique errado aqui custa a dúvida de outra pessoa. */}

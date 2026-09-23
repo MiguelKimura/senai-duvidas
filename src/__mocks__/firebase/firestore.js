@@ -460,14 +460,34 @@ export async function getDocs(consultaOuColecao) {
   );
 }
 
-export function onSnapshot(consultaOuColecao, callback) {
+export function onSnapshot(consultaOuColecao, callback, aoErro) {
+  const caminho = consultaOuColecao.__caminho;
+
   const ouvinte = {
-    caminho: consultaOuColecao.__caminho,
+    caminho,
     ordenacoes: consultaOuColecao.__ordenacoes || [],
     filtros: consultaOuColecao.__filtros || [],
     quantidade: quantidadeDe(consultaOuColecao),
     callback,
   };
+
+  // A recusa do listener é entregue pelo callback de erro, e NÃO lançada: é
+  // assim que o SDK real se comporta, e é a diferença entre a tela mostrar
+  // "não deu para carregar, tentar de novo" e o React derrubar a árvore
+  // inteira. Sem isto no fake, o caminho de erro do AC-ANIM-04 não teria como
+  // ser provado — e um caminho de erro que ninguém exercita não existe.
+  const recusado = (recusas.leitura.get(caminho) || 0) > 0;
+
+  if (recusado) {
+    try {
+      conferirRecusa('leitura', caminho);
+    } catch (erro) {
+      if (aoErro) aoErro(erro);
+    }
+
+    return () => {};
+  }
+
   ouvintes.push(ouvinte);
 
   // O SDK real entrega o estado corrente assim que a inscrição é criada.
