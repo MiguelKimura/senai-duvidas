@@ -186,3 +186,26 @@
   padding: var(--espaco-1) var(--espaco-3);
   color: var(--cor-texto-rotulo);
 }
+
+/* ---- O carregamento inicial (AC-ANIM-04) ------------------------------- */
+
+/* O esqueleto imita a forma do cartão de sala — nome, curso, ano —, e não uma
+   barra genérica: a silhueta certa é o que faz a espera parecer curta. O
+   brilho que atravessa as barras vem de `.esqueleto`, em animacoes.css, onde
+   o `prefers-reduced-motion` global o desliga de uma vez (AC-ANIM-05). */
+.salas-aviso {
+  margin: var(--espaco-4) 0 var(--espaco-2);
+  color: var(--cor-texto-rotulo);
+}
+
+.salas-esqueleto-nome {
+  width: 60%;
+  height: var(--espaco-4);
+  margin-bottom: var(--espaco-2);
+}
+
+.salas-esqueleto-linha {
+  width: 40%;
+  height: var(--espaco-3);
+  margin-bottom: var(--espaco-1);
+}

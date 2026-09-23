@@ -515,3 +515,10 @@
     z-index: var(--camada-topo);
   }
 }
+
+/* O esqueleto da lista de conversas (AC-ANIM-04). Uma barra por conversa, na
+   altura de um item de verdade — ver Salas.css para o mesmo raciocínio. */
+.conversas-esqueleto-item {
+  height: var(--espaco-5);
+  margin: 0 var(--espaco-2);
+}

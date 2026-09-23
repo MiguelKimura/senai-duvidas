@@ -9,6 +9,11 @@ import { formatarHora } from '../../services/tempo';
 /** Quantos caracteres da última mensagem cabem na prévia. */
 const TAMANHO_DA_PREVIA = 60;
 
+export const TEXTO_CARREGANDO = 'Carregando as suas conversas...';
+
+/** Quantas linhas cinzas o esqueleto desenha. */
+const LINHAS_DO_ESQUELETO = 3;
+
 /**
  * O outro lado da conversa.
  *
@@ -43,9 +48,31 @@ function previa(conversa) {
  * @param {object} props
  * @param {string} props.uid quem está lendo.
  * @param {Array<object>} props.conversas já ordenadas pela mais recente.
+ * @param {boolean} [props.carregando] antes do primeiro snapshot.
  * @param {(conversa: {id: string, outroUid: string, outroNome: string}) => void} [props.aoAbrir]
  */
-export default function ListaConversas({ uid, conversas = [], aoAbrir }) {
+export default function ListaConversas({ uid, conversas = [], carregando = false, aoAbrir }) {
+  // "Não há conversa" e "ainda não sei se há" são coisas diferentes, e a lista
+  // dizia a primeira nos dois casos. Quem abriu a aba para retomar uma
+  // conversa lia que ela não existe (AC-ANIM-04).
+  //
+  // Só o carregamento **inicial**: com conversas já na tela, trocá-las por
+  // barras cinzas a cada reemissão do `onSnapshot` piscaria a lista inteira.
+  if (carregando && conversas.length === 0) {
+    return (
+      <>
+        <p className="conversas-aviso" role="status">
+          {TEXTO_CARREGANDO}
+        </p>
+        <div className="esqueleto-lista" aria-hidden="true">
+          {Array.from({ length: LINHAS_DO_ESQUELETO }, (_, indice) => (
+            <div className="esqueleto conversas-esqueleto-item" key={indice} />
+          ))}
+        </div>
+      </>
+    );
+  }
+
   if (conversas.length === 0) {
     return (
       <p className="conversas-aviso">
