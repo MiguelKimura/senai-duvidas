@@ -577,6 +577,78 @@ describe('chamados da sala — escopo por turma (AC-SALA-07, AC-SEC-02)', () => 
     );
   });
 
+  // A v0.7.0 acrescentou `formato` e `cor` ao chamado e registrou, em
+  // "Limites conhecidos" de `docs/CRITERIOS-DE-ACEITE.md`, que a rule os
+  // aceitava sem olhar: "Validar os dois campos na rule é endurecimento barato
+  // e fica para a task 09." É aqui.
+  //
+  // O que uma escrita fora do app consegue hoje: gravar
+  // `formato: "markdown"` com qualquer coisa em `descricao`, ou `cor` com uma
+  // string CSS arbitrária que vai parar no `style` de todo card da turma. A
+  // sanitização na leitura cobre o primeiro para todo leitor — e é por isso
+  // que isto é endurecimento, e não correção de falha. O segundo é o que
+  // interessa: `cor` entra em atributo de estilo, e o conjunto de valores
+  // aceitos precisa ser fechado no servidor também.
+  describe('formato e cor, que a v0.7.0 deixou passar (AC-COR-04, AC-COR-07)', () => {
+    const chamado = (sobrescritas) => ({
+      autorUid: ANA,
+      autorNome: 'Ana Souza',
+      descricao: 'O Visual Studio não abre.',
+      atendido: false,
+      horario: serverTimestamp(),
+      ...sobrescritas,
+    });
+
+    it('aceita o chamado sem `formato` nenhum, que é o da v0.1.0', async () => {
+      await assertSucceeds(
+        setDoc(doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/chamados/sem-formato`), chamado({}))
+      );
+    });
+
+    it.each([['texto'], ['markdown']])('aceita formato "%s"', async (formato) => {
+      await assertSucceeds(
+        setDoc(
+          doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/chamados/f-${formato}`),
+          chamado({ formato })
+        )
+      );
+    });
+
+    it.each([
+      ['html', 'html'],
+      ['número no lugar de string', 7],
+      ['string vazia', ''],
+    ])('recusa formato %s', async (_rotulo, formato) => {
+      await assertFails(
+        setDoc(
+          doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/chamados/formato-ruim`),
+          chamado({ formato })
+        )
+      );
+    });
+
+    it.each([
+      ['a cor sorteada de sempre', 'hsl(210, 70%, 80%)'],
+      ['uma cor da paleta', '#ffd6a5'],
+    ])('aceita %s', async (_rotulo, cor) => {
+      await assertSucceeds(
+        setDoc(doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/chamados/cor-boa`), chamado({ cor }))
+      );
+    });
+
+    it.each([
+      ['uma URL de imagem, que pediria o IP da turma ao servidor do outro lado',
+        'url(https://rastreador.exemplo/pixel.png)'],
+      ['uma expressão CSS inteira', 'red; background-image: url(//x)'],
+      ['número no lugar de string', 0x00ff00],
+      ['string longa demais para ser cor', 'a'.repeat(200)],
+    ])('recusa cor que é %s', async (_rotulo, cor) => {
+      await assertFails(
+        setDoc(doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/chamados/cor-ruim`), chamado({ cor }))
+      );
+    });
+  });
+
   describe('exclusão (AC-CHAMADO-05)', () => {
     beforeEach(async () => {
       await semearMembro(SALA_A, BRUNO);
