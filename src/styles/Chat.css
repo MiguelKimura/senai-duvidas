@@ -484,3 +484,34 @@
     transition: none;
   }
 }
+
+/* ---- O celular (AC-ANIM-08) -------------------------------------------- */
+
+/* Abaixo de 768px a caixa flutuante deixa de flutuar.
+ *
+ * Ela tem 320x440 fixos. Numa tela de 360 sobram vinte pixels de cada lado e
+ * a conversa cabe em seis linhas: o aluno lê por uma fresta enquanto a tela
+ * inteira está livre atrás dela. Pior, o teclado virtual sobe por cima do
+ * campo de digitação, porque a caixa está ancorada a 60px do rodapé da
+ * janela — e o rodapé, com teclado aberto, já não é onde estava.
+ *
+ * Como painel de tela cheia os dois problemas somem de uma vez: a coluna flex
+ * ocupa o que houver, a lista rola dentro dela e o campo fica no fim da
+ * coluna, não no fim da janela.
+ */
+@media (max-width: 768px) {
+  .chat-box {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 0;
+  }
+
+  /* O botão que abre o chat fica por cima do painel enquanto ele está aberto,
+     e vira o jeito de fechá-lo — sem ele, a única saída seria o Esc. */
+  .chat-container {
+    z-index: var(--camada-topo);
+  }
+}

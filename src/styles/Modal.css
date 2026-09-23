@@ -122,3 +122,20 @@ button:hover {
   text-decoration: underline;
   color: var(--cor-primaria-hover);
 }
+
+/* Abaixo de 480px o diálogo ocupa a tela inteira, pela mesma razão da
+   confirmação: uma caixa de 400px centrada numa tela de 360 é uma caixa
+   colada nas bordas, e este diálogo tem um <textarea>, um seletor de arquivo
+   e um painel de opções dentro (AC-ANIM-08). */
+@media (max-width: 480px) {
+  .modal-overlay {
+    align-items: stretch;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    overflow-y: auto;
+  }
+}

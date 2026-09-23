@@ -37,11 +37,22 @@
 }
 
 .tela-aluno .problemas-list {
-  margin-top: 20px;
+  margin-top: var(--espaco-4);
   flex-grow: 1;
+  /* `min-height: 0` e NÃO `height: calc(100vh - 120px)`, que era o que estava
+     aqui. Os dois números saíam da mesma altura de janela — a coluna pede
+     95vh, a lista pedia 100vh menos 120px — e o de dentro era maior. Na
+     1024x768 do laboratório a coluna tem 730px e o conteúdo pedia 776: a
+     lista vazava por baixo, e o botão "+", que é `position: fixed`, cobria o
+     último card. Num monitor de 1080px a conta fechava, e por isso ninguém
+     nunca viu o defeito (AC-ANIM-08).
+
+     O padrão de `min-height` num filho flex é `auto`, que quer dizer "não
+     encolha abaixo do seu conteúdo" — sem zerá-lo, quem rola é a página, e
+     não a lista. */
+  min-height: 0;
   overflow-y: auto;
   padding-bottom: 80px;
-  height: calc(100vh - 120px);
   overflow-x: hidden;
 }
 

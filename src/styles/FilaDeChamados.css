@@ -87,3 +87,45 @@
   width: 30%;
   height: var(--espaco-campo);
 }
+
+/* ---- As telas largas (AC-ANIM-08) --------------------------------------- */
+
+/* O card tem teto de 400px, e é para ter: linha de texto longa demais é linha
+ * que o olho perde ao voltar. O que não faz sentido é a FILA herdar esse teto
+ * — a 1024px do laboratório ela ocupava 400 de 1024, e o professor via quatro
+ * chamados de cada vez com 60% da tela vazia ao lado.
+ *
+ * Duas colunas a 1024, três a 1440. `auto-fill` com `minmax` em vez de um
+ * número fixo de colunas: quem decide quantas cabem é a largura disponível, e
+ * assim a janela de tamanho intermediário não fica com uma coluna cortada.
+ */
+@media (min-width: 1024px) {
+  .problemas-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 400px));
+    gap: var(--espaco-2);
+    align-content: start;
+  }
+
+  /* O card já tem o próprio teto; dentro da grade quem manda é a coluna. */
+  .problemas-list .problema-card,
+  .problemas-list .fila-esqueleto-card {
+    max-width: none;
+    margin-bottom: 0;
+  }
+
+  /* O que não é card continua ocupando a linha inteira: um estado vazio de
+     400px encolhido numa coluna de grade viraria um cartãozinho perdido. */
+  .fila-vazia,
+  .fila-aviso,
+  .fila-erro,
+  .fila-carregar-mais {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1440px) {
+  .problemas-list {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 400px));
+  }
+}

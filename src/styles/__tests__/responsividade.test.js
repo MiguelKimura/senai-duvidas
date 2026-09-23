@@ -50,8 +50,18 @@ function folhas() {
     .sort();
 }
 
+/**
+ * A folha sem comentário nenhum.
+ *
+ * Duas razões, e as duas são de correção. A primeira: a regra que este arquivo
+ * proíbe está citada em prosa no CSS que a substituiu — é assim que a próxima
+ * pessoa entende por que `height: calc(100vh - 120px)` não pode voltar. Ler o
+ * comentário faria o teste acusar exatamente a documentação da correção.
+ * A segunda: uma chave dentro de um comentário desalinharia a contagem de
+ * `blocoDaMedia`, e o bloco devolvido seria outro.
+ */
 function cssDe(nome) {
-  return fs.readFileSync(path.join(PASTA, nome), 'utf8');
+  return fs.readFileSync(path.join(PASTA, nome), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
 /** O corpo da primeira `@media` de `nome` que casa com `consulta`. */
@@ -135,7 +145,7 @@ describe('o celular a 360px (AC-ANIM-08)', () => {
     const largos = [];
 
     for (const nome of folhas()) {
-      const css = cssDe(nome).replace(/\/\*[\s\S]*?\*\//g, '');
+      const css = cssDe(nome);
 
       for (const [declaracao, valor] of css.matchAll(
         /(?:^|[;{])\s*(?:min-)?width:\s*(\d+)px/gm
