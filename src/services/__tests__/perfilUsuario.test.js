@@ -259,10 +259,22 @@ describe('conta legada de professor cujo e-mail saiu de autorizados', () => {
   it('registra o rebaixamento em log, para o administrador reconciliar', async () => {
     await garantirPerfil(PROFESSORA_LEGADA);
 
-    expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining('autorizados'),
-      expect.anything()
-    );
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('autorizados'));
+  });
+
+  it('e o log não carrega uid nem e-mail de ninguém (AC-SEC-07)', async () => {
+    // Até a 1.0.0 esta chamada levava `{ uid: usuario.uid }` junto, e a
+    // asserção acima exigia esse segundo argumento com `expect.anything()`.
+    // O console fica num navegador de laboratório compartilhado: um
+    // identificador ali não ajuda quem reconcilia — que é o administrador, no
+    // console do Firebase — e fica visível para a turma seguinte.
+    await garantirPerfil(PROFESSORA_LEGADA);
+
+    const argumentos = console.warn.mock.calls.flat();
+
+    expect(argumentos).toHaveLength(1);
+    expect(JSON.stringify(argumentos)).not.toContain(PROFESSORA_LEGADA.uid);
+    expect(JSON.stringify(argumentos)).not.toContain(PROFESSORA_LEGADA.email);
   });
 
   it('não regrava nem apaga o documento legado', async () => {
