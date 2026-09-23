@@ -265,3 +265,39 @@
   margin: 0;
   font-size: 0.85rem;
 }
+
+.perk-painel-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+}
+
+.perk-painel-caixa {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--espaco-1);
+}
+
+.perk-painel-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.perk-painel-lista li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-2);
+  color: var(--cor-texto-rotulo);
+  font-size: 0.9rem;
+}
+
+.perk-painel-aviso {
+  color: var(--cor-texto-rotulo);
+  margin: 0;
+  font-size: 0.9rem;
+}

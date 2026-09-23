@@ -100,7 +100,7 @@ export default function Sala() {
       {ehDono && <PainelDaTurma salaId={salaId} podeRemover={!somenteLeitura} />}
 
       {papelNaSala === PAPEL_DE_PROFESSOR ? (
-        <TelaProfessor salaId={salaId} somenteLeitura={somenteLeitura} />
+        <TelaProfessor salaId={salaId} somenteLeitura={somenteLeitura} ehDono={ehDono} />
       ) : (
         <TelaAluno salaId={salaId} somenteLeitura={somenteLeitura} />
       )}

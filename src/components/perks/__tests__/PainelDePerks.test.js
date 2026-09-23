@@ -26,6 +26,7 @@ import {
   __semearColecao,
 } from 'firebase/firestore';
 import PainelDePerks from '../PainelDePerks';
+import { useAuth } from '../../../contexts/AuthContext';
 import { renderComProvedores } from '../../../test-utils';
 
 const SALA = 'sala-a';
@@ -45,10 +46,31 @@ function semearTurma() {
   ]);
 }
 
+/**
+ * Diz quando a sessão terminou de resolver.
+ *
+ * Conceder e revogar assinam o evento de auditoria com o uid do professor, e
+ * esse uid vem do `AuthContext` — que resolve depois de uma ida ao Firestore.
+ * Sem esta espera, o teste clicaria antes de haver assinatura.
+ */
+function Sonda() {
+  const { carregando } = useAuth();
+
+  return <span data-testid="sessao">{carregando ? 'carregando' : 'pronta'}</span>;
+}
+
 function renderizar(props = {}) {
   return renderComProvedores(
-    <PainelDePerks salaId={SALA} perks={[]} agoraServidor={new Date(AGORA)} {...props} />
+    <>
+      <Sonda />
+      <PainelDePerks salaId={SALA} perks={[]} agoraServidor={new Date(AGORA)} {...props} />
+    </>
   );
+}
+
+/** A sessão resolvida: é ela que assina a concessão e a revogação. */
+async function aSessaoPronta() {
+  await waitFor(() => expect(screen.getByTestId('sessao')).toHaveTextContent('pronta'));
 }
 
 /** Espera a turma chegar: `listarMembros` é uma ida ao Firestore. */
@@ -56,6 +78,7 @@ async function aTurmaCarregada() {
   await waitFor(() =>
     expect(screen.getByRole('combobox', { name: /aluno/i })).toHaveTextContent('Ana Souza')
   );
+  await aSessaoPronta();
 }
 
 async function conceder({ aluno = 'uid-ana', tipo, nivel, justificativa, validade } = {}) {
@@ -67,7 +90,9 @@ async function conceder({ aluno = 'uid-ana', tipo, nivel, justificativa, validad
   if (nivel) {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /nível/i }), nivel);
   }
-  if (validade) {
+  // `!== undefined`, e não truthy: "sem validade" é a string vazia, que é
+  // justamente o caso do perk permanente.
+  if (validade !== undefined) {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /validade/i }), validade);
   }
   if (justificativa) {
@@ -238,6 +263,7 @@ describe('PainelDePerks — a revogação (AC-PERK-07, AC-PERK-10)', () => {
     __semearColecao(PERKS_DA_SALA, [PERK_ATIVO]);
 
     renderizar({ perks: [PERK_ATIVO] });
+    await aSessaoPronta();
 
     await userEvent.click(screen.getByRole('button', { name: /revogar/i }));
 

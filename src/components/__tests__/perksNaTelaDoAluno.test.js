@@ -157,6 +157,28 @@ describe('TelaAluno — onde o aluno desliga a animação (AC-PERK-08)', () => {
   });
 });
 
+describe('TelaProfessor — o painel de concessão (AC-PERK-01, AC-PERK-07)', () => {
+  it('oferece o painel de premiações ao dono da sala', async () => {
+    renderComProvedores(<TelaProfessor salaId={SALA} ehDono />);
+
+    expect(
+      await screen.findByRole('region', { name: 'Conceder premiações' })
+    ).toBeInTheDocument();
+  });
+
+  it('não oferece o painel a quem não é dono da sala', () => {
+    renderComProvedores(<TelaProfessor salaId={SALA} ehDono={false} />);
+
+    expect(screen.queryByRole('region', { name: 'Conceder premiações' })).toBeNull();
+  });
+
+  it('o aluno não tem painel de concessão nenhum', () => {
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    expect(screen.queryByRole('region', { name: 'Conceder premiações' })).toBeNull();
+  });
+});
+
 describe('TelaProfessor — a vitrine é do aluno, não dele', () => {
   it('não mostra "Minhas conquistas" na tela do professor', () => {
     semearPerk();

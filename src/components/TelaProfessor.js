@@ -7,6 +7,7 @@ import { formatoDoTexto } from '../utils/markdown';
 import { estiloDoCard } from '../utils/cardDoChamado';
 import { usePerksDaSala } from '../hooks/usePerksDaSala';
 import InsigniasDoAluno from './perks/InsigniasDoAluno';
+import PainelDePerks from './perks/PainelDePerks';
 import '../styles/TelaProfessor.css';
 import AnexoDoCard from './AnexoDoCard';
 import TextoMarkdown from './TextoMarkdown';
@@ -18,13 +19,13 @@ import BotaoSair from './BotaoSair';
 // A fila que ele vê é a da turma dele, e não mais a da escola inteira. Sem
 // `salaId`, cai na coleção global da v0.4.0 pelo mesmo fallback da tela do
 // aluno — o que mantém a tela útil enquanto a migração não rodou.
-function TelaProfessor({ salaId = null, somenteLeitura = false }) {
+function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }) {
   const [problemas, setProblemas] = useState([]);
 
   // A fila que a tela desenha sai daqui, e não do estado cru: a ordem dela
   // depende dos perks da sala, e quem os carrega — uma vez, não uma por card —
   // é este hook (AC-PERK-02, AC-PERF-03).
-  const { fila, perksPorUid, agoraServidor } = usePerksDaSala(salaId, problemas);
+  const { fila, perks, perksPorUid, agoraServidor } = usePerksDaSala(salaId, problemas);
 
   // A mesma insígnia do card, ao lado do nome no chat. O índice e o instante
   // são os que a sala já carregou: o chat não abre consulta de perk nenhuma
@@ -78,6 +79,18 @@ function TelaProfessor({ salaId = null, somenteLeitura = false }) {
     <div className="tela-professor">
       <BotaoSair />
       <h1>Chamados dos Alunos</h1>
+
+      {/* Só o dono da sala concede: é o que a rule cobra do outro lado
+          (AC-PERK-07). Um professor que não é o dono desta turma vê a fila e
+          o chat, e nada mais. */}
+      {ehDono && (
+        <PainelDePerks
+          salaId={salaId}
+          perks={perks}
+          agoraServidor={agoraServidor}
+          somenteLeitura={somenteLeitura}
+        />
+      )}
 
       <div className="problemas-list">
         {fila.map((problema) => (
