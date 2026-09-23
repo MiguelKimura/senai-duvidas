@@ -9,6 +9,51 @@ Todas as mudanças relevantes deste projeto são registradas aqui, no formato
 > intervalo e os agrupa. Escrever à mão é escrever de memória no fim do trabalho, e o que
 > fica de fora é justamente o que ninguém lembrou.
 
+> node scripts/gerarChangelog.js 05ad89d..HEAD --versao 0.9.0 --data 2026-09-22
+
+## [0.9.0] - 2026-09-22
+
+### Adicionado
+
+- **perks:** ordena a fila por prioridade, horario do servidor e id
+- **perks:** separa aberto de atendido antes de qualquer prioridade
+- **tempo:** da ao app um agora com piso no carimbo do servidor
+- **perks:** poe concessao, revogacao e auditoria atras do dono da sala
+- **perks:** grava premiacao e auditoria no mesmo lote atomico
+- **perks:** le preferencia com padrao seguro e grava so o que conhece
+- **perks:** entrega a premiacao em tela cheia, com saida e sem som
+- **perks:** faz as duas telas ordenarem a fila pelos perks da sala
+- **perks:** poe a insignia no card do chamado e ao lado do nome no chat
+- **perks:** entrega a vitrine de conquistas na tela do aluno
+- **perks:** da ao aluno onde desligar a animacao e ligar o som
+- **perks:** dispara a premiacao em tela cheia uma vez, na sala do aluno
+- **perks:** da ao dono da sala onde conceder e revogar premiacao
+
+### Alterado
+
+- **perks:** exige fila ordenada por prioridade, horario e id do chamado
+- **perks:** exige atendido no fim e ordem igual em 1000 embaralhamentos
+- **perks:** exige piso do servidor para a validade do perk
+- **perks:** exige do servidor quem concede, quem revoga e o log imutavel
+- **perks:** exige premiacao e auditoria como uma escrita so
+- **perks:** exige que o evento de revogacao nomeie o aluno
+- **perks:** exige preferencia de animacao e som com padrao seguro
+- **perks:** exige premiacao em tela cheia com saida, e sem som por padrao
+- **perks:** exige que as duas telas ordenem a fila pelos perks da sala
+- **perks:** exige a insignia do perk no card do chamado e no chat
+- **perks:** exige a vitrine com premiacoes ativas e historico dos vencidos
+- **perks:** exige a vitrine na tela do aluno, e so nela
+- **perks:** exige onde o aluno desliga a animacao e liga o som
+- **perks:** exige que a premiacao dispare uma vez e nunca repita
+- **perks:** troca waitFor+getByText por findByText no teste da premiacao
+- **perks:** exige o painel onde o professor concede e revoga premiacao
+- **perks:** prova as duas compatibilidades exigidas pela secao 4 do protocolo
+- **perks:** silencia os avisos de act e cobre o desempate da premiacao
+
+### Corrigido
+
+- **perks:** faz a revogacao receber o perk, e nao so o id do documento
+
 > node scripts/gerarChangelog.js 33f1c01..HEAD --versao 0.8.0 --data 2026-09-22
 
 ## [0.8.0] - 2026-09-22
