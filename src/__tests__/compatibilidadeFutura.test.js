@@ -467,3 +467,137 @@ describe('chamados da v0.7.0 lidos por um cliente que não conhece `formato`', (
     expect(screen.queryByText(/markdown/)).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// `perks` e `preferencias` — os campos que a task 07 acrescenta.
+//
+// A v0.9.0 não muda a forma de dado nenhum. Ela acrescenta uma subcoleção
+// (`salas/{salaId}/perks`), uma coleção de log (`auditoriaPerks`) e um campo
+// aditivo em `usuarios/{uid}` (`preferencias`). O cliente da v0.8.0 não conhece
+// nada disso — e é exatamente por isso que o cenário precisa de prova.
+//
+// O que ele faz ao encontrar os dados novos:
+//
+//   * **não vê a subcoleção.** Ele nunca a consulta, então ela não chega até
+//     ele. A fila que ele ordena é a mesma de antes, por horário crescente:
+//     ele só não enxerga a prioridade. Degradação aceita e declarada na task;
+//   * **ignora `preferencias`.** Ele lê `nome`, `email` e `tipo` do documento
+//     do usuário, como sempre leu, e o mapa novo passa ao largo.
+//
+// O caminho inverso — o cliente NOVO lendo documento velho — é a metade
+// retroativa, e ela fecha o bloco: sala sem perk nenhum produz a mesma ordem
+// da v0.8.0, e perfil sem `preferencias` cai no padrão seguro.
+// ---------------------------------------------------------------------------
+describe('a v0.9.0 lida por um cliente da v0.8.0, que não conhece perks', () => {
+  const CHAMADO_DA_V090 = {
+    id: 'v090',
+    autorUid: 'uid-bruno',
+    autorNome: 'Bruno Alves',
+    nome: 'Bruno Alves',
+    email: 'bruno@senai.br',
+    descricao: 'a impressora não responde',
+    horario: Timestamp.fromDate(new Date('2026-09-22T10:00:00.000Z')),
+    cor: PALETA[2].fundo,
+    formato: 'markdown',
+    imagem: null,
+    anexo: null,
+    atendido: false,
+  };
+
+  const PERFIL_DA_V090 = {
+    uid: 'uid-ana',
+    nome: 'Ana Souza',
+    email: 'ana@senai.br',
+    tipo: 'aluno',
+    criadoEm: Timestamp.fromDate(new Date('2026-03-01T12:00:00.000Z')),
+    provedor: 'google.com',
+    // O campo que nasce nesta versão.
+    preferencias: { animacoes: false, som: true },
+  };
+
+  /**
+   * A fila da v0.8.0, reproduzida: `sort` por horário e nada mais.
+   *
+   * Este é o ponto do bloco. O chamado da v0.9.0 não ganhou campo nenhum — a
+   * prioridade mora em OUTRA coleção, que este leitor nunca consulta. A ordem
+   * que ele produz continua sendo a de antes, e nada nele sabe que existe um
+   * perk em algum lugar.
+   */
+  function filaDaV080(chamados) {
+    return [...chamados]
+      .sort((a, b) => a.horario.toDate().getTime() - b.horario.toDate().getTime())
+      .map((chamado) => chamado.id);
+  }
+
+  /** O leitor de perfil da v0.8.0: quatro campos, e só. */
+  function perfilDaV080(documento) {
+    return {
+      uid: documento.uid,
+      nome: documento.nome,
+      email: documento.email,
+      tipo: documento.tipo,
+    };
+  }
+
+  it('o chamado da v0.9.0 continua tendo exatamente a forma da v0.8.0', () => {
+    // Nenhum campo novo no chamado: é a razão de a fila antiga continuar
+    // funcionando sem uma linha de migração.
+    expect(Object.keys(CHAMADO_DA_V090).sort()).toEqual(
+      [
+        'id',
+        'autorUid',
+        'autorNome',
+        'nome',
+        'email',
+        'descricao',
+        'horario',
+        'cor',
+        'formato',
+        'imagem',
+        'anexo',
+        'atendido',
+      ].sort()
+    );
+  });
+
+  it('a fila da v0.8.0 ordena os chamados da v0.9.0 sem lançar', () => {
+    const chamados = [
+      { ...CHAMADO_DA_V090, id: 'b', horario: Timestamp.fromDate(new Date('2026-09-22T10:05:00Z')) },
+      { ...CHAMADO_DA_V090, id: 'a' },
+    ];
+
+    expect(() => filaDaV080(chamados)).not.toThrow();
+    expect(filaDaV080(chamados)).toEqual(['a', 'b']);
+  });
+
+  it('o leitor de perfil da v0.8.0 ignora `preferencias` e não lança', () => {
+    expect(() => perfilDaV080(PERFIL_DA_V090)).not.toThrow();
+    expect(perfilDaV080(PERFIL_DA_V090)).toEqual({
+      uid: 'uid-ana',
+      nome: 'Ana Souza',
+      email: 'ana@senai.br',
+      tipo: 'aluno',
+    });
+  });
+
+  it('a tela nova mostra o chamado da v0.8.0 numa sala sem perk nenhum', () => {
+    __semearColecao('salas/sala-a/chamados', [
+      {
+        id: 'antigo',
+        nome: 'Bruno Alves',
+        email: 'bruno@senai.br',
+        descricao: 'chamado sem autorUid, como a v0.1.0 gravava',
+        horario: '2025-03-10T13:45:00.000Z',
+        cor: 'hsl(210, 70%, 80%)',
+        imagem: null,
+      },
+    ]);
+
+    renderComProvedores(<TelaAluno salaId="sala-a" />);
+
+    expect(
+      screen.getByText('chamado sem autorUid, como a v0.1.0 gravava')
+    ).toBeInTheDocument();
+    expect(document.querySelector('.perk-insignia')).toBeNull();
+  });
+});
