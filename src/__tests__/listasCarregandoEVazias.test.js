@@ -22,7 +22,7 @@
 // O esqueleto usa as classes de `styles/animacoes.css`, que é onde o
 // `prefers-reduced-motion` global desliga o brilho de uma vez (AC-ANIM-05).
 import React from 'react';
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
   Timestamp,
@@ -44,6 +44,17 @@ const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
 const CARLOS = { uid: 'uid-carlos', email: 'carlos@senai.br', displayName: 'Carlos Lima' };
 
 const AGORA = '2026-09-23T12:00:00.000Z';
+
+/**
+ * As barras cinzas na tela, buscadas por classe.
+ *
+ * Não há papel ARIA para "esqueleto" — e não há de propósito: ele é
+ * `aria-hidden`, porque não é conteúdo. Quem anuncia a espera é o
+ * `role="status"` ao lado, e esse tem teste próprio logo abaixo.
+ */
+function esqueletos() {
+  return document.querySelectorAll('.esqueleto');
+}
 
 /** O texto que só pode aparecer depois de o banco dizer que não há sala. */
 const VAZIO_DE_SALAS = /não está em nenhuma sala/i;
@@ -81,10 +92,10 @@ describe('a lista de salas (AC-ANIM-04, AC-CHAMADO-10)', () => {
     __definirUsuarioAtual(ANA);
     semearSala();
 
-    const { container } = renderComProvedores(<MinhasSalas />, { rota: '/salas' });
+    renderComProvedores(<MinhasSalas />, { rota: '/salas' });
 
     expect(screen.queryByText(VAZIO_DE_SALAS)).not.toBeInTheDocument();
-    expect(container.querySelector('.esqueleto')).toBeInTheDocument();
+    expect(esqueletos()).not.toHaveLength(0);
   });
 
   it('anuncia a espera a quem usa leitor de tela', () => {
@@ -100,22 +111,22 @@ describe('a lista de salas (AC-ANIM-04, AC-CHAMADO-10)', () => {
     __definirUsuarioAtual(ANA);
     semearSala();
 
-    const { container } = renderComProvedores(<MinhasSalas />, { rota: '/salas' });
+    renderComProvedores(<MinhasSalas />, { rota: '/salas' });
 
     await screen.findByText('Mecânica 2º ano');
 
-    expect(container.querySelector('.esqueleto')).not.toBeInTheDocument();
+    expect(esqueletos()).toHaveLength(0);
     expect(screen.queryByText(VAZIO_DE_SALAS)).not.toBeInTheDocument();
   });
 
   it('o vazio aparece depois que o banco responde que não há sala nenhuma', async () => {
     __definirUsuarioAtual(ANA);
 
-    const { container } = renderComProvedores(<MinhasSalas />, { rota: '/salas' });
+    renderComProvedores(<MinhasSalas />, { rota: '/salas' });
 
     await screen.findByText(VAZIO_DE_SALAS);
 
-    expect(container.querySelector('.esqueleto')).not.toBeInTheDocument();
+    expect(esqueletos()).toHaveLength(0);
   });
 
   it('o vazio diz qual é a próxima ação, e não só que está vazio', async () => {
@@ -129,12 +140,10 @@ describe('a lista de salas (AC-ANIM-04, AC-CHAMADO-10)', () => {
 
 describe('a lista de conversas diretas (AC-ANIM-04, AC-DM-06)', () => {
   it('mostra esqueleto, e NÃO o vazio, enquanto carrega', () => {
-    const { container } = renderComProvedores(
-      <ListaConversas uid={ANA.uid} conversas={[]} carregando />
-    );
+    renderComProvedores(<ListaConversas uid={ANA.uid} conversas={[]} carregando />);
 
     expect(screen.queryByText(VAZIO_DE_CONVERSAS)).not.toBeInTheDocument();
-    expect(container.querySelector('.esqueleto')).toBeInTheDocument();
+    expect(esqueletos()).not.toHaveLength(0);
   });
 
   it('o vazio só aparece quando já se sabe que não há conversa', () => {
@@ -144,7 +153,7 @@ describe('a lista de conversas diretas (AC-ANIM-04, AC-DM-06)', () => {
   });
 
   it('com conversas na mão, não mostra esqueleto nem vazio', async () => {
-    const { container } = renderComProvedores(
+    renderComProvedores(
       <ListaConversas
         uid={ANA.uid}
         carregando
@@ -160,9 +169,9 @@ describe('a lista de conversas diretas (AC-ANIM-04, AC-DM-06)', () => {
       />
     );
 
-    await waitFor(() => expect(screen.getByText('Carlos Lima')).toBeInTheDocument());
+    expect(await screen.findByText('Carlos Lima')).toBeInTheDocument();
 
-    expect(container.querySelector('.esqueleto')).not.toBeInTheDocument();
+    expect(esqueletos()).toHaveLength(0);
     expect(screen.queryByText(VAZIO_DE_CONVERSAS)).not.toBeInTheDocument();
   });
 });
