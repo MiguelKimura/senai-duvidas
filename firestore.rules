@@ -194,6 +194,41 @@ service cloud.firestore {
         && pinConfere(salaId, tentativaAtual().pinTentado);
     }
 
+    /// O `formato` do chamado, se ele vier (AC-COR-07).
+    ///
+    /// Ausente é válido: é o chamado da v0.1.0, e o leitor trata a ausência
+    /// como texto puro. Presente, só os dois valores que `utils/markdown.js`
+    /// sabe renderizar — qualquer outro cairia em texto na leitura de
+    /// qualquer forma, e aceitá-lo no banco só cria documento que mente
+    /// sobre si mesmo.
+    function formatoEhValido() {
+      return !('formato' in request.resource.data)
+        || request.resource.data.formato in ['texto', 'markdown'];
+    }
+
+    /// A `cor` do card, se ela vier (AC-COR-04).
+    ///
+    /// Este campo termina num atributo de estilo, renderizado para os
+    /// quarenta membros da sala. A rule fecha o conjunto no servidor, e não
+    /// só no cliente, porque uma escrita feita pelo DevTools também pinta o
+    /// card de todo mundo.
+    ///
+    /// São exatamente as duas formas que o app produz: o `hsl(...)` sorteado
+    /// desde a v0.1.0 e o hexadecimal da paleta da v0.7.0. O que `url(` e
+    /// `expression(` fariam ali é pedir uma imagem ao servidor de outra
+    /// pessoa — e entregar o IP da turma inteira a ele.
+    ///
+    /// O teto de tamanho é o guarda contra a forma que ninguém previu: nenhum
+    /// valor legítimo dos dois formatos passa de 40 caracteres.
+    function corEhValida() {
+      return !('cor' in request.resource.data)
+        || (request.resource.data.cor is string
+            && request.resource.data.cor.size() <= 40
+            && (request.resource.data.cor.matches('^#[0-9a-fA-F]{3,8}$')
+                || request.resource.data.cor.matches(
+                     '^hsl[(] *[0-9.]+ *, *[0-9.]+% *, *[0-9.]+% *[)]$')));
+    }
+
     // ----------------------------------------------------------------------
     // salas/{salaId}
     // ----------------------------------------------------------------------
@@ -272,14 +307,19 @@ service cloud.firestore {
           && request.resource.data.descricao is string
           && request.resource.data.descricao.size() > 0
           && request.resource.data.descricao.size() <= 1000
+          && formatoEhValido()
+          && corEhValida()
           && horarioEhDoServidor();
 
         // Marcar como atendido é do professor; completar `horarioIso` é do
-        // autor. Nenhum dos dois troca a autoria.
+        // autor. Nenhum dos dois troca a autoria — nem a cor ou o formato por
+        // um valor que a criação teria recusado.
         allow update: if ehMembroDaSala(salaId)
           && salaEstaAtiva(salaId)
           && (resource.data.autorUid == request.auth.uid || ehDonoDaSala(salaId))
           && request.resource.data.autorUid == resource.data.autorUid
+          && formatoEhValido()
+          && corEhValida()
           && horarioEhDoServidor();
 
         allow delete: if salaEstaAtiva(salaId)
