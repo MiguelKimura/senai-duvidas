@@ -1,6 +1,10 @@
 /* O @import precisa vir antes de qualquer regra: é o que o CSS exige, e é o
  * que faz os tokens estarem disponíveis para toda folha carregada depois. */
 @import './styles/tokens.css';
+/* Depois dos tokens, porque consome os tokens; e antes de qualquer folha de
+ * componente, porque a supressão de `prefers-reduced-motion` vale por
+ * `!important` e não por ordem — mas os estados de botão, sim (AC-ANIM-05). */
+@import './styles/animacoes.css';
 
 body {
   margin: 0;

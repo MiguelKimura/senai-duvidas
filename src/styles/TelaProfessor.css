@@ -64,7 +64,6 @@
   padding: 5px;
   background-color: rgba(255, 255, 255, 0.7);
   border-radius: 50%;
-  transition: background-color 0.3s;
   margin-left: 10px;
 }
 
@@ -90,7 +89,6 @@
   border-radius: 5px;
   cursor: pointer;
   font-size: 1rem;
-  transition: background-color 0.3s;
 }
 
 .tela-professor .problema-card .delete-button:hover {

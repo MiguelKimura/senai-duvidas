@@ -66,6 +66,18 @@ function localizarBloco(css, abertura) {
   return { inicio: encontrado.index, fim: i, corpo: css.slice(inicio, i - 1) };
 }
 
+/**
+ * O CSS sem o bloco de `prefers-reduced-motion`.
+ *
+ * Aquele bloco é a supressão, e os zeros dele são a supressão acontecendo.
+ * Quem procura duração escolhida precisa olhar para o CSS sem ele.
+ */
+function semSupressao(css) {
+  const bloco = localizarBloco(css, /@media\s*\([^)]*prefers-reduced-motion[^)]*\)\s*\{/);
+
+  return bloco ? css.slice(0, bloco.inicio) + css.slice(bloco.fim) : css;
+}
+
 /** Os tokens declarados em `tokens.css`, já sem comentário. */
 function lerTokens() {
   const tokens = {};
@@ -117,6 +129,7 @@ const DURACOES_DE_CELEBRACAO = {
   '--dur-celebracao': 'entrada do cartão de premiação (AC-PERK-04)',
   '--dur-brilho': 'o halo que se expande atrás do cartão de premiação',
   '--dur-desfazer': 'a janela de arrependimento da exclusão (AC-CHAMADO-04)',
+  '--dur-degrau': 'o intervalo ENTRE duas entradas de card, não a entrada',
 };
 
 describe('tokens de movimento (AC-ANIM-01, AC-ANIM-09)', () => {
@@ -206,10 +219,19 @@ describe('src/styles/animacoes.css (AC-ANIM-05, AC-ANIM-09)', () => {
 describe('a folha inteira do projeto (AC-ANIM-06, AC-ANIM-09)', () => {
   it('não deixa nenhuma duração literal fora de tokens.css', () => {
     const sobras = folhasDeComponente().flatMap(({ nome, css }) =>
-      // Só dentro de declarações de tempo: `padding: 5px` não é duração, e
-      // `translateY(6px)` muito menos.
-      [...css.matchAll(/(transition|animation)(-duration|-delay)?\s*:\s*([^;}]+)/g)]
-        .flatMap(([, , , valor]) => valor.split(/[\s,]+/))
+      // O bloco de supressão sai da conta: o `0s !important` dele não é uma
+      // duração escolhida, é a ausência de duração — tokenizá-lo esconderia
+      // justamente o que se quer ler de relance naquele trecho.
+      [
+        ...semSupressao(css).matchAll(
+          /(transition|animation)(-duration|-delay)?\s*:\s*([^;}]+)/g
+        ),
+      ]
+        // Dentro de `calc()` também conta: `* 40ms` é uma duração literal
+        // tanto quanto `150ms` solto, e foi assim que o escalonamento
+        // quase entrou com o próprio número cravado no CSS.
+        .flatMap(([, , , valor]) => [...valor.matchAll(/([0-9]*\.?[0-9]+(?:ms|s))/g)])
+        .map(([, tempo]) => tempo)
         .filter((pedaco) => emMilissegundos(pedaco) !== null)
         .map((pedaco) => `${nome}: ${pedaco}`)
     );

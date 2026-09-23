@@ -10,10 +10,11 @@
  * seis arquivos. Mudar a identidade visual significa caçar todas as cópias, e
  * esquecer uma é o normal. Este arquivo transforma essa caçada em uma linha.
  *
- * As tasks seguintes trocam os valores crus pelos `var(--token)` arquivo a
- * arquivo. Enquanto isso não acontece, os dois convivem de propósito:
- * substituir tudo agora seria refatoração de comportamento visual, que esta
- * task não autoriza.
+ * A v0.10.0 fecha a segunda metade do AC-ANIM-09: os componentes deixaram de
+ * repetir os valores crus e passaram a consumir `var(--token)`. Onde o token
+ * novo é uma **decisão** desta versão, e não uma extração — a escala de
+ * durações do AC-ANIM-01, o anel de foco do AC-ANIM-10 —, o nome está listado
+ * em `TOKENS_DECIDIDOS` no teste, com o motivo e o teste que o prova.
  */
 
 :root {
@@ -52,6 +53,13 @@
    * viável em um commit.
    */
   --cor-erro: red;
+  /* O anel de foco, único em todo o app (AC-ANIM-10). Quase-preto e não o
+   * vermelho da identidade: o anel precisa aparecer TAMBÉM sobre o botão
+   * vermelho, e vermelho sobre vermelho não aparece. É o mesmo tom que
+   * `utils/paleta.js` usa como texto sobre toda a paleta do card, e contra
+   * qualquer superfície clara deste projeto ele passa folgado do piso de 3:1
+   * que a WCAG 2.1 exige de elemento não textual. */
+  --cor-foco: #1a1a1a;
   --cor-mensagem-enviada: #007bff;
   --cor-mensagem-recebida: #28a745;
 
@@ -84,14 +92,54 @@
   --sombra-foco: 0 0 5px rgba(255, 0, 0, 0.3);
 
   /* ---- Movimento -------------------------------------------------------
-   * Hoje existe uma única duração no projeto inteiro: 0,3s, sempre em
-   * `transition`. Ela fica registrada como está. A faixa de 150ms a 300ms
-   * que o AC-ANIM-01 pede, e o respeito a `prefers-reduced-motion` do
-   * AC-ANIM-05, são escopo da task 08 — mudar a duração aqui seria mudar o
-   * comportamento visual, que esta task proíbe.
+   * A v0.2.0 registrou aqui a única duração que o projeto tinha: `0.3s`. Da
+   * v0.4.0 à v0.9.0 apareceram `150ms` no campo de anexo, `0.45s` e `1.2s` na
+   * premiação, e mais alguns `0.3s` crus espalhados — cada task com a sua.
+   *
+   * Esta é a escala canônica (AC-ANIM-01). Três degraus, porque três é o que
+   * a interface realmente distingue:
+   *
+   *   * `rapida`  — o realce que segue o dedo: hover, foco, cor de botão. Mais
+   *     do que isso e o botão parece pesado;
+   *   * `media`   — a entrada e a saída de um card na fila. Tempo de perceber
+   *     que algo entrou, sem esperar por ele;
+   *   * `lenta`   — o modal e a rota. A caixa nova precisa do tempo de o olho
+   *     achá-la; é o teto da faixa que o AC-ANIM-01 permite.
+   *
+   * As curvas seguem a assimetria que a documentação de movimento do Material
+   * e do WAI descrevem pelo mesmo motivo físico: o que **chega** desacelera,
+   * porque precisa ser lido no fim; o que **sai** acelera, porque já não
+   * interessa. `padrao` é a simétrica das transições de estado, que não têm
+   * direção nenhuma.
    */
-  --duracao-transicao: 0.3s;
-  --aceleracao-padrao: ease;
+  --dur-rapida: 150ms;
+  --dur-media: 220ms;
+  --dur-lenta: 300ms;
+
+  --ease-entrada: cubic-bezier(0, 0, 0.2, 1);
+  --ease-saida: cubic-bezier(0.4, 0, 1, 1);
+  --ease-padrao: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Durações que são a coisa em si, e não a transição para ela. A faixa de
+   * 150ms a 300ms é sobre interface; a premiação do AC-PERK-04 é o pedido
+   * literal do cliente ("tipo o do Call of Duty"), e 300ms não entregam isso.
+   * A janela de desfazer é do AC-CHAMADO-04: cinco segundos é o tempo de ler
+   * o toast e mudar de ideia, e o mesmo número vive no JavaScript. */
+  --dur-celebracao: 450ms;
+  --dur-brilho: 1200ms;
+  --dur-desfazer: 5000ms;
+  /* O degrau entre um card e o seguinte na entrada escalonada. Não é uma
+   * transição: é o intervalo ENTRE duas transições (AC-ANIM-02). */
+  --dur-degrau: 40ms;
+
+  /* Os dois nomes da v0.2.0, hoje apelidos da escala.
+   *
+   * `Chat.css` os consome desde a v0.8.0 e o teste daquela folha os cobra por
+   * nome. Renomear no lugar de apelidar trocaria trinta linhas de CSS sem
+   * mudar um pixel — e `--duracao-transicao` continua descrevendo bem o que
+   * ele é: a duração padrão de uma transição. */
+  --duracao-transicao: var(--dur-lenta);
+  --aceleracao-padrao: var(--ease-padrao);
 
   /* ---- Tipografia ------------------------------------------------------- */
   --fonte-base: Arial, sans-serif;
