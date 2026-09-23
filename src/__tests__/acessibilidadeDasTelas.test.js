@@ -364,12 +364,12 @@ describe('o chat (AC-ANIM-10)', () => {
     semearMembros();
     semearMensagens();
 
-    const resultado = renderComProvedores(<Chat salaId={SALA} papel={papel} />);
+    const view = renderComProvedores(<Chat salaId={SALA} papel={papel} />);
 
     await userEvent.click(await screen.findByRole('button', { name: /abrir o chat/i }));
     await screen.findByRole('tab', { name: 'Sala' });
 
-    return resultado;
+    return view;
   }
 
   it('a aba da sala não tem violação séria', async () => {
