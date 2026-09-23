@@ -17,6 +17,7 @@ import userEvent from '@testing-library/user-event';
 import { __arquivosEnviados, __derrubarUploads, __resetarStorage } from 'firebase/storage';
 import { __resetarFirestore } from 'firebase/firestore';
 import Modal from '../Modal';
+import { FOCALIZAVEIS } from '../../hooks/useDialogoModal';
 import { ROTULO_DO_PAINEL } from '../PainelAvancado';
 import { PALETA } from '../../utils/paleta';
 import { CHAVE_DA_COR } from '../../utils/preferenciaDeCor';
@@ -351,5 +352,101 @@ describe('Modal — a cor lembrada (AC-COR-10)', () => {
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
 
     expect(window.localStorage.getItem(CHAVE_DA_COR)).toBeNull();
+  });
+});
+
+// O modal de novo chamado como diálogo de teclado — AC-ANIM-10, AC-ANIM-01.
+//
+// Até a v0.9.0 este era o único diálogo do app que não era um diálogo: uma
+// `<div>` sobre a tela, sem papel, sem nome acessível, sem `Esc` e sem prisão
+// de foco. O visualizador de anexo (task 04) e a confirmação de exclusão
+// (esta task) já faziam as três coisas, e a lógica saiu para
+// `hooks/useDialogoModal.js` justamente para que este terceiro caso não
+// precisasse reimplementá-la.
+//
+// Por que isso importa mais aqui do que nos outros dois: este é o único que o
+// aluno abre para **digitar**. Sem a prisão, o Tab depois do campo de link
+// leva para os botões da tela de trás — que continuam clicáveis, porque o
+// fundo não bloqueia nada —, e quem navega por teclado escreve a dúvida sem
+// nunca alcançar o "Concluir".
+describe('Modal — teclado e foco (AC-ANIM-10)', () => {
+  it('é um diálogo modal anunciado pelo próprio título', () => {
+    montar();
+
+    const dialogo = screen.getByRole('dialog');
+
+    expect(dialogo).toHaveAttribute('aria-modal', 'true');
+    expect(dialogo).toHaveAccessibleName('Descreva o seu problema');
+  });
+
+  it('o foco começa dentro do diálogo, no campo que o aluno veio preencher', () => {
+    montar();
+
+    expect(screen.getByPlaceholderText('Descreva o problema')).toHaveFocus();
+  });
+
+  it('Esc fecha, e fecha pelo mesmo caminho do botão Fechar', async () => {
+    const { aoFechar } = montar();
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(aoFechar).toHaveBeenCalledTimes(1);
+  });
+
+  it('devolve o foco ao botão que o abriu', async () => {
+    function Tela() {
+      const [aberto, setAberto] = React.useState(false);
+
+      return (
+        <>
+          <button type="button" onClick={() => setAberto(true)}>
+            Abrir novo chamado
+          </button>
+          {aberto && (
+            <Modal salaId="sala-3b" onClose={() => setAberto(false)} onSubmit={jest.fn()} />
+          )}
+        </>
+      );
+    }
+
+    render(<Tela />);
+
+    const gatilho = screen.getByRole('button', { name: 'Abrir novo chamado' });
+    await userEvent.click(gatilho);
+    await userEvent.keyboard('{Escape}');
+
+    expect(gatilho).toHaveFocus();
+  });
+
+  it('prende o foco: do último focável o Tab volta ao primeiro', async () => {
+    montar();
+
+    const focalizaveis = [...screen.getByRole('dialog').querySelectorAll(FOCALIZAVEIS)];
+    focalizaveis[focalizaveis.length - 1].focus();
+
+    await userEvent.tab();
+
+    expect(focalizaveis[0]).toHaveFocus();
+  });
+
+  it('prende o foco: do primeiro, Shift+Tab vai para o último', async () => {
+    montar();
+
+    const focalizaveis = [...screen.getByRole('dialog').querySelectorAll(FOCALIZAVEIS)];
+    focalizaveis[0].focus();
+
+    await userEvent.tab({ shift: true });
+
+    expect(focalizaveis[focalizaveis.length - 1]).toHaveFocus();
+  });
+
+  it('entra com a transição da camada de animação, e não com uma própria', () => {
+    montar();
+
+    // As classes vêm de `styles/animacoes.css`, onde o
+    // `prefers-reduced-motion` global as desliga de uma vez (AC-ANIM-05). Um
+    // `@keyframes` declarado aqui dentro escaparia daquele bloco.
+    expect(document.querySelector('.modal-overlay')).toHaveClass('entra-sobreposicao');
+    expect(screen.getByRole('dialog')).toHaveClass('entra-caixa');
   });
 });
