@@ -181,6 +181,23 @@ describe('o aluno exclui a própria dúvida, com confirmação (AC-CHAMADO-04)',
     expect(__documentosDe(CHAMADOS)).toHaveLength(2);
   });
 
+  // A outra metade do AC-ANIM-02. `movimentoDosCards.test.js` prova que o card
+  // sabe desenhar a classe de saída quando lhe dizem `saindo`; o que falta
+  // provar é que **alguém lhe diz** — e que a fila espera a animação terminar
+  // antes de tirar o card, em vez de fazê-lo sumir no mesmo quadro.
+  it('o card anima a saída antes de sumir da fila (AC-ANIM-02)', async () => {
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    await pedirExclusao('o VS Code não abre');
+    await userEvent.click(confirmar());
+
+    expect(cartaoDe('o VS Code não abre')).toHaveClass('sai-da-lista');
+
+    deixarSair();
+
+    expect(screen.queryByText('o VS Code não abre')).not.toBeInTheDocument();
+  });
+
   it('o botão de Excluir só aparece no chamado do próprio aluno (AC-CHAMADO-05)', () => {
     renderComProvedores(<TelaAluno salaId={SALA} />);
 
