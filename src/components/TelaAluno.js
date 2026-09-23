@@ -13,6 +13,7 @@ import { estiloDoCard } from '../utils/cardDoChamado';
 import { usePerksDaSala } from '../hooks/usePerksDaSala';
 import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import VitrineDeConquistas from './perks/VitrineDeConquistas';
+import PreferenciasDePremiacao from './perks/PreferenciasDePremiacao';
 import '../styles/TelaAluno.css';
 import Chat from './chat/Chat';
 import BotaoSair from './BotaoSair';
@@ -207,6 +208,11 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
         uid={auth.currentUser?.uid}
         agoraServidor={agoraServidor}
       />
+
+      {/* As preferências ficam ao lado da vitrine, e não numa tela de ajustes
+          separada: é aqui que o aluno está quando decide que não quer mais a
+          animação em tela cheia (AC-PERK-08). */}
+      <PreferenciasDePremiacao />
 
       {isModalOpen && (
         <Modal

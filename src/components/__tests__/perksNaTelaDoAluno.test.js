@@ -98,6 +98,22 @@ describe('TelaAluno — a vitrine "Minhas conquistas" (AC-PERK-06)', () => {
   });
 });
 
+describe('TelaAluno — onde o aluno desliga a animação (AC-PERK-08)', () => {
+  it('oferece as preferências de premiação na própria sala', () => {
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    expect(screen.getByRole('checkbox', { name: /animação/i })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /som/i })).toBeInTheDocument();
+  });
+
+  it('o som nasce desligado, e a animação ligada', () => {
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    expect(screen.getByRole('checkbox', { name: /som/i })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /animação/i })).toBeChecked();
+  });
+});
+
 describe('TelaProfessor — a vitrine é do aluno, não dele', () => {
   it('não mostra "Minhas conquistas" na tela do professor', () => {
     semearPerk();

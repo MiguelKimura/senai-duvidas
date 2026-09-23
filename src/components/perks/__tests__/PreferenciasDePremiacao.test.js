@@ -12,8 +12,14 @@ import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
-import { __documentosDe, __resetarFirestore, __semearColecao } from 'firebase/firestore';
+import {
+  __documentosDe,
+  __recusarEscritaEm,
+  __resetarFirestore,
+  __semearColecao,
+} from 'firebase/firestore';
 import PreferenciasDePremiacao from '../PreferenciasDePremiacao';
+import { useAuth } from '../../../contexts/AuthContext';
 import { renderComProvedores } from '../../../test-utils';
 
 const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
@@ -41,9 +47,29 @@ function preferenciasGravadas() {
   return documento.preferencias;
 }
 
+/**
+ * Diz quando a sessão terminou de resolver.
+ *
+ * Entre o `onAuthStateChanged` e o fim de `garantirPerfil` existe uma ida ao
+ * Firestore, e até ela voltar o componente mostra o padrão seguro. Sem esta
+ * espera, "respeita o que já estava gravado" leria a tela antes de o perfil
+ * chegar — e passaria ou falharia conforme a máquina que roda a suíte.
+ */
+function Sonda() {
+  const { carregando } = useAuth();
+
+  return <span data-testid="sessao">{carregando ? 'carregando' : 'pronta'}</span>;
+}
+
 async function renderizar() {
-  renderComProvedores(<PreferenciasDePremiacao />);
-  await waitFor(() => expect(daAnimacao()).toBeInTheDocument());
+  renderComProvedores(
+    <>
+      <Sonda />
+      <PreferenciasDePremiacao />
+    </>
+  );
+
+  await waitFor(() => expect(screen.getByTestId('sessao')).toHaveTextContent('pronta'));
 }
 
 beforeEach(() => {
@@ -113,7 +139,6 @@ describe('PreferenciasDePremiacao — a mudança de ideia (AC-PERK-08)', () => {
     semearPerfil();
     await renderizar();
 
-    const { __recusarEscritaEm } = jest.requireMock('firebase/firestore');
     __recusarEscritaEm(`usuarios/${ANA.uid}`);
 
     await userEvent.click(doSom());
