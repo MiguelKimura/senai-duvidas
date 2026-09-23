@@ -60,6 +60,15 @@ function vitrine() {
 beforeEach(() => {
   __resetarAuth();
   __resetarFirestore();
+
+  // O jsdom não traz `matchMedia`, e o hook de movimento reduzido o consulta.
+  window.matchMedia = jest.fn().mockImplementation((consulta) => ({
+    matches: false,
+    media: consulta,
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+  }));
+
   __definirRelogioDoServidor(HORARIO_DO_SERVIDOR);
   __definirUsuarioAtual(ANA);
 });
@@ -95,6 +104,40 @@ describe('TelaAluno — a vitrine "Minhas conquistas" (AC-PERK-06)', () => {
     renderComProvedores(<TelaAluno salaId={SALA} />);
 
     expect(within(vitrine()).queryByText(/Resolvedor/)).toBeNull();
+  });
+});
+
+describe('TelaAluno — a premiação em tela cheia (AC-PERK-04)', () => {
+  it('dispara a premiação quando o aluno entra na sala com perk não visto', () => {
+    semearPerk({ visualizadoEm: null });
+
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Resolvedor');
+  });
+
+  it('não dispara nada quando o perk já foi visto', () => {
+    semearPerk();
+
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('não dispara a premiação de outro aluno', () => {
+    semearPerk({ alunoUid: 'uid-bruno', alunoNome: 'Bruno Alves', visualizadoEm: null });
+
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('o professor não recebe premiação em tela cheia', () => {
+    semearPerk({ visualizadoEm: null });
+
+    renderComProvedores(<TelaProfessor salaId={SALA} />);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
 

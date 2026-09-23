@@ -14,6 +14,7 @@ import { usePerksDaSala } from '../hooks/usePerksDaSala';
 import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import VitrineDeConquistas from './perks/VitrineDeConquistas';
 import PreferenciasDePremiacao from './perks/PreferenciasDePremiacao';
+import PremiacaoDaSala from './perks/PremiacaoDaSala';
 import '../styles/TelaAluno.css';
 import Chat from './chat/Chat';
 import BotaoSair from './BotaoSair';
@@ -213,6 +214,12 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
           separada: é aqui que o aluno está quando decide que não quer mais a
           animação em tela cheia (AC-PERK-08). */}
       <PreferenciasDePremiacao />
+
+      {/* A premiação em tela cheia, quando existe uma que o aluno ainda não
+          viu. Fica por último no JSX de propósito: ela é um diálogo modal, e
+          o último elemento da árvore é o que recebe o foco sem disputar com a
+          fila (AC-PERK-04). */}
+      <PremiacaoDaSala salaId={salaId} perks={perks} uid={auth.currentUser?.uid} />
 
       {isModalOpen && (
         <Modal

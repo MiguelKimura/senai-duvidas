@@ -15,6 +15,9 @@ import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
   Timestamp,
+  __carimbosPendentes,
+  __confirmarCarimbos,
+  __definirRelogioDoServidor,
   __documentosDe,
   __recusarEscritaEm,
   __resetarFirestore,
@@ -68,6 +71,7 @@ function visualizadoEmDe(id) {
 beforeEach(() => {
   __resetarAuth();
   __resetarFirestore();
+  __definirRelogioDoServidor('2026-09-22T12:00:00.000Z');
   __definirUsuarioAtual(ANA);
 
   // O jsdom não traz `matchMedia`, e o hook de movimento reduzido o consulta.
@@ -156,7 +160,14 @@ describe('PremiacaoDaSala — o recibo que impede a repetição (AC-PERK-04)', (
 
     await userEvent.click(screen.getByRole('button', { name: 'Pular' }));
 
-    await waitFor(() => expect(visualizadoEmDe('perk-1')).not.toBeNull());
+    // O recibo sai como `serverTimestamp()`: o campo chega vazio e o carimbo
+    // vem na resposta do servidor, como todo horário deste app (AC-TEMPO-01).
+    await waitFor(() => expect(__carimbosPendentes()).toBeGreaterThan(0));
+    __confirmarCarimbos();
+
+    expect(visualizadoEmDe('perk-1').toDate().toISOString()).toBe(
+      '2026-09-22T12:00:00.000Z'
+    );
   });
 
   it('não reabre a premiação depois de fechada, mesmo com o perk ainda sem recibo', async () => {
