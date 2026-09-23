@@ -84,10 +84,7 @@ export default function Mensagem({ mensagem, ehMinha = false, agrupada = false, 
         </p>
       )}
 
-      <div
-        className="mensagem-balao"
-        style={{ backgroundColor: cor.fundo, color: cor.texto }}
-      >
+      <div className="mensagem-balao" style={{ backgroundColor: cor.fundo, color: cor.texto }}>
         <div className="mensagem-texto" dangerouslySetInnerHTML={{ __html: html }} />
 
         <time className="mensagem-horario" dateTime={instanteIso(mensagem.horario)}>

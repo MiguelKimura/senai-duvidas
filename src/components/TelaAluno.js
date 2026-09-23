@@ -1,16 +1,24 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import Modal from './Modal';
 import AnexoDoCard from './AnexoDoCard';
+import ConfirmarAcao from './ConfirmarAcao';
 import TextoMarkdown from './TextoMarkdown';
 import { auth } from '../firebase';
-import { deleteDoc, doc, limit, onSnapshot, query, setDoc } from 'firebase/firestore';
-import { camposDoAnexo, removerAnexoDoChamado } from '../services/anexos';
+import { doc, limit, onSnapshot, query, setDoc } from 'firebase/firestore';
+import { camposDoAnexo } from '../services/anexos';
+import { excluirChamado } from '../services/chamados';
 import { carimboServidor, completarHorariosIso, formatarDataHora } from '../services/tempo';
 import { LIMITE_DE_CHAMADOS, PAPEL_DE_ALUNO, colecaoDeChamados } from '../services/salas';
 import { FORMATO_MARKDOWN, formatoDoTexto } from '../utils/markdown';
 import { corAutomatica } from '../utils/paleta';
-import { estiloDoCard } from '../utils/cardDoChamado';
+
 import { usePerksDaSala } from '../hooks/usePerksDaSala';
+import {
+  DESCRICAO_DA_CONFIRMACAO,
+  TITULO_DA_CONFIRMACAO,
+  useExclusaoComDesfazer,
+} from '../hooks/useExclusaoComDesfazer';
+import { classesDoCard, estiloDoCard } from '../utils/cardDoChamado';
 import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import VitrineDeConquistas from './perks/VitrineDeConquistas';
 import PreferenciasDePremiacao from './perks/PreferenciasDePremiacao';
@@ -29,6 +37,25 @@ import BotaoSair from './BotaoSair';
 // Sem `salaId`, a tela cai na coleção global da v0.4.0. Esse fallback é
 // deliberado e tem prazo: ele é o que impede a tela vazia para quem abrir o
 // app no meio da migração, e sai na 1.0.0, junto com as coleções globais.
+//
+// A v0.10.0 revisa a exclusão, que era o pedido explícito do cliente: ela
+// passa a pedir confirmação e a oferecer cinco segundos de arrependimento.
+// Toda a mecânica mora em `hooks/useExclusaoComDesfazer.js` — aqui ficam só
+// as duas decisões que são desta tela: quem vê o botão, e o que o card faz
+// enquanto sai.
+
+/**
+ * O nome acessível do botão de abrir chamado.
+ *
+ * O botão mostra um "+", que é a identidade visual dele desde a v0.1.0 e que
+ * a task proíbe repaginar. O que ele **anuncia** deixa de ser "+": um leitor
+ * de tela lendo "botão, mais" não diz nada a ninguém, e este é o botão
+ * principal da tela do aluno (AC-ANIM-10).
+ *
+ * Exportado porque é por ele que os testes acham o botão — repetir a string
+ * em cinco arquivos faria a próxima mudança de rótulo quebrar cinco deles.
+ */
+export const ROTULO_DO_NOVO_CHAMADO = 'Abrir novo chamado';
 
 function TelaAluno({ salaId = null, somenteLeitura = false }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,6 +66,22 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
   // vê a mesma fila do professor porque os dois a ordenam com a mesma função e
   // com o mesmo instante do servidor — discordar aqui geraria briga em sala.
   const { fila, perks, perksPorUid, agoraServidor } = usePerksDaSala(salaId, problemas);
+
+  // `useCallback` porque ela é dependência do hook de exclusão, que a guarda
+  // para o desmonte: uma seta nova a cada render faria a gravação adiada ser
+  // reagendada a cada quadro (AC-CHAMADO-04).
+  const excluir = useCallback((chamado) => excluirChamado(salaId, chamado), [salaId]);
+
+  const { emConfirmacao, pedirExclusao, confirmar, cancelar, estaSaindo, estaOculto } =
+    useExclusaoComDesfazer({ excluir });
+
+  // A exclusão é otimista: o card sai da fila de quem o excluiu antes de o
+  // documento sair do banco. Enquanto a janela de desfazer corre, ele está
+  // escondido só aqui — a fila da turma continua inteira (AC-CHAMADO-04).
+  const visiveis = useMemo(
+    () => fila.filter((problema) => !estaOculto(problema.id)),
+    [fila, estaOculto]
+  );
 
   // A insígnia do chat sai do mesmo índice do card: uma consulta de perks por
   // sala, e não uma por balão renderizado (AC-PERK-05, AC-PERF-03).
@@ -136,20 +179,6 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
     }
   };
 
-  const removerProblema = async (chamado) => {
-    const id = chamado.id;
-
-    try {
-      await deleteDoc(doc(colecaoDeChamados(salaId), id));
-      // Depois de apagar o documento, não antes: se a remoção do arquivo
-      // falhar, o chamado já saiu da fila — que é o que o aluno pediu. O
-      // contrário deixaria o card na tela sem o anexo (AC-CHAMADO-08).
-      await removerAnexoDoChamado(salaId, chamado);
-    } catch (error) {
-      console.error('Erro ao excluir chamado:', error);
-    }
-  };
-
   return (
     <div className="tela-aluno">
       <BotaoSair />
@@ -159,13 +188,22 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
           vez de dar erro no clique: o aluno não tem o que fazer com um erro
           que não é dele. Quem recusa de verdade continua sendo a rule. */}
       {!somenteLeitura && (
-        <button className="add-button" onClick={openModal}>
+        <button
+          type="button"
+          className="add-button"
+          onClick={openModal}
+          aria-label={ROTULO_DO_NOVO_CHAMADO}
+        >
           +
         </button>
       )}
       <div className="problemas-list">
-        {fila.map((problema) => (
-          <div key={problema.id} className="problema-card" style={estiloDoCard(problema)}>
+        {visiveis.map((problema, indice) => (
+          <div
+            key={problema.id}
+            className={classesDoCard({ saindo: estaSaindo(problema.id) })}
+            style={{ ...estiloDoCard(problema), '--indice-na-lista': indice }}
+          >
             <div className="card-header">
               {/* `autorNome` primeiro, `nome` como leitura do formato antigo:
                   é o outro lado da escrita dupla, e é o que mantém legível o
@@ -193,7 +231,7 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
             </p>
 
             {!somenteLeitura && problema.email === auth.currentUser?.email && (
-              <button className="delete-button" onClick={() => removerProblema(problema)}>
+              <button className="delete-button" onClick={() => pedirExclusao(problema)}>
                 Excluir
               </button>
             )}
@@ -220,6 +258,19 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
           o último elemento da árvore é o que recebe o foco sem disputar com a
           fila (AC-PERK-04). */}
       <PremiacaoDaSala salaId={salaId} perks={perks} uid={auth.currentUser?.uid} />
+
+      {/* A confirmação que o AC-CHAMADO-04 exige desde a v0.2.0. Até a v0.9.0
+          um clique só apagava a dúvida e o print junto, sem volta. */}
+      {emConfirmacao && (
+        <ConfirmarAcao
+          titulo={TITULO_DA_CONFIRMACAO}
+          descricao={DESCRICAO_DA_CONFIRMACAO}
+          rotuloConfirmar="Excluir"
+          destrutiva
+          aoConfirmar={confirmar}
+          aoCancelar={cancelar}
+        />
+      )}
 
       {isModalOpen && (
         <Modal

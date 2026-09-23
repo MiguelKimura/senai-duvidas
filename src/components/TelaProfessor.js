@@ -1,11 +1,18 @@
-import React, { useCallback, useState, useEffect } from 'react';
-import { deleteDoc, doc, limit, onSnapshot, query } from 'firebase/firestore';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import { limit, onSnapshot, query } from 'firebase/firestore';
 import { formatarDataHora } from '../services/tempo';
 import { LIMITE_DE_CHAMADOS, PAPEL_DE_PROFESSOR, colecaoDeChamados } from '../services/salas';
-import { removerAnexoDoChamado } from '../services/anexos';
+import { excluirChamado, marcarAtendido } from '../services/chamados';
 import { formatoDoTexto } from '../utils/markdown';
-import { estiloDoCard } from '../utils/cardDoChamado';
+import { classesDoCard, estiloDoCard } from '../utils/cardDoChamado';
 import { usePerksDaSala } from '../hooks/usePerksDaSala';
+import {
+  DESCRICAO_DA_CONFIRMACAO,
+  TITULO_DA_CONFIRMACAO,
+  useExclusaoComDesfazer,
+} from '../hooks/useExclusaoComDesfazer';
+import { TIPO_ERRO, useToasts } from './Toast';
+import ConfirmarAcao from './ConfirmarAcao';
 import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import PainelDePerks from './perks/PainelDePerks';
 import '../styles/TelaProfessor.css';
@@ -14,18 +21,57 @@ import TextoMarkdown from './TextoMarkdown';
 import Chat from './chat/Chat';
 import BotaoSair from './BotaoSair';
 
+/** O que a tela diz quando o servidor recusa marcar o chamado. */
+export const AVISO_DE_FALHA_AO_ATENDER =
+  'Não foi possível atualizar o chamado. Tente de novo em instantes.';
+
 // A tela do professor, agora dentro de uma sala (AC-SALA-07).
 //
 // A fila que ele vê é a da turma dele, e não mais a da escola inteira. Sem
 // `salaId`, cai na coleção global da v0.4.0 pelo mesmo fallback da tela do
 // aluno — o que mantém a tela útil enquanto a migração não rodou.
+//
+// A v0.10.0 troca o `alert()` da exclusão por toast e acrescenta o "marcar
+// como atendido" (AC-CHAMADO-06). Os dois resolvem o mesmo problema pelo qual
+// o professor apagava chamado: tirar da frente o que já foi resolvido. Marcar
+// preserva o histórico da aula; apagar, não — e por isso marcar é um clique e
+// apagar pede confirmação.
 function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }) {
   const [problemas, setProblemas] = useState([]);
+  const { mostrar } = useToasts();
 
   // A fila que a tela desenha sai daqui, e não do estado cru: a ordem dela
   // depende dos perks da sala, e quem os carrega — uma vez, não uma por card —
   // é este hook (AC-PERK-02, AC-PERF-03).
   const { fila, perks, perksPorUid, agoraServidor } = usePerksDaSala(salaId, problemas);
+
+  const excluir = useCallback((chamado) => excluirChamado(salaId, chamado), [salaId]);
+
+  const { emConfirmacao, pedirExclusao, confirmar, cancelar, estaSaindo, estaOculto } =
+    useExclusaoComDesfazer({ excluir });
+
+  const visiveis = useMemo(
+    () => fila.filter((problema) => !estaOculto(problema.id)),
+    [fila, estaOculto]
+  );
+
+  /**
+   * Alterna o atendimento do chamado (AC-CHAMADO-06).
+   *
+   * Sem confirmação de propósito: a ação é reversível no mesmo botão, e uma
+   * caixa de diálogo a cada chamado atendido atrapalharia justamente o
+   * professor que está dando conta da fila.
+   */
+  const alternarAtendido = useCallback(
+    async (chamado) => {
+      try {
+        await marcarAtendido(salaId, chamado.id, !chamado.atendido);
+      } catch {
+        mostrar({ tipo: TIPO_ERRO, texto: AVISO_DE_FALHA_AO_ATENDER });
+      }
+    },
+    [salaId, mostrar]
+  );
 
   // A mesma insígnia do card, ao lado do nome no chat. O índice e o instante
   // são os que a sala já carregou: o chat não abre consulta de perk nenhuma
@@ -61,20 +107,6 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
     return () => unsubscribe();
   }, [salaId]);
 
-  const handleDelete = async (chamado) => {
-    try {
-      await deleteDoc(doc(colecaoDeChamados(salaId), chamado.id));
-      // O professor apaga o chamado de um aluno, e o anexo é do aluno: sem
-      // isto ele ficaria no Storage sem documento nenhum apontando para ele,
-      // ocupando a cota da escola para sempre (AC-CHAMADO-08).
-      await removerAnexoDoChamado(salaId, chamado);
-      alert('Chamado excluído com sucesso!');
-    } catch (error) {
-      console.error('Erro ao excluir o chamado:', error);
-      alert('Erro ao excluir o chamado. Tente novamente mais tarde.');
-    }
-  };
-
   return (
     <div className="tela-professor">
       <BotaoSair />
@@ -93,8 +125,12 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
       )}
 
       <div className="problemas-list">
-        {fila.map((problema) => (
-          <div key={problema.id} className="problema-card" style={estiloDoCard(problema)}>
+        {visiveis.map((problema, indice) => (
+          <div
+            key={problema.id}
+            className={classesDoCard({ saindo: estaSaindo(problema.id) })}
+            style={{ ...estiloDoCard(problema), '--indice-na-lista': indice }}
+          >
             <div className="card-header">
               <div className="user-name-wrapper">
                 <p className="user-name">
@@ -121,11 +157,23 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
               <em>{formatarDataHora(problema.horario)}</em>
             </p>
 
-            {/* Botão de exclusão posicionado abaixo do conteúdo do card.
-                Some na sala arquivada, que é somente leitura (AC-SALA-10). */}
+            {/* As duas ações do professor sobre o chamado. Somem na sala
+                arquivada, que é somente leitura (AC-SALA-10). */}
             {!somenteLeitura && (
               <div className="delete-button-container">
-                <button className="delete-button" onClick={() => handleDelete(problema)}>
+                {/* `aria-pressed` porque é um interruptor, e não um comando:
+                    o leitor de tela anuncia "Atendido, ativado" em vez de
+                    deixar a pessoa adivinhar qual é o estado atual. */}
+                <button
+                  type="button"
+                  className="atendido-button"
+                  aria-pressed={Boolean(problema.atendido)}
+                  onClick={() => alternarAtendido(problema)}
+                >
+                  Atendido
+                </button>
+
+                <button className="delete-button" onClick={() => pedirExclusao(problema)}>
                   Excluir
                 </button>
               </div>
@@ -133,6 +181,20 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
           </div>
         ))}
       </div>
+
+      {/* A confirmação do AC-CHAMADO-04. O professor apaga o chamado de um
+          aluno: o clique errado aqui custa a dúvida de outra pessoa. */}
+      {emConfirmacao && (
+        <ConfirmarAcao
+          titulo={TITULO_DA_CONFIRMACAO}
+          descricao={DESCRICAO_DA_CONFIRMACAO}
+          rotuloConfirmar="Excluir"
+          destrutiva
+          aoConfirmar={confirmar}
+          aoCancelar={cancelar}
+        />
+      )}
+
       {/* Quem chega a esta tela é o professor da sala, pelo vínculo que
           `Sala.jsx` conferiu. O papel vai junto porque é ele que libera o
           `!clear` na interface — a autorização que vale é a da rule. */}

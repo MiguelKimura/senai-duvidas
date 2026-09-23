@@ -83,7 +83,10 @@ export default function AbaDiretas({ salaId, pessoa, somenteLeitura = false }) {
       setErro(null);
 
       try {
-        const id = await abrirConversa(salaId, pessoa, { uid: contato.uid, nome: contato.nome });
+        const id = await abrirConversa(salaId, pessoa, {
+          uid: contato.uid,
+          nome: contato.nome,
+        });
 
         setAberta({ id, outroUid: contato.uid, outroNome: contato.nome });
         setEscolhendoContato(false);

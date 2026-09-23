@@ -19,6 +19,7 @@ import {
   __semearColecao,
 } from 'firebase/firestore';
 import Sala from '../Sala';
+import { ROTULO_DO_NOVO_CHAMADO } from '../TelaAluno';
 import { renderComProvedores } from '../../test-utils';
 
 jest.mock('react-router-dom', () => ({
@@ -240,7 +241,9 @@ describe('Sala — arquivada é somente leitura (AC-SALA-10)', () => {
     renderComProvedores(<Sala />);
     await screen.findByText(/arquivada/i);
 
-    expect(screen.queryByRole('button', { name: '+' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: ROTULO_DO_NOVO_CHAMADO })
+    ).not.toBeInTheDocument();
   });
 
   it('mas continua mostrando o que já foi escrito: arquivar não é apagar', async () => {

@@ -30,6 +30,7 @@ import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
   Timestamp,
+  __confirmarCarimbos,
   __definirRelogioDoServidor,
   __documentosDe,
   __recusarEscritaEm,
@@ -39,7 +40,7 @@ import {
 import { __arquivosEnviados, __resetarStorage, __semearArquivos } from 'firebase/storage';
 import TelaAluno from '../TelaAluno';
 import TelaProfessor from '../TelaProfessor';
-import { PRAZO_DE_DESFAZER_MS } from '../../hooks/useExclusaoComDesfazer';
+import { DURACAO_DA_SAIDA_MS, PRAZO_DE_DESFAZER_MS } from '../../hooks/useExclusaoComDesfazer';
 import { fixarRelogio, renderComProvedores, restaurarRelogio } from '../../test-utils';
 
 jest.mock('react-router-dom', () => ({
@@ -98,7 +99,18 @@ async function pedirExclusao(descricao) {
   await userEvent.click(within(cartaoDe(descricao)).getByRole('button', { name: 'Excluir' }));
 }
 
-/** Deixa a janela de desfazer vencer, para a gravação sair do limbo. */
+/** Deixa a animação de saída terminar, para o card sair da fila. */
+function deixarSair() {
+  act(() => relogio.avancar(DURACAO_DA_SAIDA_MS));
+}
+
+/**
+ * Deixa a janela de desfazer vencer, para a gravação sair do limbo.
+ *
+ * Avança o prazo inteiro, e não `PRAZO - o que já passou`: o cronômetro do
+ * toast nasce no mesmo instante do da animação de saída, então o prazo cheio
+ * o cobre de qualquer forma.
+ */
 function deixarVencer() {
   act(() => relogio.avancar(PRAZO_DE_DESFAZER_MS));
 }
@@ -184,13 +196,17 @@ describe('o aluno exclui a própria dúvida, com confirmação (AC-CHAMADO-04)',
 describe('a janela de desfazer (AC-CHAMADO-04)', () => {
   beforeEach(() => __definirUsuarioAtual(ANA));
 
+  // Sem `waitFor`: com relógio congelado, ele avança os temporizadores em
+  // busca da condição e consumiria parte da janela de desfazer — a contagem
+  // dos casos abaixo deixaria de ser a do código e passaria a ser a do
+  // agendamento do teste.
   async function excluirComConfirmacao() {
     renderComProvedores(<TelaAluno salaId={SALA} />);
     await pedirExclusao('o VS Code não abre');
     await userEvent.click(confirmar());
-    await waitFor(() =>
-      expect(screen.queryByText('o VS Code não abre')).not.toBeInTheDocument()
-    );
+    deixarSair();
+
+    expect(screen.queryByText('o VS Code não abre')).not.toBeInTheDocument();
   }
 
   it('oferece "Desfazer" no aviso', async () => {
@@ -229,7 +245,7 @@ describe('a janela de desfazer (AC-CHAMADO-04)', () => {
   it('a janela dura cinco segundos, nem um a menos', async () => {
     await excluirComConfirmacao();
 
-    act(() => relogio.avancar(PRAZO_DE_DESFAZER_MS - 1));
+    act(() => relogio.avancar(PRAZO_DE_DESFAZER_MS - DURACAO_DA_SAIDA_MS - 1));
 
     expect(screen.getByRole('button', { name: 'Desfazer' })).toBeInTheDocument();
     expect(__documentosDe(CHAMADOS)).toHaveLength(2);
@@ -242,7 +258,7 @@ describe('a janela de desfazer (AC-CHAMADO-04)', () => {
     deixarVencer();
 
     expect(await screen.findByText(/Não foi possível excluir/i)).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('o VS Code não abre')).toBeInTheDocument());
+    expect(await screen.findByText('o VS Code não abre')).toBeInTheDocument();
     expect(__documentosDe(CHAMADOS)).toHaveLength(2);
   });
 });
@@ -325,13 +341,18 @@ describe('o professor marca como atendido (AC-CHAMADO-06)', () => {
       within(cartaoDe('o VS Code não abre')).getByRole('button', { name: /Atendido/i })
     );
 
-    await waitFor(() => {
-      const chamado = __documentosDe(CHAMADOS).find((doc) => doc.id === 'da-ana');
+    await waitFor(() =>
+      expect(__documentosDe(CHAMADOS).find((doc) => doc.id === 'da-ana').atendido).toBe(true)
+    );
 
-      expect(chamado.atendido).toBe(true);
-      expect(chamado.atendidoEm).toBeTruthy();
-      expect(chamado.autorUid).toBe(ANA.uid);
-    });
+    // O carimbo vem do SERVIDOR, e não do relógio desta máquina (AC-TEMPO-01):
+    // até a resposta chegar ele é `null`, como em toda escrita deste projeto.
+    act(() => __confirmarCarimbos());
+
+    const chamado = __documentosDe(CHAMADOS).find((doc) => doc.id === 'da-ana');
+
+    expect(chamado.atendidoEm.toDate()).toEqual(new Date(AGORA));
+    expect(chamado.autorUid).toBe(ANA.uid);
   });
 
   it('o chamado atendido vai para o fim da fila, e não some', async () => {
@@ -362,14 +383,13 @@ describe('o professor marca como atendido (AC-CHAMADO-06)', () => {
 
     await userEvent.click(atendido());
 
-    await waitFor(() => {
-      const chamado = __documentosDe(CHAMADOS).find((doc) => doc.id === 'da-ana');
+    await waitFor(() =>
+      expect(__documentosDe(CHAMADOS).find((doc) => doc.id === 'da-ana').atendido).toBe(false)
+    );
 
-      expect(chamado.atendido).toBe(false);
-      // O carimbo some junto: um chamado reaberto com `atendidoEm` gravado
-      // mentiria para qualquer métrica que viesse a lê-lo.
-      expect(chamado.atendidoEm).toBeNull();
-    });
+    // O carimbo some junto: um chamado reaberto com `atendidoEm` gravado
+    // mentiria para qualquer métrica que viesse a lê-lo.
+    expect(__documentosDe(CHAMADOS).find((doc) => doc.id === 'da-ana').atendidoEm).toBeNull();
   });
 
   it('marcar como atendido NÃO pede confirmação — é reversível num clique', async () => {
@@ -407,8 +427,8 @@ describe('compatibilidade do campo `atendido` (retroativa e futura)', () => {
 
     renderComProvedores(<TelaProfessor salaId={SALA} ehDono />);
 
-    const descricoes = Array.from(document.querySelectorAll('.problema-card')).map((card) =>
-      card.querySelector('.texto-markdown').textContent
+    const descricoes = Array.from(document.querySelectorAll('.problema-card')).map(
+      (card) => card.querySelector('.texto-markdown').textContent
     );
 
     // O mais antigo primeiro, como sempre: ausência de `atendido` é "aberto",

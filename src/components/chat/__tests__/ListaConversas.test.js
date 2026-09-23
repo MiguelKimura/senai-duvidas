@@ -50,7 +50,9 @@ describe('ListaConversas — o que cada linha mostra', () => {
     render(
       <ListaConversas
         uid={ANA}
-        conversas={[conversa('c1', CARLOS, 'Carlos Lima', { texto: 'me procure depois da aula' })]}
+        conversas={[
+          conversa('c1', CARLOS, 'Carlos Lima', { texto: 'me procure depois da aula' }),
+        ]}
       />
     );
 
@@ -59,7 +61,10 @@ describe('ListaConversas — o que cada linha mostra', () => {
 
   it('mostra o horário da última mensagem, em HH:mm de Brasília', () => {
     render(
-      <ListaConversas uid={ANA} conversas={[conversa('c1', CARLOS, 'Carlos Lima', { minuto: 30 })]} />
+      <ListaConversas
+        uid={ANA}
+        conversas={[conversa('c1', CARLOS, 'Carlos Lima', { minuto: 30 })]}
+      />
     );
 
     expect(screen.getByText('09:30')).toBeInTheDocument();
@@ -78,7 +83,9 @@ describe('ListaConversas — contador de não lidas (AC-DM-05)', () => {
     render(
       <ListaConversas
         uid={ANA}
-        conversas={[conversa('c1', CARLOS, 'Carlos Lima', { naoLidas: { [ANA]: 3, [CARLOS]: 0 } })]}
+        conversas={[
+          conversa('c1', CARLOS, 'Carlos Lima', { naoLidas: { [ANA]: 3, [CARLOS]: 0 } }),
+        ]}
       />
     );
 
@@ -90,7 +97,9 @@ describe('ListaConversas — contador de não lidas (AC-DM-05)', () => {
     render(
       <ListaConversas
         uid={ANA}
-        conversas={[conversa('c1', CARLOS, 'Carlos Lima', { naoLidas: { [ANA]: 0, [CARLOS]: 7 } })]}
+        conversas={[
+          conversa('c1', CARLOS, 'Carlos Lima', { naoLidas: { [ANA]: 0, [CARLOS]: 7 } }),
+        ]}
       />
     );
 

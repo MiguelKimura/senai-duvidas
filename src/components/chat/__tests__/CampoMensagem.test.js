@@ -154,7 +154,9 @@ describe('CampoMensagem — somente leitura', () => {
 
 describe('CampoMensagem — erro do envio', () => {
   it('mostra a recusa em português, vinda de quem enviou', async () => {
-    const aoEnviar = jest.fn(() => Promise.reject(new Error('O comando !clear é do professor.')));
+    const aoEnviar = jest.fn(() =>
+      Promise.reject(new Error('O comando !clear é do professor.'))
+    );
     render(<CampoMensagem aoEnviar={aoEnviar} />);
 
     await userEvent.type(campo(), '!clear');

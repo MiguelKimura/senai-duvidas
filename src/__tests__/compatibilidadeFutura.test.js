@@ -29,7 +29,7 @@ import {
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
-import TelaAluno from '../components/TelaAluno';
+import TelaAluno, { ROTULO_DO_NOVO_CHAMADO } from '../components/TelaAluno';
 import TextoMarkdown from '../components/TextoMarkdown';
 import TelaProfessor from '../components/TelaProfessor';
 import Chat from '../components/chat/Chat';
@@ -333,7 +333,7 @@ describe('horario: a forma de dado que mudou na v0.4.0', () => {
     __definirRelogioDoServidor(INSTANTE);
     renderComProvedores(<TelaAluno />);
 
-    await userEvent.click(screen.getByRole('button', { name: '+' }));
+    await userEvent.click(screen.getByRole('button', { name: ROTULO_DO_NOVO_CHAMADO }));
     await userEvent.type(
       screen.getByPlaceholderText('Descreva o problema'),
       'O VS Code não abre'
@@ -562,7 +562,11 @@ describe('a v0.9.0 lida por um cliente da v0.8.0, que não conhece perks', () =>
 
   it('a fila da v0.8.0 ordena os chamados da v0.9.0 sem lançar', () => {
     const chamados = [
-      { ...CHAMADO_DA_V090, id: 'b', horario: Timestamp.fromDate(new Date('2026-09-22T10:05:00Z')) },
+      {
+        ...CHAMADO_DA_V090,
+        id: 'b',
+        horario: Timestamp.fromDate(new Date('2026-09-22T10:05:00Z')),
+      },
       { ...CHAMADO_DA_V090, id: 'a' },
     ];
 
@@ -595,9 +599,7 @@ describe('a v0.9.0 lida por um cliente da v0.8.0, que não conhece perks', () =>
 
     renderComProvedores(<TelaAluno salaId="sala-a" />);
 
-    expect(
-      screen.getByText('chamado sem autorUid, como a v0.1.0 gravava')
-    ).toBeInTheDocument();
+    expect(screen.getByText('chamado sem autorUid, como a v0.1.0 gravava')).toBeInTheDocument();
     expect(document.querySelector('.perk-insignia')).toBeNull();
   });
 });

@@ -612,6 +612,81 @@ describe('chamados da sala — escopo por turma (AC-SALA-07, AC-SEC-02)', () => 
     });
   });
 
+  // A ação que a v0.10.0 acrescentou (AC-CHAMADO-06). Ela é o que o professor
+  // queria quando apagava: tirar da frente o que já foi atendido, sem perder o
+  // histórico da aula. O poder de apagar continua existindo — o que muda é que
+  // agora existe a alternativa que preserva.
+  describe('marcar como atendido (AC-CHAMADO-06)', () => {
+    beforeEach(async () => {
+      await semearMembro(SALA_A, BRUNO);
+      await semear(`salas/${SALA_A}/chamados/da-ana`, {
+        autorUid: ANA,
+        autorNome: 'Ana Souza',
+        descricao: 'chamado da Ana',
+        atendido: false,
+        horario: Timestamp.now(),
+      });
+    });
+
+    it('o professor da sala marca qualquer chamado dela', async () => {
+      await assertSucceeds(
+        updateDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/chamados/da-ana`), {
+          atendido: true,
+          atendidoEm: serverTimestamp(),
+        })
+      );
+    });
+
+    it('o professor desmarca, e o carimbo volta a nulo', async () => {
+      await assertSucceeds(
+        updateDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/chamados/da-ana`), {
+          atendido: false,
+          atendidoEm: null,
+        })
+      );
+    });
+
+    it('um colega NÃO marca o chamado de outro aluno como atendido', async () => {
+      // A mesma recusa da exclusão, e pelo mesmo motivo: decidir que a dúvida
+      // de alguém já foi resolvida é poder sobre a fila da turma.
+      await assertFails(
+        updateDoc(doc(como(BRUNO), `salas/${SALA_A}/chamados/da-ana`), {
+          atendido: true,
+          atendidoEm: serverTimestamp(),
+        })
+      );
+    });
+
+    it('o professor de outra sala NÃO marca chamado desta', async () => {
+      await semear(`autorizados/outro@senai.br`, { Tipo: 'professor' });
+
+      await assertFails(
+        updateDoc(doc(como('uid-outro', 'outro@senai.br'), `salas/${SALA_A}/chamados/da-ana`), {
+          atendido: true,
+          atendidoEm: serverTimestamp(),
+        })
+      );
+    });
+
+    it('marcar NÃO é a brecha para trocar a autoria do chamado', async () => {
+      await assertFails(
+        updateDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/chamados/da-ana`), {
+          atendido: true,
+          autorUid: CARLOS,
+        })
+      );
+    });
+
+    it('nem para recarimbar o horário e mexer na posição da fila (AC-TEMPO-01)', async () => {
+      await assertFails(
+        updateDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/chamados/da-ana`), {
+          atendido: true,
+          horario: Timestamp.fromDate(new Date('2020-01-01T00:00:00.000Z')),
+        })
+      );
+    });
+  });
+
   describe('sala arquivada é somente-leitura (AC-SALA-10)', () => {
     beforeEach(async () => {
       await semear(`salas/${SALA_A}/chamados/antigo`, {
@@ -643,6 +718,15 @@ describe('chamados da sala — escopo por turma (AC-SALA-07, AC-SEC-02)', () => 
     it('nem o professor apaga chamado de sala arquivada', async () => {
       await assertFails(
         deleteDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/chamados/antigo`))
+      );
+    });
+
+    it('nem marca como atendido — o ano letivo terminou (AC-CHAMADO-06)', async () => {
+      await assertFails(
+        updateDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/chamados/antigo`), {
+          atendido: true,
+          atendidoEm: serverTimestamp(),
+        })
       );
     });
   });

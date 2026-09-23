@@ -184,9 +184,7 @@ describe('AbaDiretas — abrir e conversar', () => {
     renderComProvedores(<AbaDiretas salaId={SALA} pessoa={ANA} />);
     await userEvent.click(await screen.findByRole('button', { name: /Carlos Lima/ }));
 
-    await waitFor(() =>
-      expect(__documentosDe(CONVERSAS)[0].naoLidas[ANA.uid]).toBe(0)
-    );
+    await waitFor(() => expect(__documentosDe(CONVERSAS)[0].naoLidas[ANA.uid]).toBe(0));
     // E não mexe no do outro lado.
     expect(__documentosDe(CONVERSAS)[0].naoLidas[CARLOS.uid]).toBe(0);
   });

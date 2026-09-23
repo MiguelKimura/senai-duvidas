@@ -25,12 +25,17 @@ import {
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
-import TelaAluno from '../components/TelaAluno';
+import TelaAluno, { ROTULO_DO_NOVO_CHAMADO } from '../components/TelaAluno';
 import TelaProfessor from '../components/TelaProfessor';
 import Chat from '../components/chat/Chat';
 import { MENSAGENS_POR_PAGINA } from '../services/chat';
 import { LIMITE_DE_CHAMADOS, LIMITE_DE_MENSAGENS, PAPEL_DE_PROFESSOR } from '../services/salas';
-import { fixarRelogio, renderComProvedores, restaurarRelogio } from '../test-utils';
+import {
+  excluirChamadoNaTela,
+  fixarRelogio,
+  renderComProvedores,
+  restaurarRelogio,
+} from '../test-utils';
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -192,7 +197,7 @@ describe('Chamados escopados por sala (AC-SALA-07)', () => {
   it('o chamado novo é gravado na subcoleção da sala, e não na coleção global', async () => {
     renderComProvedores(<TelaAluno salaId="sala-a" />);
 
-    await userEvent.click(screen.getByRole('button', { name: '+' }));
+    await userEvent.click(screen.getByRole('button', { name: ROTULO_DO_NOVO_CHAMADO }));
     await userEvent.type(screen.getByPlaceholderText(/descreva/i), 'A furadeira não liga.');
     await userEvent.click(screen.getByRole('button', { name: /concluir/i }));
     __confirmarCarimbos();
@@ -203,13 +208,19 @@ describe('Chamados escopados por sala (AC-SALA-07)', () => {
 
   it('excluir dentro da sala apaga o documento da sala', async () => {
     semearAsDuasSalas();
+    // A confirmação e a janela de desfazer da v0.10.0 entraram entre o clique
+    // e a gravação (AC-CHAMADO-04). A afirmação deste caso é sobre ESCOPO —
+    // a sala B não é tocada —, e ela continua inteira.
+    const relogio = fixarRelogio('2026-09-23T12:00:00.000Z');
     renderComProvedores(<TelaAluno salaId="sala-a" />);
     await screen.findByText('O torno da sala A travou.');
 
-    await userEvent.click(screen.getByRole('button', { name: /excluir/i }));
+    await excluirChamadoNaTela(relogio);
 
     await waitFor(() => expect(__documentosDe(CHAMADOS_DA_SALA_A)).toHaveLength(0));
     expect(__documentosDe(CHAMADOS_DA_SALA_B)).toHaveLength(1);
+
+    restaurarRelogio();
   });
 });
 
@@ -302,7 +313,7 @@ describe('Compatibilidade futura — o documento novo não quebra o leitor antig
   it('o chamado novo grava `autorNome` e `nome` com o mesmo conteúdo', async () => {
     renderComProvedores(<TelaAluno salaId="sala-a" />);
 
-    await userEvent.click(screen.getByRole('button', { name: '+' }));
+    await userEvent.click(screen.getByRole('button', { name: ROTULO_DO_NOVO_CHAMADO }));
     await userEvent.type(screen.getByPlaceholderText(/descreva/i), 'A furadeira não liga.');
     await userEvent.click(screen.getByRole('button', { name: /concluir/i }));
     __confirmarCarimbos();

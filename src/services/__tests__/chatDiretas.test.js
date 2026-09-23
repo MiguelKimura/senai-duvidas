@@ -149,7 +149,13 @@ describe('enviarMensagemDireta — a mensagem e o resumo', () => {
     const conversaId = await abrirConversa(SALA, CARLOS, ANA);
 
     await expect(
-      enviarMensagemDireta(SALA, conversaId, CARLOS, ANA.uid, 'a'.repeat(TAMANHO_MAXIMO_DA_MENSAGEM + 1))
+      enviarMensagemDireta(
+        SALA,
+        conversaId,
+        CARLOS,
+        ANA.uid,
+        'a'.repeat(TAMANHO_MAXIMO_DA_MENSAGEM + 1)
+      )
     ).rejects.toThrow(ErroDeChat);
 
     expect(__documentosDe(`${CONVERSAS}/${conversaId}/mensagens`)).toHaveLength(0);

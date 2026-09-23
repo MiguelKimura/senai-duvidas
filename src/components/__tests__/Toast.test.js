@@ -118,9 +118,7 @@ describe('Toast — quando some (AC-ANIM-07)', () => {
   });
 
   it('respeita um prazo maior pedido por quem disparou', async () => {
-    montar([
-      { rotulo: 'longo', tipo: TIPO_SUCESSO, texto: 'com desfazer', duracaoMs: 5000 },
-    ]);
+    montar([{ rotulo: 'longo', tipo: TIPO_SUCESSO, texto: 'com desfazer', duracaoMs: 5000 }]);
     await userEvent.click(screen.getByRole('button', { name: 'longo' }));
 
     avancar(relogio, DURACAO_MINIMA_MS);
@@ -216,9 +214,7 @@ describe('Toast — a ação de desfazer (AC-CHAMADO-04)', () => {
     // Sem este aviso a exclusão otimista ficaria pendurada para sempre: o card
     // sumiu da tela, o toast sumiu do canto e o documento continuaria no banco.
     const aoExpirar = jest.fn();
-    montar([
-      { rotulo: 'excluiu', tipo: TIPO_SUCESSO, texto: 'dúvida excluída', aoExpirar },
-    ]);
+    montar([{ rotulo: 'excluiu', tipo: TIPO_SUCESSO, texto: 'dúvida excluída', aoExpirar }]);
     await userEvent.click(screen.getByRole('button', { name: 'excluiu' }));
 
     avancar(relogio, DURACAO_MINIMA_MS);

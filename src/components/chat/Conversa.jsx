@@ -20,7 +20,13 @@ import { enviarMensagemDireta, marcarConversaComoLida } from '../../services/cha
  * @param {() => void} props.aoVoltar
  * @param {boolean} [props.somenteLeitura] sala arquivada (AC-SALA-10).
  */
-export default function Conversa({ salaId, conversa, pessoa, aoVoltar, somenteLeitura = false }) {
+export default function Conversa({
+  salaId,
+  conversa,
+  pessoa,
+  aoVoltar,
+  somenteLeitura = false,
+}) {
   const { mensagens, temMais, carregando, carregarAnteriores } = useMensagens(salaId, {
     conversaId: conversa.id,
   });

@@ -196,7 +196,9 @@ describe('ListaMensagens — ponto de extensão da task 07', () => {
   it('pede as insígnias de cada autor a quem souber montá-las', () => {
     const insigniasDe = jest.fn(() => <span data-testid="perk">🔥</span>);
 
-    render(<ListaMensagens mensagens={[mensagem('m1', ANA, 'oi', 0)]} insigniasDe={insigniasDe} />);
+    render(
+      <ListaMensagens mensagens={[mensagem('m1', ANA, 'oi', 0)]} insigniasDe={insigniasDe} />
+    );
 
     expect(insigniasDe).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }));
     expect(screen.getByTestId('perk')).toBeInTheDocument();

@@ -28,7 +28,9 @@ export const TOLERANCIA_DO_FIM = 24;
 function estaNoFim(elemento) {
   if (!elemento) return true;
 
-  return elemento.scrollHeight - elemento.scrollTop - elemento.clientHeight <= TOLERANCIA_DO_FIM;
+  return (
+    elemento.scrollHeight - elemento.scrollTop - elemento.clientHeight <= TOLERANCIA_DO_FIM
+  );
 }
 
 /**

@@ -94,3 +94,43 @@
 .tela-professor .problema-card .delete-button:hover {
   background-color: #8f0000;
 }
+
+/* As duas ações do professor sobre o chamado (AC-CHAMADO-06).
+ *
+ * Lado a lado e com pesos diferentes: "Atendido" é a ação do dia a dia e é
+ * neutra; "Excluir" é a destrutiva e continua vermelha. A hierarquia visual
+ * precisa concordar com a hierarquia de risco.
+ */
+.delete-button-container {
+  display: flex;
+  gap: var(--espaco-2);
+  margin-top: var(--espaco-2);
+}
+
+.tela-professor .problema-card .atendido-button {
+  flex: 1;
+  padding: 8px var(--espaco-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto-titulo);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.tela-professor .problema-card .atendido-button:hover {
+  background-color: var(--cor-fundo-caixa);
+}
+
+/* Ligado: fundo verde e o mesmo `aria-pressed` que o leitor de tela anuncia.
+   Estado marcado só pela cor seria estado que metade das pessoas não vê. */
+.tela-professor .problema-card .atendido-button[aria-pressed='true'] {
+  border-color: var(--cor-sucesso);
+  background-color: var(--cor-sucesso);
+  color: var(--cor-texto-invertido);
+}
+
+.tela-professor .problema-card .delete-button {
+  flex: 1;
+  margin-top: 0;
+}

@@ -18,9 +18,14 @@ import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import { __resetarFirestore, __semearColecao, __documentosDe } from 'firebase/firestore';
 import { __arquivosEnviados, __resetarStorage, __semearArquivos } from 'firebase/storage';
-import TelaAluno from '../TelaAluno';
+import TelaAluno, { ROTULO_DO_NOVO_CHAMADO } from '../TelaAluno';
 import TelaProfessor from '../TelaProfessor';
-import { renderComProvedores } from '../../test-utils';
+import {
+  excluirChamadoNaTela,
+  fixarRelogio,
+  renderComProvedores,
+  restaurarRelogio,
+} from '../../test-utils';
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -175,6 +180,19 @@ describe('URL externa que saiu do ar (AC-IMG-12)', () => {
 });
 
 describe('excluir o chamado apaga o anexo (AC-CHAMADO-08)', () => {
+  // A v0.10.0 pôs a confirmação e a janela de desfazer entre o clique e a
+  // gravação (AC-CHAMADO-04). O relógio congelado é o que vence essa janela
+  // sem custar cinco segundos por caso; as asserções são as mesmas de antes.
+  let relogio;
+
+  beforeEach(() => {
+    relogio = fixarRelogio('2026-09-23T12:00:00.000Z');
+  });
+
+  afterEach(() => {
+    restaurarRelogio();
+  });
+
   it('o aluno que exclui o próprio chamado leva o anexo junto', async () => {
     // O caminho é o que está gravado em `anexo.caminho` do próprio chamado —
     // é por ele que se sabe o que apagar, e não por adivinhação.
@@ -184,7 +202,7 @@ describe('excluir o chamado apaga o anexo (AC-CHAMADO-08)', () => {
     ]);
     renderComProvedores(<TelaAluno />);
 
-    userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    await excluirChamadoNaTela(relogio);
 
     await waitFor(() => expect(__documentosDe('chamados')).toHaveLength(0));
     await waitFor(() => expect(__arquivosEnviados()).toEqual(['imagens/de-outra-pessoa.png']));
@@ -195,7 +213,7 @@ describe('excluir o chamado apaga o anexo (AC-CHAMADO-08)', () => {
     __semearColecao('chamados', [{ ...CHAMADO_NOVO, id: 'c1' }]);
     renderComProvedores(<TelaProfessor />);
 
-    userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    await excluirChamadoNaTela(relogio);
 
     await waitFor(() => expect(__arquivosEnviados()).toEqual([]));
   });
@@ -207,7 +225,7 @@ describe('excluir o chamado apaga o anexo (AC-CHAMADO-08)', () => {
     ]);
     renderComProvedores(<TelaAluno />);
 
-    userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    await excluirChamadoNaTela(relogio);
 
     await waitFor(() => expect(__documentosDe('chamados')).toHaveLength(0));
     expect(__arquivosEnviados()).toEqual(['salas/s1/chamados/outro/abc.png']);
@@ -217,7 +235,7 @@ describe('excluir o chamado apaga o anexo (AC-CHAMADO-08)', () => {
 describe('a escrita dupla do campo de anexo', () => {
   /** Abre o modal, escreve e cola um link de imagem. */
   async function abrirECriarComLink(url) {
-    userEvent.click(screen.getByRole('button', { name: '+' }));
+    userEvent.click(screen.getByRole('button', { name: ROTULO_DO_NOVO_CHAMADO }));
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'Olha o erro');
     userEvent.paste(screen.getByPlaceholderText('Cole o link da imagem'), url);
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
@@ -238,7 +256,7 @@ describe('a escrita dupla do campo de anexo', () => {
   it('sem anexo, os dois campos ficam nulos', async () => {
     renderComProvedores(<TelaAluno />);
 
-    userEvent.click(screen.getByRole('button', { name: '+' }));
+    userEvent.click(screen.getByRole('button', { name: ROTULO_DO_NOVO_CHAMADO }));
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'Sem print');
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
 

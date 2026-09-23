@@ -316,9 +316,7 @@ describe('Chat — o dia corrente (AC-TEMPO-07)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /dias anteriores/i }));
 
-    await waitFor(() =>
-      expect(falas()).toEqual(['combinado de ontem', 'bom dia de hoje'])
-    );
+    await waitFor(() => expect(falas()).toEqual(['combinado de ontem', 'bom dia de hoje']));
   });
 
   it('a mensagem em voo, sem horário ainda, não some da tela', async () => {

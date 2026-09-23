@@ -82,7 +82,9 @@ function semSupressao(css) {
 function lerTokens() {
   const tokens = {};
 
-  for (const [, nome, valor] of ler(CAMINHO_TOKENS).matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+  for (const [, nome, valor] of ler(CAMINHO_TOKENS).matchAll(
+    /(--[a-z0-9-]+)\s*:\s*([^;]+);/g
+  )) {
     tokens[nome] = valor.replace(/\s+/g, ' ').trim();
   }
 
@@ -251,7 +253,7 @@ describe('a folha inteira do projeto (AC-ANIM-06, AC-ANIM-09)', () => {
     for (const { nome, css } of folhasDeComponente()) {
       let restante = css;
 
-      for (let bloco = localizarBloco(restante, /@keyframes\s[^{]*\{/); bloco; ) {
+      for (let bloco = localizarBloco(restante, /@keyframes\s[^{]*\{/); bloco;) {
         for (const [, propriedade] of bloco.corpo.matchAll(/([a-z-]+)\s*:/g)) {
           if (!COMPOSITAVEIS.includes(propriedade)) {
             proibidas.push(`${nome}: @keyframes anima ${propriedade}`);

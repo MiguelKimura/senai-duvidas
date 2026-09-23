@@ -14,3 +14,4 @@ export {
 } from './canvasFalso';
 export { fixarRelogio, restaurarRelogio } from './relogio';
 export { renderComProvedores } from './renderComProvedores';
+export { excluirChamadoNaTela } from './exclusao';

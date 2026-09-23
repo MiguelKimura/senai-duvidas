@@ -28,7 +28,7 @@ import {
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
-import TelaAluno from '../TelaAluno';
+import TelaAluno, { ROTULO_DO_NOVO_CHAMADO } from '../TelaAluno';
 import { PRAZO_DE_DESFAZER_MS } from '../../hooks/useExclusaoComDesfazer';
 import { PALETA } from '../../utils/paleta';
 import {
@@ -77,7 +77,7 @@ function cartoes() {
 }
 
 async function abrirModalECriar({ descricao, imagem = '' }) {
-  userEvent.click(screen.getByRole('button', { name: '+' }));
+  userEvent.click(screen.getByRole('button', { name: ROTULO_DO_NOVO_CHAMADO }));
 
   if (descricao) {
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), descricao);
@@ -628,7 +628,7 @@ describe('TelaAluno — horário pendente de confirmação (AC-TEMPO-06)', () =>
 // ---------------------------------------------------------------------------
 
 async function abrirModalEEscolherCor(nomeDaCor, descricao) {
-  userEvent.click(screen.getByRole('button', { name: '+' }));
+  userEvent.click(screen.getByRole('button', { name: ROTULO_DO_NOVO_CHAMADO }));
   userEvent.click(document.querySelector('.painel-avancado summary'));
   userEvent.click(screen.getByRole('radio', { name: nomeDaCor }));
   userEvent.type(screen.getByPlaceholderText('Descreva o problema'), descricao);
