@@ -210,6 +210,6 @@ describe('PremiacaoDaSala — o recibo que impede a repetição (AC-PERK-04)', (
 
     await userEvent.click(screen.getByRole('button', { name: 'Pular' }));
 
-    await waitFor(() => expect(screen.getByText('Destaque da Aula')).toBeInTheDocument());
+    expect(await screen.findByText('Destaque da Aula')).toBeInTheDocument();
   });
 });
