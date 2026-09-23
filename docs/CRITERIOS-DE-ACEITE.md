@@ -70,13 +70,13 @@
 | AC-CHAMADO-01 🟡 | O aluno abre um chamado com descrição textual obrigatória (1 a 1000 caracteres). | [MVP] [REG] |
 | AC-CHAMADO-02 ✅ | Chamados aparecem em tempo real para o professor e para os colegas da mesma sala, sem recarregar a página. | [MVP] [REG] |
 | AC-CHAMADO-03 ✅ | A fila é ordenada por horário de envio **crescente** (mais antigo primeiro), respeitando os perks de prioridade (ver `PERK`). | [MVP] [REG] |
-| AC-CHAMADO-04 🟡 | O aluno consegue excluir o **próprio** chamado quando a dúvida já foi resolvida, com confirmação antes de excluir. | [MVP] [REG] |
+| AC-CHAMADO-04 ✅ | O aluno consegue excluir o **próprio** chamado quando a dúvida já foi resolvida, com confirmação antes de excluir. | [MVP] [REG] |
 | AC-CHAMADO-05 ✅ | O aluno **não** consegue excluir o chamado de outro aluno — nem pela interface nem por chamada direta ao banco. | [MVP] |
-| AC-CHAMADO-06 | O professor consegue excluir qualquer chamado da sua sala e marcar um chamado como **atendido**. | [MVP] |
+| AC-CHAMADO-06 ✅ | O professor consegue excluir qualquer chamado da sua sala e marcar um chamado como **atendido**. | [MVP] |
 | AC-CHAMADO-07 ✅ | O card exibe nome do autor, descrição, horário de envio e indicador visual de anexo quando houver imagem. | [MVP] [REG] |
 | AC-CHAMADO-08 ✅ | A exclusão remove também os anexos associados do Storage (sem arquivos órfãos). | [MVP] |
-| AC-CHAMADO-09 | A lista suporta 200 chamados simultâneos na mesma sala sem travamento perceptível (paginação ou virtualização). | [MVP] |
-| AC-CHAMADO-10 | Estado vazio tem mensagem amigável ("Nenhuma dúvida por aqui ainda") em vez de tela em branco. | [MVP] |
+| AC-CHAMADO-09 ✅ | A lista suporta 200 chamados simultâneos na mesma sala sem travamento perceptível (paginação ou virtualização). | [MVP] |
+| AC-CHAMADO-10 ✅ | Estado vazio tem mensagem amigável ("Nenhuma dúvida por aqui ainda") em vez de tela em branco. | [MVP] |
 
 ## 5. Cor do Card / Menu Markdown Oculto (`COR`)
 
@@ -175,16 +175,16 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-ANIM-01 | Transições de rota e abertura/fechamento de modais são animadas (fade + slide), com duração entre 150ms e 300ms. | [MVP] |
-| AC-ANIM-02 | Cards entram na lista com animação escalonada (stagger) e saem com animação ao serem excluídos. | [MVP] |
-| AC-ANIM-03 | Botões têm estados visuais de `hover`, `active`, `focus-visible` e `disabled`. | [MVP] |
-| AC-ANIM-04 | Toda operação assíncrona tem estado de carregamento (skeleton ou spinner) — nunca uma tela congelada. | [MVP] |
-| AC-ANIM-05 | **Todas** as animações são suprimidas quando `prefers-reduced-motion: reduce` está ativo. | [MVP] |
-| AC-ANIM-06 | Nenhuma animação causa reflow de layout perceptível; usar apenas `transform` e `opacity`. | [MVP] |
-| AC-ANIM-07 | `alert()` e `window.open()` são substituídos por componentes de toast e modal próprios. | [MVP] |
-| AC-ANIM-08 | A interface é utilizável em telas de 1024×768 (padrão dos laboratórios) e em celular (≥ 360px). | [MVP] |
-| AC-ANIM-09 🟡 | Existe um arquivo único de tokens de design (cores, espaçamentos, durações) usado por todos os estilos. | [MVP] |
-| AC-ANIM-10 | Contraste mínimo WCAG AA em todos os textos e navegação completa por teclado em todos os fluxos. | [MVP] |
+| AC-ANIM-01 ✅ | Transições de rota e abertura/fechamento de modais são animadas (fade + slide), com duração entre 150ms e 300ms. | [MVP] |
+| AC-ANIM-02 ✅ | Cards entram na lista com animação escalonada (stagger) e saem com animação ao serem excluídos. | [MVP] |
+| AC-ANIM-03 ✅ | Botões têm estados visuais de `hover`, `active`, `focus-visible` e `disabled`. | [MVP] |
+| AC-ANIM-04 ✅ | Toda operação assíncrona tem estado de carregamento (skeleton ou spinner) — nunca uma tela congelada. | [MVP] |
+| AC-ANIM-05 ✅ | **Todas** as animações são suprimidas quando `prefers-reduced-motion: reduce` está ativo. | [MVP] |
+| AC-ANIM-06 ✅ | Nenhuma animação causa reflow de layout perceptível; usar apenas `transform` e `opacity`. | [MVP] |
+| AC-ANIM-07 ✅ | `alert()` e `window.open()` são substituídos por componentes de toast e modal próprios. | [MVP] |
+| AC-ANIM-08 🟡 | A interface é utilizável em telas de 1024×768 (padrão dos laboratórios) e em celular (≥ 360px). | [MVP] |
+| AC-ANIM-09 ✅ | Existe um arquivo único de tokens de design (cores, espaçamentos, durações) usado por todos os estilos. | [MVP] |
+| AC-ANIM-10 ✅ | Contraste mínimo WCAG AA em todos os textos e navegação completa por teclado em todos os fluxos. | [MVP] |
 
 ## 12. Testes e Qualidade (`TEST`)
 
@@ -727,3 +727,79 @@ o premiado seja membro da sala e que o nome seja uma string, mas um professor
 adulterando o cliente poderia gravar um nome diferente do que está em
 `membros/{uid}`. O estrago é cosmético — o `alunoUid` é o que vale em toda
 leitura —, e conferir exigiria um `get()` a mais em cada concessão.
+
+---
+
+### v0.10.0 — Animações unificadas, acessibilidade e a revisão do auto-delete
+
+**Atendidos (✅)**
+
+| AC | Prova |
+|---|---|
+| AC-ANIM-01 | `src/styles/__tests__/animacoes.test.js:138` — as três durações canônicas; `:146` — todas dentro da faixa de 150ms a 300ms; `:158` — distintas entre si; `:165` — as três curvas; `:173` — o que sai da faixa tem nome e motivo declarados; `src/components/__tests__/Modal.test.js:443` — o modal de novo chamado entra pelas classes da camada compartilhada, e não por um `@keyframes` próprio que escaparia do bloco global |
+| AC-ANIM-02 | `src/components/__tests__/movimentoDosCards.test.js:36` — todo card entra com a classe de entrada; `:41` — o que sai ganha a de saída **sem perder** a de entrada; `:66` — o card escreve a própria posição em `--indice-na-lista`, que é a ponte que ninguém testava; `:93` — o CSS limita o degrau, para que o card 200 não espere oito segundos; `src/components/__tests__/exclusaoDeChamado.test.js:188` — de ponta a ponta: confirmar a exclusão põe `sai-da-lista` no card, e a fila só o tira depois que a animação termina |
+| AC-ANIM-03 | `src/styles/__tests__/animacoes.test.js:244` — os estados de botão moram na camada única e animam só `transform`/`opacity`; `src/styles/__tests__/contraste.test.js:122` — `:hover` e `:focus-visible` continuam legíveis, par a par, inclusive o do botão neutro que reprovava |
+| AC-ANIM-04 | `src/components/__tests__/FilaDeChamados.test.js:180` — esqueleto antes do primeiro snapshot; `:186` — a espera é anunciada; `:198` — nenhum esqueleto por cima de fila cheia; `:209` — erro com "tentar novamente"; `src/__tests__/listasCarregandoEVazias.test.js:91` — a lista de salas mostra esqueleto, e não o vazio; `:101` — anuncia a espera; `:142` — a lista de conversas idem |
+| AC-ANIM-05 | `src/styles/__tests__/animacoes.test.js:201` — **um** `@media (prefers-reduced-motion: reduce)` universal zera duração, atraso e rolagem suave para todo elemento; `src/components/perks/__tests__/AnimacaoDePerk.test.js:168` — onde o movimento é decisão de JavaScript, o hook responde; `src/components/__tests__/movimentoDosCards.test.js:49` — as classes dos cards vêm da camada global, e não de uma folha que escaparia do bloco |
+| AC-ANIM-06 | `src/styles/__tests__/animacoes.test.js:244` — a varredura de **todas** as folhas: só `transform` e `opacity`; `:271` — e nunca `all`, que arrasta layout junto sem ninguém pedir |
+| AC-ANIM-07 | `src/__tests__/semDialogosDoNavegador.test.js:98` — nenhum `alert`, `confirm`, `prompt` ou `window.open` no fonte de produção; `:108` — a varredura **de fato enxerga** uma chamada, provado contra uma isca; `:131` — e ignora a citação em comentário; `:152` — os substitutos estão montados, não só escritos; `src/components/__tests__/Toast.test.js:87` — as quatro variantes; `:102` — nada some antes de 4s; `:140` — o de erro espera a pessoa |
+| AC-ANIM-09 | `src/styles/__tests__/consumoDeTokens.test.js:101` — **nenhuma cor literal** fora de `tokens.css`, folha por folha; `:108` — a única exceção é declarada e conferida; `:115` — todo `var(--token)` invocado existe; `src/styles/__tests__/tokens.test.js:129` — todo valor é a extração congelada da v0.1.0 ou uma decisão nomeada; `:151` — nenhum valor extraído sumiu sem virar decisão |
+| AC-ANIM-10 | `src/styles/__tests__/contraste.test.js:122` — a conta da WCAG sobre os 29 pares que a interface pratica, cada um com o arquivo e o seletor; `:126` — 3:1 no anel de foco, inclusive sobre o botão vermelho; `:136` — nenhum token de cor fica fora da tabela sem motivo; `src/__tests__/acessibilidadeDasTelas.test.js:253` — zero violação crítica ou séria em 11 telas; `src/components/__tests__/Modal.test.js:373` — o modal é diálogo anunciado; `:388` — `Esc` fecha; `:396` — o foco volta ao gatilho; `:421` — o foco fica preso; `src/components/__tests__/ConfirmarAcao.test.js:136` — o foco começa no botão **seguro**; `src/components/__tests__/Toast.test.js:227` — `aria-live="polite"`; `src/__tests__/lintDeAcessibilidade.test.js:47` — as regras de teclado do `jsx-a11y` ligadas, sem `TODO(task-08)` |
+| AC-CHAMADO-04 | **[REG]** `src/components/__tests__/exclusaoDeChamado.test.js:134` — pergunta antes, nomeando o que vai acontecer; `:145` — cancelar não exclui, nem da tela nem do banco; `:157` — `Esc` também cancela; `:169` — confirmar tira o card na hora, sem esperar o servidor; `:212` — o aviso oferece "Desfazer"; `:218` — desfazer traz o chamado de volta; `:236` — o prazo vencido é o que finalmente apaga; `:245` — a janela dura cinco segundos, nem um a menos; `:254` — a falha do servidor devolve o chamado à fila |
+| AC-CHAMADO-06 | `src/components/__tests__/exclusaoDeChamado.test.js:343` — a ação está em todo card da sala; `:337` — grava o campo e o carimbo do servidor sem tocar na autoria; `:358` — o atendido vai para o fim da fila, e **não some**; `:374` — desmarcar devolve o chamado à fila aberta; `:395` — marcar não pede confirmação, porque é reversível num clique; `:405` — sala arquivada não oferece nem excluir nem atender |
+| AC-CHAMADO-09 | `src/components/__tests__/FilaDeChamados.test.js:70` — desenha só a primeira página; `:82` — oferece "carregar mais" e diz quantos faltam; `:98` — o botão some na última; `:113` — a página aberta sobrevive à reemissão do `onSnapshot`; `:135` — 200 chamados cabem no orçamento de tempo declarado; `:290` — na sala de verdade, 30 cards e não 200 |
+| AC-CHAMADO-10 | `src/components/__tests__/FilaDeChamados.test.js:152` — o vazio é explicado; `:158` — e diz qual é a próxima ação; `:164` — a tela do professor tem a própria frase; `:172` — o vazio **não** aparece durante o carregamento; `src/__tests__/listasCarregandoEVazias.test.js:122` — a lista de salas só afirma o vazio depois de o banco responder; `:149` — a de conversas idem |
+
+**Parcialmente atendidos (🟡)**
+
+| AC | O que está provado | O que falta, e por quê |
+|---|---|---|
+| AC-ANIM-08 | `src/styles/__tests__/responsividade.test.js:91` — nenhuma folha inventa um quinto ponto de corte; `:116` — o chat vira painel de tela cheia abaixo de 768px; `:130` — o modal ocupa a tela inteira abaixo de 480px; `:144` — nenhuma largura fixa passa de 360px; `:169` — as telas de sala deixaram de se dimensionar por `calc(100vh - …)` dentro de uma coluna de `95vh`, que era o que fazia a fila vazar **exatamente** na 1024×768 do laboratório; `:187` — a fila usa a largura da tela grande | Os testes leem o **texto** do CSS, não o layout: o jsdom não aplica folha de estilo nem calcula posição. Eles provam que a regra existe e está no ponto de corte combinado; não provam que um pixel caiu onde deveria. Medir de verdade é `test:e2e` (Playwright). **Task 09** |
+
+**Compatibilidade desta versão**
+
+| Sentido | Prova |
+|---|---|
+| Retroativa | `src/components/__tests__/exclusaoDeChamado.test.js:433` — chamado da v0.1.0, **sem** o campo `atendido`, conta como aberto e fica no topo; `src/services/__tests__/filaChamados.test.js:204` — a fila trata a ausência do campo como `false`; nenhum campo foi renomeado ou removido nesta versão |
+| Futura | `src/components/__tests__/exclusaoDeChamado.test.js:457` — marcar como atendido é **aditivo**: nenhum campo antigo é removido, e um cliente da v0.9.0 que ignore `atendido`/`atendidoEm` mostra o chamado normalmente; `src/__tests__/compatibilidadeFutura.test.js:558` — a forma do chamado é fixada, e a asserção quebra se alguém lhe acrescentar campo |
+| Migração | **Nenhuma.** As mudanças desta versão são de apresentação (CSS, classes, marcação) e de comportamento de interface. O único campo tocado, `atendido`, já nascia na v0.9.0 e continua com padrão seguro na leitura. |
+
+**Adiados, com motivo**
+
+| AC | Por quê | Versão |
+|---|---|---|
+| AC-ANIM-08 | A parte que falta é a medição de layout real, e ela depende do Playwright, que entra na 1.0.0. Tudo o que dá para provar sem navegador está provado. | 09 |
+| AC-DOC-03 | `MANUAL-ALUNO.md` continua sem existir. | 09 |
+
+**Limites conhecidos**
+
+**O vermelho da marca mudou.** `#ff0000` dá 4,0:1 contra branco, e o piso da
+WCAG AA para texto normal é 4,5:1 — todo rótulo de botão do aplicativo estava
+reprovado. `#d60000` é o vermelho mais claro que passa em três pares ao mesmo
+tempo. É a mudança visual mais perceptível desde a v0.1.0, e está registrada
+no ADR 0011. Se a escola tiver um tom oficial de identidade, trocá-lo é uma
+linha em `tokens.css` — desde que o tom novo passe em `contraste.test.js`.
+
+**A tabela de pares de contraste é escrita à mão.** Saber qual fundo está atrás
+de um texto exige resolver a cascata e a árvore do documento, e o jsdom não
+aplica folha de estilo: uma extração automática erraria o fundo e aprovaria o
+par errado. O guarda contra a tabela envelhecer é outro teste — o que exige que
+todo token de cor apareça em algum par ou esteja numa lista de exceções com
+motivo escrito —, e não a disciplina de quem edita.
+
+**`jest-axe` pega cerca de um terço das barreiras reais.** Ele cobre o que dá
+para decidir olhando a árvore: rótulo ausente, papel inválido, `aria-*`
+apontando para id inexistente. Não cobre ordem de tabulação, prisão de foco nem
+se o rótulo faz sentido — e essas têm teste escrito à mão, em
+`Modal.test.js`, `ConfirmarAcao.test.js`, `Lightbox.test.js`, `Toast.test.js` e
+`Chat.test.js`. Nada disso substitui abrir um leitor de tela e percorrer um
+fluxo.
+
+**O contraste fica desligado dentro do `axe`.** Sem folha de estilo aplicada,
+ele leria preto sobre transparente em toda tela e acusaria violação onde não há
+— ou aprovaria onde há. Quem mede contraste neste projeto é o teste dos tokens.
+
+**O orçamento de tempo dos 200 cards é de máquina, não de laboratório.** O
+teste mede o tempo de render no ambiente do CI e o compara com um teto
+declarado no próprio arquivo. Ele pega uma regressão de ordem de grandeza — que
+é o que interessa —, não uma diferença de 20%.

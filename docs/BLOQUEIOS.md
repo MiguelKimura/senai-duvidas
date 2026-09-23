@@ -73,3 +73,64 @@ apenas escrita vinda dela. Nenhum dado muda de forma.
 contas para varrer o espaço, e produz um rastro visível no console do Firebase
 Auth. Para o uso previsto — dez salas, um semestre —, o risco aceito é
 consciente, e a mitigação operacional é o professor regerar o PIN.
+
+---
+
+## B-002 — A responsividade é provada no texto do CSS, não no pixel
+
+- **Versão:** 0.10.0 (task 08)
+- **Critério afetado:** AC-ANIM-08
+- **Estado:** implementado; a prova automatizada cobre a regra, não o layout
+
+### O limite
+
+`src/styles/__tests__/responsividade.test.js` lê as folhas de estilo **como
+texto**. Ele prova que a regra que evita o problema existe, que ela está no
+ponto de corte combinado, e que ninguém inventou um quinto ponto de corte no
+caminho. O que ele não prova é que um pixel caiu onde deveria.
+
+A razão é do ambiente, não de preguiça: o jsdom não aplica folha de estilo nem
+calcula layout. `getComputedStyle` ali devolve o valor declarado inline, não o
+resultado da cascata — não existe, dentro do Jest, largura de elemento para
+medir. Um teste que afirmasse "o card cabe em 360px" estaria afirmando algo que
+o ambiente não tem como saber, e um teste que aprova o que não mediu é pior do
+que nenhum.
+
+### O que ficou provado, então
+
+- Nenhuma folha inventa um ponto de corte fora dos quatro combinados (480,
+  768, 1024, 1440);
+- o chat vira painel de tela cheia abaixo de 768px;
+- o diálogo ocupa a tela inteira abaixo de 480px;
+- nenhuma largura fixa passa de 360px, que é o compromisso de não haver
+  rolagem lateral;
+- as duas telas de sala deixaram de se dimensionar por `calc(100vh - 120px)`
+  dentro de uma coluna de `height: 95vh`.
+
+Esse último item é o argumento de que o teste vale apesar do limite: **foi ele
+que pegou o defeito**. Duas contas sobre a mesma janela, a de dentro maior —
+na 1024×768 do laboratório a coluna tem 730px e o conteúdo pedia 776. A lista
+vazava por baixo e o botão `+`, que é `position: fixed`, cobria o último card.
+Num monitor de 1080px a conta fecha, e é por isso que ninguém nunca tinha visto
+o defeito: ele só aparece exatamente na tela onde o app roda de verdade.
+
+### Proposta para fechar
+
+`npm run test:e2e` (Playwright), previsto para a v1.0.0, roda num navegador com
+layout real. Fechar este item é um arquivo de teste que, para cada um dos dois
+tamanhos que importam:
+
+1. abre a página no viewport exato (1024×768 e 360×640);
+2. afirma `document.documentElement.scrollWidth <= clientWidth` — a ausência de
+   rolagem lateral, que é o defeito de celular;
+3. afirma que o último card da fila não fica coberto pelo botão flutuante,
+   comparando os dois retângulos — o defeito de laboratório;
+4. tira uma imagem de referência por viewport, para a regressão visual.
+
+Nada no código precisa mudar para isso acontecer: o que falta é o navegador,
+não a folha de estilo.
+
+**Custo de não fazer agora:** uma regressão de layout que não passe por
+nenhuma das regras guardadas acima entra sem ser vista, e só aparece quando
+alguém abrir o app na tela do laboratório. A mitigação até lá é a conferência
+manual nas duas resoluções antes do release.
