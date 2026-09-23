@@ -309,3 +309,93 @@ por armazenamento de dado que ninguém lê.
 **O que não entra nessa conta:** o caminho legado `imagens/{arquivo}` da
 v0.1.0, que não recebe arquivo novo desde a v0.6.0 e é pequeno o bastante para
 não mover o ponteiro.
+
+## 9. Acessibilidade e movimento (v0.10.0)
+
+Esta seção é o que a task 08 auditou e o que quem vier depois precisa manter.
+Ela é curta de propósito: cada regra abaixo tem um teste que a cobra, e a
+regra sem teste não está nesta lista.
+
+### O que guarda o quê
+
+| Assunto | O que é exigido | Teste que reprova |
+|---|---|---|
+| Contraste | 4,5:1 em texto normal, 3:1 em elemento não textual | `src/styles/__tests__/contraste.test.js` |
+| Paleta do card | os nove fundos contra o mesmo texto escuro | `src/utils/__tests__/paleta.test.js` |
+| Tokens consumidos | nenhuma cor literal fora de `tokens.css` | `src/styles/__tests__/consumoDeTokens.test.js` |
+| Origem dos tokens | todo valor é extração congelada ou decisão nomeada | `src/styles/__tests__/tokens.test.js` |
+| Movimento | 150–300ms, só `transform`/`opacity`, nunca `all` | `src/styles/__tests__/animacoes.test.js` |
+| Menos movimento | um `@media` universal, e o hook para o que é JS | idem, e `AnimacaoDePerk.test.js` |
+| Violação de ARIA | zero crítica ou séria, em 11 telas | `src/__tests__/acessibilidadeDasTelas.test.js` |
+| Teclado nos diálogos | foco preso, `Esc`, foco devolvido | `Modal.test.js`, `ConfirmarAcao.test.js`, `Lightbox.test.js` |
+| Anúncio de mudança | `aria-live` nos avisos e nas mensagens novas | `Toast.test.js`, `Chat.test.js` |
+| Lint de acessibilidade | as regras de teclado do `jsx-a11y` ligadas | `src/__tests__/lintDeAcessibilidade.test.js` |
+| Diálogo do navegador | nenhum `alert`/`confirm`/`prompt`/`window.open` | `src/__tests__/semDialogosDoNavegador.test.js` |
+| Pontos de corte | 480, 768, 1024 e 1440, e nenhum outro | `src/styles/__tests__/responsividade.test.js` |
+| Estado das listas | nenhuma afirma estar vazia antes de saber | `src/__tests__/listasCarregandoEVazias.test.js` |
+
+### As quatro regras que o projeto pratica
+
+**1. Contraste é conta, não opinião.** Todo par de cor que a interface pratica
+está numa tabela, com o arquivo e o seletor onde ele acontece, e a conta da
+WCAG roda sobre ele. Quando o teste ficar vermelho, **muda-se a cor, nunca o
+piso**: 4,5:1 e 3:1 vêm de fora deste projeto. Foi assim que o vermelho da
+marca passou de `#ff0000` para `#d60000` na v0.10.0 — ver
+`docs/adr/0011-sistema-de-animacoes-e-tokens.md`.
+
+A tabela é escrita à mão porque saber qual fundo está atrás de um texto exige
+resolver a cascata e a árvore do documento, e o jsdom não aplica folha de
+estilo. Uma extração automática erraria o fundo e aprovaria o par errado. O
+guarda contra ela envelhecer é outro teste, que exige que todo token de cor
+apareça em algum par ou esteja numa lista de exceções com motivo escrito.
+
+**2. Foco visível em tudo, e `:focus-visible` — nunca `outline: none` sem
+substituto.** O anel é único no app inteiro (`--cor-foco`, o quase-preto), e é
+quase-preto e não o vermelho da identidade porque ele precisa aparecer também
+**sobre** o botão vermelho. `outline` é a propriedade certa porque não ocupa
+espaço no fluxo: o anel sobrepõe o vizinho em vez de empurrá-lo.
+
+**3. Diálogo é diálogo.** Os três do projeto — o visualizador de anexo, o modal
+de novo chamado e a confirmação de exclusão — passam por
+`src/hooks/useDialogoModal.js`, que faz três coisas e só elas: foco inicial no
+elemento que o chamador escolher (**e o chamador escolhe o seguro, nunca o
+destrutivo**), prisão de tabulação com volta nas duas bordas, e `Esc` fechando
+com o foco devolvido a quem abriu.
+
+Não é `<dialog>` nativo com `showModal()` porque ele ainda não está nas duas
+últimas versões de todos os navegadores da lista de compatibilidade do
+projeto, e a tela do laboratório é justamente a desatualizada.
+
+**4. Nada some sem ser anunciado, e nada é anunciado duas vezes.** A pilha de
+avisos usa `role="log"` — o papel de uma região onde a informação é
+*acrescentada* em ordem — e não `role="status"`, que as telas já usam para o
+próprio carregamento. Duas regiões com o mesmo papel na mesma página tornariam
+cada mensagem ambígua para quem consulta a tela por papel. O esqueleto de
+carregamento é `aria-hidden`: ele não é conteúdo, é a ausência dele, e quem
+anuncia a espera é o `role="status"` ao lado.
+
+### Como manter
+
+- **Cor nova?** Ela entra em `tokens.css` e ganha uma linha na tabela de
+  `contraste.test.js`, com o seletor onde ela aparece. O teste que varre os
+  tokens reprova quem esquecer.
+- **Diálogo novo?** Ele usa `useDialogoModal`. Uma segunda cópia de prisão de
+  foco é onde o comportamento começa a divergir.
+- **Tela nova?** Ela ganha um caso em `acessibilidadeDasTelas.test.js`. O
+  `axe` pega cerca de um terço das barreiras reais — o resto (ordem de
+  tabulação, se o rótulo faz sentido) continua exigindo o teste escrito à mão.
+- **Animação nova?** Ela usa as classes e os tokens de `animacoes.css`. Um
+  `@keyframes` declarado na folha do componente escapa do bloco global de
+  `prefers-reduced-motion`, e é assim que a preferência da pessoa deixa de
+  valer sem ninguém perceber.
+- **Ponto de corte novo?** Não. Os quatro estão declarados em
+  `responsividade.test.js`, e acrescentar um exige justificar ali.
+
+### O que esta auditoria **não** cobre
+
+- **Layout real.** Os testes de responsividade leem o texto do CSS. Eles
+  provam que a regra existe e está no ponto de corte certo; não provam que um
+  pixel caiu onde deveria. Isso é escopo do `test:e2e` (Playwright) na v1.0.0.
+- **Leitor de tela de verdade.** Nada aqui substitui abrir o NVDA e percorrer
+  um fluxo. O que os testes garantem é que a marcação não regrediu.
+- **Contraste de imagem.** O print que o aluno anexa é o print que ele tirou.

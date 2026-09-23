@@ -10,18 +10,30 @@
  * seis arquivos. Mudar a identidade visual significa caçar todas as cópias, e
  * esquecer uma é o normal. Este arquivo transforma essa caçada em uma linha.
  *
- * As tasks seguintes trocam os valores crus pelos `var(--token)` arquivo a
- * arquivo. Enquanto isso não acontece, os dois convivem de propósito:
- * substituir tudo agora seria refatoração de comportamento visual, que esta
- * task não autoriza.
+ * A v0.10.0 fecha a segunda metade do AC-ANIM-09: os componentes deixaram de
+ * repetir os valores crus e passaram a consumir `var(--token)`. Onde o token
+ * novo é uma **decisão** desta versão, e não uma extração — a escala de
+ * durações do AC-ANIM-01, o anel de foco do AC-ANIM-10 —, o nome está listado
+ * em `TOKENS_DECIDIDOS` no teste, com o motivo e o teste que o prova.
  */
 
 :root {
   /* ---- Cores da identidade ---------------------------------------------
    * O vermelho é a marca: botão de ação, botão flutuante de novo chamado,
    * balão do chat. O escuro é o estado :hover de todos eles.
+   *
+   * O vermelho era `#ff0000` até a v0.9.0. Branco sobre ele dá 4,0:1, e o
+   * piso da WCAG AA para texto normal é 4,5:1 — todo rótulo de botão do app
+   * estava reprovado, e o AC-ANIM-10 não admite exceção. `#d60000` é o
+   * vermelho mais claro que passa em três pares de uma vez: branco sobre ele
+   * (5,44:1), ele como texto sobre branco (5,44:1) e ele como texto sobre a
+   * página cinza (4,95:1). Escurecer menos reprovaria o terceiro par;
+   * escurecer mais tira do vermelho o que faz dele vermelho.
+   *
+   * A conta está em `src/styles/__tests__/contraste.test.js`, par a par, com
+   * o arquivo e o seletor onde cada um acontece.
    */
-  --cor-primaria: #ff0000;
+  --cor-primaria: #d60000;
   --cor-primaria-hover: #8f0000;
 
   /* ---- Cores de superfície --------------------------------------------- */
@@ -39,21 +51,61 @@
   /* Apelido, não cópia: o texto sobre o vermelho é branco *porque* é a cor da
    * superfície. Se a superfície mudar, este acompanha. */
   --cor-texto-invertido: var(--cor-superficie);
-  --cor-texto-discreto: gray;
+  --cor-texto-discreto: #666;
 
-  /* ---- Cores de borda -------------------------------------------------- */
+  /* ---- Cores de borda --------------------------------------------------
+   * As duas primeiras são traço de 1px entre superfícies claras. A terceira
+   * não é borda: é o fundo do botão neutro em :hover — o "Cancelar" da
+   * confirmação e o "Fechar" do modal. Ela nasce aqui porque o cinza que as
+   * duas folhas usavam escurecia até onde o texto `--cor-texto-titulo` em
+   * cima dele deixava de passar em AA.
+   */
   --cor-borda: #ccc;
   --cor-borda-campo: #ddd;
+  --cor-borda-forte: #b3b3b3;
 
   /* ---- Cores de estado -------------------------------------------------
-   * `--cor-erro` é o `color: red` de `.erro` em App.css. Vale registrar que
-   * ela não passa em contraste AA sobre branco — a task 08 (AC-ANIM-10) vai
-   * ter que mexer nisso, e ter o valor num lugar só é o que torna a correção
-   * viável em um commit.
+   * `--cor-erro` era o `color: red` de `.erro` em App.css, e a v0.2.0 já
+   * registrava aqui que ele não passava em AA sobre branco: 4,0:1 contra o
+   * piso de 4,5:1. Esta é a task que aquele comentário anunciava. `#c62828`
+   * dá 5,62:1 sobre branco e 5,34:1 sobre a caixa clara, e não é um tom novo
+   * no projeto — é o vermelho que `BotaoSair.css` já praticava desde a
+   * v0.3.0, que agora deixa de ser uma sétima cópia solta.
+   *
+   * `--cor-erro-fundo` é a tarja do erro de login. Ela existe como token
+   * porque a mensagem de erro é o lugar onde o contraste mais importa: é a
+   * única tela em que a pessoa está travada e precisa ler para sair.
    */
-  --cor-erro: red;
+  --cor-erro: #c62828;
+  --cor-erro-fundo: #fdecea;
+  /* O quase-preto do projeto, e o anel de foco que é feito dele (AC-ANIM-10).
+   *
+   * `--cor-texto-forte` é o mesmo `#1a1a1a` que `utils/paleta.js` usa como
+   * texto sobre as nove cores do card — o par mais apertado da paleta passa
+   * com folga de várias vezes o mínimo. Ele substitui o `#000000` que
+   * `CardDoChamado.css` escrevia: preto puro sobre fundo claro cansa a vista
+   * em sala com projetor ligado, e era o único lugar do app que ainda o
+   * usava.
+   *
+   * O anel de foco é um apelido dele, e não o vermelho da identidade: o anel
+   * precisa aparecer TAMBÉM sobre o botão vermelho, e vermelho sobre vermelho
+   * não aparece. Contra qualquer superfície deste projeto — inclusive o
+   * vermelho — ele passa do piso de 3:1 que a WCAG 2.1 exige de elemento não
+   * textual. */
+  --cor-texto-forte: #1a1a1a;
+  --cor-foco: var(--cor-texto-forte);
   --cor-mensagem-enviada: #007bff;
   --cor-mensagem-recebida: #28a745;
+
+  /* As três variantes de aviso que faltavam (AC-ANIM-07). Todas escolhidas
+   * escuras o bastante para passarem em AA como **texto** sobre as superfícies
+   * claras do projeto, e não só como tarja colorida: o mesmo tom serve à borda
+   * do toast e ao texto da mensagem, e um único valor por papel é o que
+   * impede as duas de divergirem. `src/utils/__tests__/paleta.test.js` roda a
+   * conta da WCAG sobre cada uma. */
+  --cor-sucesso: #1e7e34;
+  --cor-aviso: #8a5300;
+  --cor-informacao: #0b5ed7;
 
   /* ---- Espaçamentos ----------------------------------------------------
    * Escala tirada dos valores realmente usados. Não é uma escala 4/8 teórica:
@@ -81,17 +133,60 @@
    */
   --sombra-caixa: 0 4px 10px rgba(0, 0, 0, 0.1);
   --sombra-elevada: 0 4px 10px rgba(0, 0, 0, 0.2);
-  --sombra-foco: 0 0 5px rgba(255, 0, 0, 0.3);
+  /* O halo do <textarea> em foco. Segue `--cor-primaria`: um halo vermelho
+     puro em volta de um botão que já não é vermelho puro é a divergência que
+     este arquivo existe para impedir. */
+  --sombra-foco: 0 0 5px rgba(214, 0, 0, 0.3);
 
   /* ---- Movimento -------------------------------------------------------
-   * Hoje existe uma única duração no projeto inteiro: 0,3s, sempre em
-   * `transition`. Ela fica registrada como está. A faixa de 150ms a 300ms
-   * que o AC-ANIM-01 pede, e o respeito a `prefers-reduced-motion` do
-   * AC-ANIM-05, são escopo da task 08 — mudar a duração aqui seria mudar o
-   * comportamento visual, que esta task proíbe.
+   * A v0.2.0 registrou aqui a única duração que o projeto tinha: `0.3s`. Da
+   * v0.4.0 à v0.9.0 apareceram `150ms` no campo de anexo, `0.45s` e `1.2s` na
+   * premiação, e mais alguns `0.3s` crus espalhados — cada task com a sua.
+   *
+   * Esta é a escala canônica (AC-ANIM-01). Três degraus, porque três é o que
+   * a interface realmente distingue:
+   *
+   *   * `rapida`  — o realce que segue o dedo: hover, foco, cor de botão. Mais
+   *     do que isso e o botão parece pesado;
+   *   * `media`   — a entrada e a saída de um card na fila. Tempo de perceber
+   *     que algo entrou, sem esperar por ele;
+   *   * `lenta`   — o modal e a rota. A caixa nova precisa do tempo de o olho
+   *     achá-la; é o teto da faixa que o AC-ANIM-01 permite.
+   *
+   * As curvas seguem a assimetria que a documentação de movimento do Material
+   * e do WAI descrevem pelo mesmo motivo físico: o que **chega** desacelera,
+   * porque precisa ser lido no fim; o que **sai** acelera, porque já não
+   * interessa. `padrao` é a simétrica das transições de estado, que não têm
+   * direção nenhuma.
    */
-  --duracao-transicao: 0.3s;
-  --aceleracao-padrao: ease;
+  --dur-rapida: 150ms;
+  --dur-media: 220ms;
+  --dur-lenta: 300ms;
+
+  --ease-entrada: cubic-bezier(0, 0, 0.2, 1);
+  --ease-saida: cubic-bezier(0.4, 0, 1, 1);
+  --ease-padrao: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Durações que são a coisa em si, e não a transição para ela. A faixa de
+   * 150ms a 300ms é sobre interface; a premiação do AC-PERK-04 é o pedido
+   * literal do cliente ("tipo o do Call of Duty"), e 300ms não entregam isso.
+   * A janela de desfazer é do AC-CHAMADO-04: cinco segundos é o tempo de ler
+   * o toast e mudar de ideia, e o mesmo número vive no JavaScript. */
+  --dur-celebracao: 450ms;
+  --dur-brilho: 1200ms;
+  --dur-desfazer: 5000ms;
+  /* O degrau entre um card e o seguinte na entrada escalonada. Não é uma
+   * transição: é o intervalo ENTRE duas transições (AC-ANIM-02). */
+  --dur-degrau: 40ms;
+
+  /* Os dois nomes da v0.2.0, hoje apelidos da escala.
+   *
+   * `Chat.css` os consome desde a v0.8.0 e o teste daquela folha os cobra por
+   * nome. Renomear no lugar de apelidar trocaria trinta linhas de CSS sem
+   * mudar um pixel — e `--duracao-transicao` continua descrevendo bem o que
+   * ele é: a duração padrão de uma transição. */
+  --duracao-transicao: var(--dur-lenta);
+  --aceleracao-padrao: var(--ease-padrao);
 
   /* ---- Tipografia ------------------------------------------------------- */
   --fonte-base: Arial, sans-serif;

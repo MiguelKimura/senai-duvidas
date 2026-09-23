@@ -15,7 +15,7 @@
   justify-content: center;
   padding: var(--espaco-4);
   background: rgba(0, 0, 0, 0.75);
-  animation: lightbox-entrada 150ms ease-out;
+  animation: lightbox-entrada var(--dur-rapida) var(--ease-entrada);
 }
 
 @keyframes lightbox-entrada {

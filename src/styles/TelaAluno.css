@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  background-color: #f5f5f5;
+  background-color: var(--cor-fundo-tela);
   font-family: Arial, sans-serif;
   overflow: hidden;
 }
@@ -12,14 +12,14 @@
 .tela-aluno h1 {
   margin-top: 20px;
   font-size: 24px;
-  color: #333;
+  color: var(--cor-texto-titulo);
 }
 
 .tela-aluno .add-button {
   width: 50px;
   height: 50px;
-  background-color: #ff0000;
-  color: white;
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
   border-radius: 50%;
   font-size: 30px;
   display: flex;
@@ -33,63 +33,27 @@
 }
 
 .tela-aluno .add-button:hover {
-  background-color: #8f0000;
+  background-color: var(--cor-primaria-hover);
 }
 
 .tela-aluno .problemas-list {
-  margin-top: 20px;
+  margin-top: var(--espaco-4);
   flex-grow: 1;
+  /* `min-height: 0` e NÃO `height: calc(100vh - 120px)`, que era o que estava
+     aqui. Os dois números saíam da mesma altura de janela — a coluna pede
+     95vh, a lista pedia 100vh menos 120px — e o de dentro era maior. Na
+     1024x768 do laboratório a coluna tem 730px e o conteúdo pedia 776: a
+     lista vazava por baixo, e o botão "+", que é `position: fixed`, cobria o
+     último card. Num monitor de 1080px a conta fechava, e por isso ninguém
+     nunca viu o defeito (AC-ANIM-08).
+
+     O padrão de `min-height` num filho flex é `auto`, que quer dizer "não
+     encolha abaixo do seu conteúdo" — sem zerá-lo, quem rola é a página, e
+     não a lista. */
+  min-height: 0;
   overflow-y: auto;
   padding-bottom: 80px;
-  height: calc(100vh - 120px);
   overflow-x: hidden;
-}
-
-.tela-aluno .problema-card {
-  padding: 10px;
-  margin-bottom: 10px;
-  border-radius: 5px;
-  background-color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  max-width: 400px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  width: 100%;
-  position: relative;
-}
-
-.user-name {
-  font-weight: bold;
-  margin: 0;
-  flex: 1;
-  text-align: center;
-}
-
-.view-image-icon {
-  cursor: pointer;
-  font-size: 20px;
-  padding: 5px;
-  background-color: rgba(255, 255, 255, 0.7);
-  border-radius: 50%;
-  transition: background-color 0.3s;
-  position: absolute;
-  top: 10px;
-  right: 10px;
-}
-
-.view-image-icon:hover {
-  background-color: rgba(255, 255, 255, 0.9);
-}
-
-.tela-aluno .problema-card p {
-  margin: 2px 0;
 }
 
 .tela-aluno .problema-card .delete-button {
@@ -97,13 +61,13 @@
   width: 100%;
   text-align: center;
   padding: 5px 10px;
-  background-color: #ff0000;
-  color: white;
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
   border: none;
   border-radius: 5px;
   cursor: pointer;
 }
 
 .tela-aluno .problema-card .delete-button:hover {
-  background-color: #8f0000;
+  background-color: var(--cor-primaria-hover);
 }

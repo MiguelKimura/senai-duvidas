@@ -12,7 +12,7 @@
 }
 
 .modal {
-  background: white;
+  background: var(--cor-superficie);
   padding: 20px;
   border-radius: 8px;
   max-width: 400px;
@@ -25,16 +25,15 @@ textarea {
   height: 100px;
   margin-bottom: 15px;
   padding: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--cor-borda-campo);
   border-radius: 8px;
   font-family: sans-serif;
   font-size: 14px;
   box-sizing: border-box;
-  transition: all 0.3s ease;
 }
 
 textarea:focus {
-  border-color: #ff0000;
+  border-color: var(--cor-primaria);
   box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
   outline: none;
 }
@@ -50,8 +49,8 @@ textarea:focus {
 button {
   padding: 12px;
   border: none;
-  background-color: #ff0000;
-  color: white;
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
   border-radius: 8px;
   cursor: pointer;
   flex: 1; /* Garante que ambos os botões tenham o mesmo tamanho */
@@ -59,17 +58,17 @@ button {
 }
 
 button:hover {
-  background-color: #8f0000;
+  background-color: var(--cor-primaria-hover);
 }
 
 /* Botão de fechar com cor diferenciada */
 .close-button {
-  background-color: #ccc;
-  color: black;
+  background-color: var(--cor-borda);
+  color: var(--cor-texto-forte);
 }
 
 .close-button:hover {
-  background-color: #999;
+  background-color: var(--cor-borda-forte);
 }
 
 /* Estilo para entrada de URL */
@@ -80,23 +79,22 @@ button:hover {
 .image-url-container input[type='text'] {
   width: 100%;
   padding: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--cor-borda-campo);
   border-radius: 8px;
   font-size: 14px;
   outline: none;
   box-sizing: border-box;
-  transition: all 0.3s ease;
 }
 
 .image-url-container input[type='text']:focus {
-  border-color: #ff0000;
+  border-color: var(--cor-primaria);
   box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
 }
 
 .image-url-container p {
   margin-top: 8px;
   font-size: 12px;
-  color: #888;
+  color: var(--cor-texto-discreto);
 }
 
 .image-preview {
@@ -117,10 +115,27 @@ button:hover {
   cursor: pointer;
   text-decoration: none;
   margin-top: 10px;
-  color: #6b6b6b;
+  color: var(--cor-texto-discreto);
 }
 
 .delete-image-btn:hover {
   text-decoration: underline;
-  color: #b30000;
+  color: var(--cor-primaria-hover);
+}
+
+/* Abaixo de 480px o diálogo ocupa a tela inteira, pela mesma razão da
+   confirmação: uma caixa de 400px centrada numa tela de 360 é uma caixa
+   colada nas bordas, e este diálogo tem um <textarea>, um seletor de arquivo
+   e um painel de opções dentro (AC-ANIM-08). */
+@media (max-width: 480px) {
+  .modal-overlay {
+    align-items: stretch;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    overflow-y: auto;
+  }
 }

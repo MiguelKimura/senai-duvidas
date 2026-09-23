@@ -12,8 +12,8 @@
   border: 1px dashed var(--cor-borda);
   border-radius: var(--raio-2);
   transition:
-    border-color 150ms ease,
-    background-color 150ms ease;
+    border-color var(--dur-rapida) var(--ease-padrao),
+    background-color var(--dur-rapida) var(--ease-padrao);
 }
 
 .zona-de-anexo--recebendo {

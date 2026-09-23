@@ -26,7 +26,7 @@ import {
 } from 'firebase/firestore';
 import TelaAluno from '../TelaAluno';
 import TelaProfessor from '../TelaProfessor';
-import { renderComProvedores } from '../../test-utils';
+import { fixarRelogio, renderComProvedores, restaurarRelogio } from '../../test-utils';
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -140,7 +140,14 @@ describe.each([
 });
 
 describe('a insígnia ao lado do nome no chat (AC-PERK-05)', () => {
+  // O chat mostra só a conversa de HOJE, e "hoje" é a meia-noite de Brasília
+  // medida contra o relógio do leitor (AC-TEMPO-07). Sem congelar esse
+  // relógio, estas mensagens — datadas de 22/09/2026 — passaram a cair no
+  // histórico assim que a data real virou, e os três casos abaixo começaram a
+  // esperar por um balão que a tela nunca ia desenhar. Era uma dependência de
+  // relógio real escondida, do tipo que o AC-TEST-09 proíbe.
   beforeEach(() => {
+    fixarRelogio(HORARIO_DO_SERVIDOR);
     semearPerkDaAna();
 
     __semearColecao(CHAT_DA_SALA, [
@@ -161,6 +168,10 @@ describe('a insígnia ao lado do nome no chat (AC-PERK-05)', () => {
         horario: Timestamp.fromDate(new Date('2026-09-22T11:01:00.000Z')),
       },
     ]);
+  });
+
+  afterEach(() => {
+    restaurarRelogio();
   });
 
   /**

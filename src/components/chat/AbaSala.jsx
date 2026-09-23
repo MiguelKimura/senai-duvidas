@@ -16,11 +16,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ListaMensagens from './ListaMensagens';
 import CampoMensagem from './CampoMensagem';
 import { useMensagens } from '../../hooks/useMensagens';
-import {
-  ehComandoLimpar,
-  enviarMensagem,
-  limparConversa,
-} from '../../services/chat';
+import { ehComandoLimpar, enviarMensagem, limparConversa } from '../../services/chat';
 import { PAPEL_DE_PROFESSOR } from '../../services/salas';
 import {
   estaPendente,

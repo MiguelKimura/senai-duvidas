@@ -9,6 +9,44 @@ Todas as mudanças relevantes deste projeto são registradas aqui, no formato
 > intervalo e os agrupa. Escrever à mão é escrever de memória no fim do trabalho, e o que
 > fica de fora é justamente o que ninguém lembrou.
 
+> node scripts/gerarChangelog.js 0e13df5..HEAD --versao 0.10.0 --data 2026-09-23
+
+## [0.10.0] - 2026-09-23
+
+### Adicionado
+
+- **ui:** unifica o movimento numa camada só, com tokens canônicos
+- **ui:** toast, confirmação própria e um foco preso compartilhado
+- **chamados:** revisa o auto-delete com confirmação, desfazer e atendido
+- **ui:** pagina a fila de 30 em 30, com estado vazio, esqueleto e erro
+- **ui:** liga as regras de teclado do jsx-a11y no lint
+- **ui:** faz as folhas consumirem os tokens e corrige o contraste AA
+- **ui:** transforma o modal de novo chamado num diálogo de teclado
+- **ui:** faz a interface caber no laboratório e no celular
+- **ui:** dá esqueleto e vazio honesto às listas de salas e de conversas
+
+### Alterado
+
+- **ui:** exige a camada única de animação e as durações canônicas
+- **ui:** exige toast e confirmação próprios no lugar de alert e confirm
+- **chamados:** exige confirmação, desfazer e "atendido" na exclusão
+- **ui:** exige paginação, estado vazio e esqueleto na fila de chamados
+- **ui:** exige as regras de acessibilidade do lint ligadas
+- **ui:** exige contraste AA nos pares de cor que a interface pratica
+- **ui:** exige que as folhas consumam os tokens, e não os copiem
+- **ui:** varre o fonte atrás de alert, confirm, prompt e window.open
+- **ui:** audita cada tela com jest-axe e cobra teclado do modal de chamado
+- **ui:** renomeia o retorno do render para o nome que o lint espera
+- **ui:** exige o sistema de pontos de corte e mede o laboratório
+- **ui:** exige que lista nenhuma afirme estar vazia antes de saber
+- **ui:** usa as consultas que o lint da testing-library pede
+- **ui:** prova a ponte entre o índice do card e o escalonamento do CSS
+- **ui:** prova que a fila espera a animação de saída antes de tirar o card
+
+### Corrigido
+
+- **test:** congela o relógio do leitor no teste de insígnia no chat
+
 > node scripts/gerarChangelog.js 05ad89d..HEAD --versao 0.9.0 --data 2026-09-22
 
 ## [0.9.0] - 2026-09-22

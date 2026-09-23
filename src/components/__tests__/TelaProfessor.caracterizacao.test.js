@@ -9,9 +9,11 @@
 //     componente apaga o chamado de qualquer aluno (task 01 e task 03);
 //   * o `onSnapshot` assina a coleção `chamados` inteira, sem `where` nem
 //     `limit` — viola AC-PERF-03 e impede o escopo por sala (task 03);
-//   * o retorno da exclusão é um `alert()` bloqueante (task 08 troca por toast).
+//   * o retorno da exclusão era um `alert()` bloqueante. A task 08 o trocou
+//     por toast, e as asserções correspondentes foram INVERTIDAS — hoje elas
+//     exigem o toast e provam que `window.alert` NÃO é chamado (AC-ANIM-07).
 import React from 'react';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
@@ -29,7 +31,14 @@ import {
 } from 'firebase/firestore';
 import TelaProfessor from '../TelaProfessor';
 import { PALETA } from '../../utils/paleta';
-import { corDeFundo, fabricaChamado, renderComProvedores } from '../../test-utils';
+import {
+  corDeFundo,
+  fabricaChamado,
+  fixarRelogio,
+  renderComProvedores,
+  restaurarRelogio,
+} from '../../test-utils';
+import { PRAZO_DE_DESFAZER_MS } from '../../hooks/useExclusaoComDesfazer';
 
 const db = getFirestore();
 
@@ -38,6 +47,11 @@ const PROFESSOR = {
   email: 'carlos.lima@senai.br',
   displayName: 'Carlos Lima',
 };
+
+/** O botão que confirma a exclusão, de dentro do diálogo. */
+function confirmarNoDialogo() {
+  return within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' });
+}
 
 /** Os cards, na ordem em que aparecem no DOM. */
 function cardsNaTela() {
@@ -53,7 +67,9 @@ beforeEach(() => {
   __resetarFirestore();
   __resetarAuth();
   __definirUsuarioAtual(PROFESSOR);
-  // `handleDelete` chama `alert`, que o jsdom não implementa.
+  // O `alert()` saiu na task 08. O espião fica: é ele que prova que a
+  // confirmação e o aviso de sucesso passaram a ser do app, e não do
+  // navegador — e que ninguém o trouxe de volta (AC-ANIM-07).
   jest.spyOn(window, 'alert').mockImplementation(() => {});
 });
 
@@ -227,39 +243,58 @@ describe('TelaProfessor — exclusão sem restrição (AC-CHAMADO-05)', () => {
     expect(screen.getAllByRole('button', { name: 'Excluir' })).toHaveLength(2);
   });
 
-  it('remove do banco e da tela o chamado de um aluno qualquer', async () => {
+  // INVERTIDO pela task 08: era "remove do banco e da tela" num clique só. O
+  // poder do professor não mudou — o que mudou é que ele confirma antes, como
+  // o AC-CHAMADO-04 sempre exigiu.
+  it('remove do banco e da tela o chamado de um aluno qualquer, DEPOIS de confirmar', async () => {
+    const relogio = fixarRelogio('2026-09-23T12:00:00.000Z');
     __semearColecao('chamados', [
       fabricaChamado({ id: 'c1', nome: 'Ana Souza', email: 'ana@senai.br' }),
     ]);
 
     renderComProvedores(<TelaProfessor />);
     await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    await userEvent.click(confirmarNoDialogo());
 
     await waitFor(() => expect(cardsNaTela()).toHaveLength(0));
-    const restantes = await getDocs(collection(db, 'chamados'));
-    expect(restantes.size).toBe(0);
+
+    act(() => relogio.avancar(PRAZO_DE_DESFAZER_MS));
+    await waitFor(async () => {
+      const restantes = await getDocs(collection(db, 'chamados'));
+      expect(restantes.size).toBe(0);
+    });
+
+    restaurarRelogio();
   });
 
-  it('exclui SEM pedir confirmação — o AC-CHAMADO-04 exige confirmar, a task 08 resolve', async () => {
+  // INVERTIDO pela task 08. Era "exclui SEM pedir confirmação".
+  it('NÃO exclui enquanto a confirmação não vem — nem pelo `window.confirm`', async () => {
     const confirmar = jest.spyOn(window, 'confirm').mockImplementation(() => true);
     __semearColecao('chamados', [fabricaChamado({ id: 'c1' })]);
 
     renderComProvedores(<TelaProfessor />);
     await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
 
-    await waitFor(() => expect(cardsNaTela()).toHaveLength(0));
     expect(confirmar).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(cardsNaTela()).toHaveLength(1);
   });
 
-  it('avisa o sucesso por alert bloqueante — a task 08 troca por toast', async () => {
+  // INVERTIDO pela task 08. Era "avisa o sucesso por alert bloqueante".
+  //
+  // O `alert()` bloqueia a aba, some sem deixar o texto na tela e, em parte
+  // dos laboratórios, vem suprimido junto com o bloqueador de pop-up: o
+  // professor clicava, nada acontecia, e ele não sabia se o chamado tinha
+  // saído. Era o último `alert()` do código (AC-ANIM-07).
+  it('avisa o sucesso por toast, e NÃO por alert', async () => {
     __semearColecao('chamados', [fabricaChamado({ id: 'c1' })]);
 
     renderComProvedores(<TelaProfessor />);
     await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    await userEvent.click(confirmarNoDialogo());
 
-    await waitFor(() =>
-      expect(window.alert).toHaveBeenCalledWith('Chamado excluído com sucesso!')
-    );
+    expect(await screen.findByText(/Chamado excluído/)).toBeInTheDocument();
+    expect(window.alert).not.toHaveBeenCalled();
   });
 });
 

@@ -116,11 +116,11 @@
 }
 
 .perk-premiacao--animada .perk-premiacao-cartao {
-  animation: perk-entrada 0.45s var(--aceleracao-padrao) both;
+  animation: perk-entrada var(--dur-celebracao) var(--ease-entrada) both;
 }
 
 .perk-premiacao--animada .perk-premiacao-nivel {
-  animation: perk-brilho 1.2s var(--aceleracao-padrao) 0.3s both;
+  animation: perk-brilho var(--dur-brilho) var(--ease-saida) var(--dur-lenta) both;
 }
 
 .perk-premiacao--saindo .perk-premiacao-cartao {

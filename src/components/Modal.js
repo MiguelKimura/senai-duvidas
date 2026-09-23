@@ -13,6 +13,7 @@
 // lugar provisório e mover depois, e o Storage não move objeto: copia, e paga
 // duas vezes, em banda e em cota.
 import React, { useRef, useState } from 'react';
+import { useDialogoModal } from '../hooks/useDialogoModal';
 import CampoAnexo from './CampoAnexo';
 import PainelAvancado from './PainelAvancado';
 import { removerAnexo } from '../services/anexos';
@@ -20,6 +21,8 @@ import { reservarChamado } from '../services/salas';
 import { corAutomatica } from '../utils/paleta';
 import { guardarCorPreferida, lerCorPreferida } from '../utils/preferenciaDeCor';
 import '../styles/Modal.css';
+
+const ID_DO_TITULO = 'modal-novo-chamado-titulo';
 
 function Modal({ salaId = null, onClose, onSubmit, autor = '' }) {
   const [descricao, setDescricao] = useState('');
@@ -42,6 +45,9 @@ function Modal({ salaId = null, onClose, onSubmit, autor = '' }) {
 
   const chamadoId = referencia.current.id;
 
+  const dialogo = useRef(null);
+  const campoDaDescricao = useRef(null);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -63,13 +69,31 @@ function Modal({ salaId = null, onClose, onSubmit, autor = '' }) {
     onClose();
   };
 
+  // O foco inicial vai no campo, e não no primeiro focável: aqui não há ação
+  // destrutiva a proteger, e o que o aluno veio fazer é escrever. `Esc` passa
+  // por `fechar`, e não por `onClose` — desistir do chamado continua tendo de
+  // apagar o anexo que já subiu, senão o arquivo fica órfão na cota da escola.
+  const { aoTeclar } = useDialogoModal({
+    referencia: dialogo,
+    aoFechar: fechar,
+    focoInicial: () => campoDaDescricao.current,
+  });
+
   return (
-    <div className="modal-overlay">
-      <div className="modal">
-        <h2>Descreva o seu problema</h2>
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <div className="modal-overlay entra-sobreposicao" onKeyDown={aoTeclar} role="presentation">
+      <div
+        className="modal entra-caixa"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={ID_DO_TITULO}
+        ref={dialogo}
+      >
+        <h2 id={ID_DO_TITULO}>Descreva o seu problema</h2>
 
         <section className="modal-secao" data-testid="secao-descricao">
           <textarea
+            ref={campoDaDescricao}
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Descreva o problema"

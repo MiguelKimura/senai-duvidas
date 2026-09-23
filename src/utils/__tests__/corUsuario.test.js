@@ -62,7 +62,10 @@ describe('corDaMensagem — de onde sai a semente', () => {
     const semIdentidade = { nome: 'Autor Antigo', texto: 'sem email' };
 
     const comoAna = corDaMensagem(semIdentidade, { uid: 'uid-ana', email: 'ana@senai.br' });
-    const comoBruno = corDaMensagem(semIdentidade, { uid: 'uid-bruno', email: 'bruno@senai.br' });
+    const comoBruno = corDaMensagem(semIdentidade, {
+      uid: 'uid-bruno',
+      email: 'bruno@senai.br',
+    });
 
     expect(comoAna).toEqual(comoBruno);
   });

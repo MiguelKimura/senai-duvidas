@@ -20,23 +20,47 @@ module.exports = {
     'no-var': 'error',
     eqeqeq: ['error', 'smart'],
 
-    // TODO(task-08): o ícone 👁️ de "ver imagem" é uma <div> com onClick, em
-    // TelaAluno e TelaProfessor. Quem navega por teclado não alcança o anexo.
-    // Corrigir é trocar por <button> e tratar Enter/Espaço — mudança de
-    // marcação e de comportamento, que é exatamente o escopo do AC-ANIM-09.
-    'jsx-a11y/click-events-have-key-events': 'off',
-    'jsx-a11y/no-static-element-interactions': 'off',
+    // Ligadas na v0.10.0 (AC-ANIM-10). Elas ficaram desligadas da task 00 à
+    // 07 por um elemento só: o ícone 👁️ de "ver imagem" era uma <div> com
+    // `onClick`, em TelaAluno e em TelaProfessor, e quem navegava por teclado
+    // não alcançava o anexo. A task 04 trocou aquela <div> por um <button> ao
+    // extrair `AnexoDoCard`; o que sobrou aqui foi o desligamento.
+    //
+    // Elas valem agora para impedir a **próxima** <div> clicável, que é o
+    // caminho por onde esse defeito volta. O `src/components/Lightbox.jsx`
+    // carrega a única exceção, silenciada na linha e explicada ali: o fundo
+    // do diálogo fecha ao clique, e o teclado sai dele pelo Esc, que o
+    // `useDialogoModal` trata.
+    'jsx-a11y/click-events-have-key-events': 'error',
+    'jsx-a11y/no-static-element-interactions': 'error',
   },
   overrides: [
     {
       // Testes de caracterização.
       files: ['src/**/__tests__/**/*.js', 'src/**/*.test.js'],
       rules: {
-        // TODO(task-08): os testes alcançam card, balão de fala e botão do chat
-        // por `document.querySelector`, e não por papel ou rótulo, porque hoje
-        // esses elementos não expõem nenhum: são <div> sem role e o botão do
-        // chat não tem nome acessível. Quando o AC-ANIM-09 der semântica à
-        // interface, estas consultas viram `getByRole` e a regra volta a valer.
+        // Desligada por decisão, e não por dívida — o `TODO(task-NN)` que
+        // estava aqui saiu na v0.10.0 porque não há task que o resolva.
+        //
+        // A regra existe para empurrar o teste a consultar por papel e por
+        // rótulo, e essa parte já valeu: o que ela apontaria hoje são 132
+        // ocorrências em 21 arquivos, e a maioria esmagadora delas **não**
+        // tem consulta equivalente por papel:
+        //
+        //   * a sanitização do Markdown (`TextoMarkdown.test.js`) afirma
+        //     sobre `innerHTML`, porque o que ela prova é que o `<script>`
+        //     não virou nó — ler por papel leria o DOM já saneado e passaria
+        //     mesmo quebrado;
+        //   * o foco preso dos diálogos compara `document.activeElement`,
+        //     que é a definição de "onde o foco está";
+        //   * as asserções de cor e de classe (`corDeFundo`, o escalonamento
+        //     dos cards) olham para o nó porque estilo não tem papel.
+        //
+        // Deixá-la ligada obrigaria a um `eslint-disable` por linha em cada
+        // um desses casos, que é exatamente o que o cabeçalho deste arquivo
+        // proíbe. O que garante a acessibilidade da interface não é esta
+        // regra: são as três do `jsx-a11y` acima e a varredura do `jest-axe`
+        // em `src/__tests__/acessibilidade.test.js`.
         'testing-library/no-node-access': 'off',
       },
     },

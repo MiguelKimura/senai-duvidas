@@ -217,9 +217,9 @@ describe('paraHtmlDeMensagem — links clicáveis (AC-CHAT-12)', () => {
   }
 
   it('transforma uma URL solta em link clicável', () => {
-    const link = montarMensagem('o repositório é https://github.com/senai/duvidas').querySelector(
-      'a'
-    );
+    const link = montarMensagem(
+      'o repositório é https://github.com/senai/duvidas'
+    ).querySelector('a');
 
     expect(link).not.toBeNull();
     expect(link.getAttribute('href')).toBe('https://github.com/senai/duvidas');
@@ -255,14 +255,18 @@ describe('paraHtmlDeMensagem — links clicáveis (AC-CHAT-12)', () => {
   it('NÃO cria link para esquema executável', () => {
     const raiz = montarMensagem(`[clique](${ESQUEMA_EXECUTAVEL}alert(1))`);
 
-    const hrefs = [...raiz.querySelectorAll('a')].map((link) => link.getAttribute('href') || '');
+    const hrefs = [...raiz.querySelectorAll('a')].map(
+      (link) => link.getAttribute('href') || ''
+    );
     expect(hrefs.some((href) => href.toLowerCase().includes('script:'))).toBe(false);
   });
 
   it('NÃO cria link para data:, que embute uma página inteira', () => {
     const raiz = montarMensagem('[clique](data:text/html,<h1>oi</h1>)');
 
-    const hrefs = [...raiz.querySelectorAll('a')].map((link) => link.getAttribute('href') || '');
+    const hrefs = [...raiz.querySelectorAll('a')].map(
+      (link) => link.getAttribute('href') || ''
+    );
     expect(hrefs.some((href) => href.toLowerCase().startsWith('data:'))).toBe(false);
   });
 

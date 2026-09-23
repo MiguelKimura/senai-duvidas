@@ -414,9 +414,7 @@ describe('Chat — comando !clear, agora só do professor (AC-CHAT-08)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /^apagar$/i }));
 
-    await waitFor(async () =>
-      expect((await getDocs(collection(db, 'chat'))).size).toBe(0)
-    );
+    await waitFor(async () => expect((await getDocs(collection(db, 'chat'))).size).toBe(0));
   });
 
   it('reconhece o comando sem diferenciar maiúsculas de minúsculas', async () => {

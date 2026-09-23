@@ -7,6 +7,21 @@
 import { corDaPaleta } from './paleta';
 
 /**
+ * As classes do card, incluindo as de movimento (AC-ANIM-02).
+ *
+ * `entra-na-lista` está em todo card, e o escalonamento vem do
+ * `--indice-na-lista` que a tela escreve inline; `sai-da-lista` entra só
+ * enquanto o card está sendo excluído. As duas são de `styles/animacoes.css`,
+ * e somem sozinhas para quem pediu menos movimento ao sistema operacional.
+ *
+ * @param {{saindo?: boolean}} [estado]
+ * @returns {string}
+ */
+export function classesDoCard({ saindo = false } = {}) {
+  return saindo ? 'problema-card entra-na-lista sai-da-lista' : 'problema-card entra-na-lista';
+}
+
+/**
  * O `style` inline do card de um chamado.
  *
  * A cor de fundo é a que estiver gravada, seja ela da paleta ou o `hsl()`

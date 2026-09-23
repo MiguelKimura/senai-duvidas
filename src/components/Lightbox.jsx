@@ -11,17 +11,17 @@
 // a quem o abriu. Sem isso, quem navega por teclado fica preso atrás dele — e
 // quem usa leitor de tela nem fica sabendo que ele abriu.
 //
-// A transição definitiva é da task 08 (AC-ANIM-09). O que existe aqui é a
-// mínima, escrita com os tokens de `styles/tokens.css`.
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+// A prisão de foco que a task 04 escreveu aqui saiu para
+// `hooks/useDialogoModal.js` na v0.10.0: a versão tem três diálogos, e a
+// segunda cópia de um foco preso é onde o comportamento começa a divergir.
+// O comportamento não mudou — os testes deste componente são a prova.
+import React, { useRef, useState } from 'react';
+import { useDialogoModal } from '../hooks/useDialogoModal';
 import '../styles/Lightbox.css';
 
 /** O que a tela diz quando o endereço não devolve imagem nenhuma. */
 export const AVISO_DE_FALHA =
   'Não foi possível carregar a imagem. O endereço pode ter saído do ar.';
-
-/** Os elementos que recebem foco dentro do diálogo. */
-const FOCALIZAVEIS = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /**
  * Mostra o anexo em tamanho grande, sem sair da página.
@@ -30,60 +30,15 @@ const FOCALIZAVEIS = 'button, [href], input, select, textarea, [tabindex]:not([t
  */
 export default function Lightbox({ url, descricao = '', onFechar }) {
   const dialogo = useRef(null);
-  const gatilho = useRef(null);
   const [falhou, setFalhou] = useState(false);
 
   const rotulo = descricao ? `Imagem do chamado: ${descricao}` : 'Imagem do chamado';
 
-  // Guarda quem tinha o foco **antes** do primeiro render e o devolve na
-  // saída. Sem isto, fechar o diálogo joga o foco no `<body>`, e quem navega
-  // por teclado recomeça a tabulação do topo da página a cada print que abre.
-  useEffect(() => {
-    gatilho.current = document.activeElement;
-
-    const primeiro = dialogo.current && dialogo.current.querySelector(FOCALIZAVEIS);
-    if (primeiro) primeiro.focus();
-
-    return () => {
-      if (gatilho.current && gatilho.current.focus) gatilho.current.focus();
-    };
-  }, []);
-
-  /**
-   * Prende o foco e trata o Esc.
-   *
-   * O Tab é interceptado nas duas bordas: do último elemento volta ao
-   * primeiro, e do primeiro com Shift volta ao último. É o comportamento que
-   * um `<dialog>` nativo teria — e que este projeto não pode usar ainda,
-   * porque `showModal` não está nas duas últimas versões de todos os
-   * navegadores da lista de compatibilidade.
-   */
-  const aoTeclar = useCallback(
-    (evento) => {
-      if (evento.key === 'Escape') {
-        evento.stopPropagation();
-        onFechar();
-        return;
-      }
-
-      if (evento.key !== 'Tab' || !dialogo.current) return;
-
-      const alvos = [...dialogo.current.querySelectorAll(FOCALIZAVEIS)];
-      if (alvos.length === 0) return;
-
-      const primeiro = alvos[0];
-      const ultimo = alvos[alvos.length - 1];
-
-      if (evento.shiftKey && document.activeElement === primeiro) {
-        evento.preventDefault();
-        ultimo.focus();
-      } else if (!evento.shiftKey && document.activeElement === ultimo) {
-        evento.preventDefault();
-        primeiro.focus();
-      }
-    },
-    [onFechar]
-  );
+  // Foco inicial no primeiro focável (o botão "Fechar"), Esc fechando, Tab
+  // dando a volta nas duas bordas e o foco devolvido a quem abriu: tudo isso
+  // mora no hook. Sem devolver o foco, quem navega por teclado recomeçaria a
+  // tabulação do topo da página a cada print que abre.
+  const { aoTeclar } = useDialogoModal({ referencia: dialogo, aoFechar: onFechar });
 
   /** Só o fundo fecha. Clicar na imagem é olhar de perto, não desistir. */
   const aoClicarNoFundo = (evento) => {

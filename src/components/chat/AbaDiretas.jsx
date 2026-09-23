@@ -48,10 +48,19 @@ export default function AbaDiretas({ salaId, pessoa, somenteLeitura = false }) {
   const [aberta, setAberta] = useState(null);
   const [erro, setErro] = useState(null);
 
+  // Começa em `true`: até o primeiro snapshot não se sabe se a pessoa não tem
+  // conversa nenhuma ou se elas ainda estão vindo, e dizer a primeira coisa
+  // nos dois casos faz quem veio retomar uma conversa achar que ela sumiu
+  // (AC-ANIM-04).
+  const [carregando, setCarregando] = useState(true);
+
   useEffect(() => {
     if (!salaId || !pessoa) return undefined;
 
-    return observarConversas(salaId, pessoa.uid, setConversas);
+    return observarConversas(salaId, pessoa.uid, (recebidas) => {
+      setConversas(recebidas);
+      setCarregando(false);
+    });
   }, [salaId, pessoa]);
 
   useEffect(() => {
@@ -83,7 +92,10 @@ export default function AbaDiretas({ salaId, pessoa, somenteLeitura = false }) {
       setErro(null);
 
       try {
-        const id = await abrirConversa(salaId, pessoa, { uid: contato.uid, nome: contato.nome });
+        const id = await abrirConversa(salaId, pessoa, {
+          uid: contato.uid,
+          nome: contato.nome,
+        });
 
         setAberta({ id, outroUid: contato.uid, outroNome: contato.nome });
         setEscolhendoContato(false);
@@ -143,6 +155,7 @@ export default function AbaDiretas({ salaId, pessoa, somenteLeitura = false }) {
       <ListaConversas
         uid={pessoa ? pessoa.uid : null}
         conversas={conversas}
+        carregando={carregando}
         aoAbrir={(conversa) => setAberta(conversa)}
       />
     </div>

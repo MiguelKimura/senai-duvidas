@@ -215,9 +215,7 @@ describe('Mensagem — selo de professor (AC-CHAT-04)', () => {
 
 describe('Mensagem — ponto de extensão para insígnias (task 07)', () => {
   it('rende as insígnias que recebe, ao lado do nome', () => {
-    render(
-      <Mensagem mensagem={mensagemDe()} insignias={<span data-testid="perk">🔥</span>} />
-    );
+    render(<Mensagem mensagem={mensagemDe()} insignias={<span data-testid="perk">🔥</span>} />);
 
     expect(screen.getByTestId('perk')).toBeInTheDocument();
   });

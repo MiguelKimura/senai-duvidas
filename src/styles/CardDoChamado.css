@@ -1,0 +1,86 @@
+/* O card de um chamado — AC-CHAMADO-07, AC-ANIM-08, AC-ANIM-09.
+ *
+ * Estas regras viviam duplicadas em `TelaAluno.css` e `TelaProfessor.css`,
+ * **sem escopo nenhum** — `.card-header`, `.user-name` e `.view-image-icon`
+ * soltos nas duas folhas. Como as duas telas são importadas pelo mesmo bundle,
+ * quem valia era a última importada: o card do aluno herdava o
+ * `justify-content: space-between` do professor ou não, conforme a ordem dos
+ * imports mudasse. Com um componente só (`CardDoChamado.jsx`), há uma folha só.
+ *
+ * A versão que ficou é a do professor: o nome centralizado num envoltório
+ * flexível, com a miniatura do anexo à direita. É a que funciona nos dois
+ * casos, porque a do aluno dependia do `position: absolute` da miniatura, que
+ * a tirava do fluxo e a fazia flutuar sobre o texto em card curto.
+ */
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  margin-bottom: var(--espaco-1);
+}
+
+.user-name-wrapper {
+  display: flex;
+  justify-content: center;
+  flex-grow: 1;
+  /* `min-width: 0` para o nome longo quebrar em vez de empurrar a miniatura
+     para fora do card em 360px (AC-ANIM-08). */
+  min-width: 0;
+}
+
+.user-name {
+  font-weight: bold;
+  margin: 0;
+  text-align: center;
+  color: var(--cor-texto-forte);
+  overflow-wrap: anywhere;
+}
+
+.view-image-icon {
+  cursor: pointer;
+  font-size: 20px;
+  padding: var(--espaco-1);
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: var(--raio-circulo);
+  margin-left: var(--espaco-2);
+  /* `flex: 0 0 auto` no lugar do `position: absolute` do card do aluno: a
+     miniatura fora do fluxo cobria o texto em chamado de uma linha. */
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.view-image-icon:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* O card em si é escopado por tela, porque a largura disponível é diferente.
+   O que é igual nas duas fica aqui. */
+.problema-card {
+  padding: var(--espaco-2);
+  margin-bottom: var(--espaco-2);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-superficie);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+}
+
+.problema-card p {
+  margin: var(--espaco-minimo) 0;
+  font-size: 1rem;
+  color: var(--cor-texto-forte);
+}
+
+/* O card ocupa a largura da tela no celular: 400px fixos numa tela de 360px
+   criam rolagem horizontal, que é a pior coisa que pode acontecer com uma
+   lista vertical (AC-ANIM-08). */
+@media (max-width: 480px) {
+  .problema-card {
+    max-width: none;
+  }
+}

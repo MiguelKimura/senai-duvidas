@@ -696,7 +696,112 @@ sem a insígnia, a vitrine e o registro seria entregar o efeito sem o valor.
 
 ## v0.10.0 — Acabamento e acessibilidade
 
-*(a preencher pela task 08)*
+**O que existia**
+
+Sete tasks entregaram toda a funcionalidade do produto: salas com PIN, anexo de imagem, cor e
+markdown no card, chat reescrito com conversas diretas, perks. Cada uma entregou também a
+animação mínima do próprio escopo — e escolheu a duração e a curva na hora.
+
+**Os limites que apareceram com o uso**
+
+- **Seis vocabulários de movimento.** `0.3s` no chat, `150ms` no campo de anexo, `0.45s` e `1.2s`
+  na premiação, mais alguns `0.3s` crus espalhados. Nenhuma escolha estava errada sozinha; juntas,
+  faziam a interface parecer montada por seis pessoas que não se falaram.
+- **Quatro blocos de `prefers-reduced-motion`, e nenhum cobrindo o vizinho.** Cada folha trazia o
+  próprio, cobrindo os próprios seletores. Quem pede menos movimento ao sistema operacional faz
+  isso porque movimento involuntário dispara enjoo e crise vestibular — uma folha esquecida é
+  alguém passando mal no meio da aula.
+- **O arquivo de tokens era decoração.** A task 00 extraiu `tokens.css` dos CSS existentes e
+  provou, com teste, que não tinha inventado valor nenhum. O que ela não podia fazer — a regra era
+  "nenhuma mudança visual" — era trocar os literais pelos `var(--token)`. Seis versões depois,
+  `#ff0000` continuava literal em seis folhas e `gray` em sete lugares do chat. Mudar
+  `--cor-primaria` não mudava um pixel.
+- **A identidade visual reprovava em contraste, e ninguém tinha medido.** Branco sobre `#ff0000`
+  dá 4,0:1; o piso da WCAG AA para texto normal é 4,5:1. Todo rótulo de botão do aplicativo estava
+  abaixo do mínimo.
+- **A exclusão da própria dúvida não perguntava nada.** Um clique, e a dúvida ia embora com o
+  print do erro junto. O botão fica logo abaixo do texto do card, numa fila que rola.
+- **O modal de novo chamado não era um diálogo.** Uma `<div>` sobre a tela, sem papel, sem nome
+  acessível, sem `Esc` e sem prisão de foco — e é o único diálogo do app que o aluno abre para
+  digitar. Quem navega por teclado escrevia a dúvida e não alcançava o "Concluir".
+- **Três listas, três respostas diferentes para "ainda não sei".** A fila de chamados ganhou
+  esqueleto nesta mesma versão; a lista de salas e a de conversas continuavam afirmando que
+  estavam vazias antes de o banco responder.
+
+**O que foi decidido, e por quê** *(detalhes em `docs/adr/0011-sistema-de-animacoes-e-tokens.md`)*
+
+- **Uma camada de movimento só**, em `src/styles/animacoes.css`, com um `@media
+  (prefers-reduced-motion: reduce)` universal e `!important` — o único do arquivo, e deliberado:
+  a preferência da pessoa precisa vencer qualquer especificidade que uma task futura invente.
+  Três durações canônicas (150/220/300ms) e três curvas; o que sai da faixa tem nome próprio e
+  motivo declarado, cobrado por teste.
+- **Só `transform` e `opacity`.** São as duas propriedades que o navegador resolve na composição.
+  Animar `height` numa fila de 200 cards recalcula a página a cada quadro — é a diferença entre a
+  lista rolar e a lista travar. O teste varre as folhas e reprova quem transiciona outra coisa,
+  inclusive `all`.
+- **As folhas passaram a consumir os tokens**, com um teste que proíbe qualquer cor literal fora
+  de `tokens.css`. Sem isso, a correção de contraste passaria no teste (que lê os tokens) e
+  deixaria a tela reprovada (que lê o CSS).
+- **O vermelho da marca escureceu: `#ff0000` → `#d60000`.** É a mudança visual mais perceptível
+  desde a v0.1.0, e é a menos negociável. `#d60000` é o vermelho mais claro que passa em três
+  pares ao mesmo tempo — branco sobre ele, ele sobre branco e ele sobre a página cinza.
+  **Descartado:** texto escuro sobre o vermelho (passa na conta e vibra na tela); tratar rótulo de
+  botão como "texto grande" para cair no piso de 3:1 (rótulo não tem 24px); e abrir exceção no
+  critério, que seria reescrever o AC para caber na implementação.
+- **A exclusão pergunta, e tem volta.** Confirmação com o foco no botão **seguro** — quem aperta
+  Enter de reflexo cancela, em vez de apagar — e, depois dela, exclusão otimista: o card sai da
+  fila na hora e a gravação fica adiada por cinco segundos enquanto o toast oferece "Desfazer".
+  Desfazer não recria nada, porque nada chegou a sair. **Descartado:** `window.confirm()`, pela
+  mesma razão de sempre — em parte dos laboratórios ele vem suprimido por política do Windows e
+  devolve `false` em silêncio.
+- **"Marcar como atendido" para o professor**, ao lado de excluir. É o que ele queria quando
+  apagava: tirar o chamado da frente sem perder o histórico da turma.
+- **Quatro pontos de corte** (480, 768, 1024, 1440), com teste que reprova quem inventar um
+  quinto.
+
+**O que a auditoria achou, e ninguém tinha visto**
+
+- **"Carregando..." no login era branco sobre a página cinza-clara** — 1,1:1, texto literalmente
+  invisível. Dura meio segundo, e é por isso que nenhuma revisão manual pegou.
+- **O `:hover` do botão "Cancelar"** da confirmação escurecia o fundo mantendo o texto escuro:
+  2,2:1.
+- **A lista de chamados vazava por baixo da tela — exatamente na resolução do laboratório.** As
+  telas de sala são uma coluna de `height: 95vh` e pediam `height: calc(100vh - 120px)` para a
+  lista de dentro: duas contas sobre a mesma janela, a de dentro maior. Na 1024×768 do SENAI a
+  coluna tem 730px e o conteúdo pedia 776, e o botão `+`, que é `position: fixed`, cobria o último
+  card. Num monitor de 1080px a conta fecha — o defeito só aparecia na tela onde o app roda de
+  verdade.
+
+**O que ficou por resolver, e está declarado**
+
+- **Os testes de responsividade leem o texto do CSS, não o layout.** Eles provam que a regra
+  existe e está no ponto de corte combinado; não provam que um pixel caiu onde deveria. O jsdom
+  não aplica folha de estilo. Medir de verdade é escopo do `test:e2e` (Playwright) na v1.0.0.
+- **A tabela de pares de contraste é escrita à mão.** Extrair os pares do CSS exigiria resolver a
+  cascata e a árvore do documento, e uma extração automática erraria o fundo e aprovaria o par
+  errado. O guarda contra o envelhecimento dela é outro teste, não a disciplina de quem edita.
+- **`jest-axe` pega cerca de um terço das barreiras reais.** O resto — ordem de tabulação, prisão
+  de foco, se o rótulo faz sentido — exige julgamento e tem teste escrito à mão. Os dois lados
+  somados são a auditoria; o `axe` sozinho daria uma aprovação que não significa nada.
+- **O tom exato do manual de identidade da escola não foi consultado.** Se houver um, a troca é
+  uma linha em `tokens.css` — desde que o tom novo passe em `contraste.test.js`.
+
+**O que o usuário sente na prática**
+
+- **O aluno que clica em "Excluir" por engano** vê uma pergunta com "Cancelar" já em foco, e, se
+  confirmar, ainda tem cinco segundos e um botão "Desfazer" no aviso. A dúvida com o print do erro
+  deixou de ser perdível num toque.
+- **Quem abre o app numa rede lenta** vê cartões cinzas com a forma do que está vindo, em vez de
+  ler "Você ainda não está em nenhuma sala. Peça o PIN ao professor" e sair procurando o professor
+  de uma turma em que já está.
+- **Quem navega por teclado** alcança tudo: o modal de novo chamado prende o foco, `Esc` fecha, e
+  o foco volta para o botão que o abriu. Todo elemento interativo tem anel de foco visível.
+- **Quem pediu menos movimento** ao Windows tem o app inteiro parado, e não só quatro telas.
+- **O professor no laboratório** vê a fila em duas colunas, usando a largura da tela, e o último
+  card deixou de ficar escondido atrás do botão `+`.
+- **No celular**, o chat deixa de ser uma caixinha de 320×440 flutuando e vira painel de tela
+  cheia — e o teclado virtual parou de subir por cima do campo de digitação.
+- **Todo mundo** vê o mesmo vermelho, um pouco mais escuro, legível com o projetor ligado.
 
 ## v1.0.0 — Primeira versão estável
 

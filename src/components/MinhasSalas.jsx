@@ -29,6 +29,32 @@ import '../styles/Salas.css';
 const ERRO_INESPERADO =
   'Não foi possível falar com o servidor agora. Tente de novo em instantes.';
 
+export const TEXTO_CARREGANDO = 'Carregando as suas salas...';
+
+/** Quantos cartões cinzas o esqueleto desenha enquanto as salas não chegam. */
+const CARTOES_DO_ESQUELETO = 2;
+
+/**
+ * O esqueleto do carregamento inicial (AC-ANIM-04).
+ *
+ * `aria-hidden` porque ele não é conteúdo, é a ausência dele: quem anuncia a
+ * espera é o `role="status"` ao lado. Um leitor de tela lendo "em branco, em
+ * branco, em branco" não informa nada e atrapalha.
+ */
+function EsqueletoDeSalas() {
+  return (
+    <div className="esqueleto-lista" aria-hidden="true">
+      {Array.from({ length: CARTOES_DO_ESQUELETO }, (_, indice) => (
+        <div className="sala-cartao" key={indice}>
+          <div className="esqueleto salas-esqueleto-nome" />
+          <div className="esqueleto salas-esqueleto-linha" />
+          <div className="esqueleto salas-esqueleto-linha" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** "1 membro" / "3 membros", sem o "(s)" que ninguém escreve à mão. */
 function plural(quantidade, singular, plural_) {
   return `${quantidade} ${quantidade === 1 ? singular : plural_}`;
@@ -43,6 +69,11 @@ export default function MinhasSalas() {
   const [pinNovo, setPinNovo] = useState(null);
   const [erro, setErro] = useState(null);
 
+  // Antes do primeiro snapshot não se sabe se a pessoa tem sala nenhuma ou se
+  // as salas ainda estão vindo, e a tela dizia a primeira coisa nos dois casos
+  // (AC-ANIM-04). O estado começa em `true` e só cai quando o banco responde.
+  const [carregando, setCarregando] = useState(true);
+
   // Incrementado depois de cada escrita, para que os detalhes sejam relidos.
   // Atualizar o estado local na mão seria mais rápido e seria outra verdade: a
   // que a tela inventou, e não a que o banco aceitou.
@@ -55,7 +86,10 @@ export default function MinhasSalas() {
 
     // O retorno do `onSnapshot` é o cancelamento, e ele é o retorno do effect:
     // sem isso, trocar de tela deixaria um listener por montagem (AC-PERF-04).
-    return observarSalasDoUsuario(uid, setVinculos);
+    return observarSalasDoUsuario(uid, (recebidos) => {
+      setVinculos(recebidos);
+      setCarregando(false);
+    });
   }, [uid]);
 
   useEffect(() => {
@@ -145,12 +179,25 @@ export default function MinhasSalas() {
         )}
       </div>
 
-      {salas.length === 0 ? (
+      {carregando ? (
+        <>
+          {/* O texto é o que o leitor de tela anuncia; os cartões cinzas são o
+              que o olho vê. As duas metades dizem a mesma coisa. */}
+          <p className="salas-aviso" role="status">
+            {TEXTO_CARREGANDO}
+          </p>
+          <EsqueletoDeSalas />
+        </>
+      ) : null}
+
+      {!carregando && salas.length === 0 ? (
         <p className="salas-vazio">
           Você ainda não está em nenhuma sala. Peça o PIN ao professor da turma e entre por
           &quot;Entrar com PIN&quot;.
         </p>
-      ) : (
+      ) : null}
+
+      {!carregando && salas.length > 0 ? (
         <ul className="salas-lista">
           {salas.map((sala) => {
             const ehDono = sala.professorUid === uid;
@@ -206,7 +253,7 @@ export default function MinhasSalas() {
             );
           })}
         </ul>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  background-color: #f5f5f5;
+  background-color: var(--cor-fundo-tela);
   font-family: Arial, sans-serif;
   overflow: hidden;
 }
@@ -12,70 +12,27 @@
 .tela-professor h1 {
   margin-top: 20px;
   font-size: 24px;
-  color: #333;
+  color: var(--cor-texto-titulo);
 }
 
 .tela-professor .problemas-list {
-  margin-top: 20px;
+  margin-top: var(--espaco-4);
   flex-grow: 1;
+  /* `min-height: 0` e NÃO `height: calc(100vh - 120px)`, que era o que estava
+     aqui. Os dois números saíam da mesma altura de janela — a coluna pede
+     95vh, a lista pedia 100vh menos 120px — e o de dentro era maior. Na
+     1024x768 do laboratório a coluna tem 730px e o conteúdo pedia 776: a
+     lista vazava por baixo, e o botão "+", que é `position: fixed`, cobria o
+     último card. Num monitor de 1080px a conta fechava, e por isso ninguém
+     nunca viu o defeito (AC-ANIM-08).
+
+     O padrão de `min-height` num filho flex é `auto`, que quer dizer "não
+     encolha abaixo do seu conteúdo" — sem zerá-lo, quem rola é a página, e
+     não a lista. */
+  min-height: 0;
   overflow-y: auto;
   padding-bottom: 80px;
-  height: calc(100vh - 120px);
   overflow-x: hidden;
-}
-
-.tela-professor .problema-card {
-  padding: 10px;
-  margin-bottom: 10px;
-  border-radius: 5px;
-  background-color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  width: 100%;
-  max-width: 400px;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  position: relative;
-  margin-bottom: 5px;
-}
-
-.user-name-wrapper {
-  display: flex;
-  justify-content: center;
-  flex-grow: 1;
-}
-
-.user-name {
-  font-weight: bold;
-  margin: 0;
-  text-align: center;
-  color: #000000;
-}
-
-.view-image-icon {
-  cursor: pointer;
-  font-size: 20px;
-  padding: 5px;
-  background-color: rgba(255, 255, 255, 0.7);
-  border-radius: 50%;
-  transition: background-color 0.3s;
-  margin-left: 10px;
-}
-
-.view-image-icon:hover {
-  background-color: rgba(255, 255, 255, 0.9);
-}
-
-.tela-professor .problema-card p {
-  margin: 2px 0;
-  font-size: 1rem;
-  color: #000000;
 }
 
 .tela-professor .problema-card .delete-button {
@@ -84,15 +41,54 @@
   width: 100%;
   height: auto;
   padding: 8px 15px;
-  background-color: #ff0000;
-  color: white;
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
   border: none;
   border-radius: 5px;
   cursor: pointer;
   font-size: 1rem;
-  transition: background-color 0.3s;
 }
 
 .tela-professor .problema-card .delete-button:hover {
-  background-color: #8f0000;
+  background-color: var(--cor-primaria-hover);
+}
+
+/* As duas ações do professor sobre o chamado (AC-CHAMADO-06).
+ *
+ * Lado a lado e com pesos diferentes: "Atendido" é a ação do dia a dia e é
+ * neutra; "Excluir" é a destrutiva e continua vermelha. A hierarquia visual
+ * precisa concordar com a hierarquia de risco.
+ */
+.delete-button-container {
+  display: flex;
+  gap: var(--espaco-2);
+  margin-top: var(--espaco-2);
+}
+
+.tela-professor .problema-card .atendido-button {
+  flex: 1;
+  padding: 8px var(--espaco-3);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto-titulo);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.tela-professor .problema-card .atendido-button:hover {
+  background-color: var(--cor-fundo-caixa);
+}
+
+/* Ligado: fundo verde e o mesmo `aria-pressed` que o leitor de tela anuncia.
+   Estado marcado só pela cor seria estado que metade das pessoas não vê. */
+.tela-professor .problema-card .atendido-button[aria-pressed='true'] {
+  border-color: var(--cor-sucesso);
+  background-color: var(--cor-sucesso);
+  color: var(--cor-texto-invertido);
+}
+
+.tela-professor .problema-card .delete-button {
+  flex: 1;
+  margin-top: 0;
 }
