@@ -203,7 +203,24 @@ service cloud.firestore {
     /// sobre si mesmo.
     function formatoEhValido() {
       return !('formato' in request.resource.data)
-        || request.resource.data.formato in ['texto', 'markdown'];
+        || request.resource.data.formato in ['texto', 'markdown']
+        || formatoNaoMudou();
+    }
+
+    /// O `formato` da escrita é o que já está gravado no documento.
+    ///
+    /// Mesmo desenho de `horarioNaoMudou()`, e pela mesma razão. Numa
+    /// atualização, `request.resource.data` é o documento **inteiro** depois
+    /// da escrita: sem isto, um chamado antigo com formato desconhecido
+    /// recusaria "marcar como atendido" e o preenchimento de `horarioIso` —
+    /// escritas que o app faz sozinho, sem ninguém pedir.
+    ///
+    /// O campo que não mudou não é reconferido; trocá-lo por outro inválido
+    /// continua negado, porque aí ele mudou.
+    function formatoNaoMudou() {
+      return resource != null
+        && 'formato' in resource.data
+        && request.resource.data.formato == resource.data.formato;
     }
 
     /// A `cor` do card, se ela vier (AC-COR-04).
@@ -226,7 +243,15 @@ service cloud.firestore {
             && request.resource.data.cor.size() <= 40
             && (request.resource.data.cor.matches('^#[0-9a-fA-F]{3,8}$')
                 || request.resource.data.cor.matches(
-                     '^hsl[(] *[0-9.]+ *, *[0-9.]+% *, *[0-9.]+% *[)]$')));
+                     '^hsl[(] *[0-9.]+ *, *[0-9.]+% *, *[0-9.]+% *[)]$')))
+        || corNaoMudou();
+    }
+
+    /// A `cor` da escrita é a que já está gravada. Ver `formatoNaoMudou()`.
+    function corNaoMudou() {
+      return resource != null
+        && 'cor' in resource.data
+        && request.resource.data.cor == resource.data.cor;
     }
 
     // ----------------------------------------------------------------------
