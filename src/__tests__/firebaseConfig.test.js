@@ -184,3 +184,89 @@ describe('firebase.js — compatibilidade futura', () => {
     expect(servico.entrarComGithub).toBeDefined();
   });
 });
+
+describe('firebase.js — ligação com o Emulator Suite (AC-TEST-06)', () => {
+  // A suíte end-to-end precisa que o app fale com o emulador, e não com o
+  // projeto de produção. Sem isto não há e2e possível: ou os testes escrevem
+  // no banco da escola — que é inaceitável, e o `projetoDeTeste.js` recusa
+  // pela mesma razão nos testes de rules —, ou não escrevem em lugar nenhum.
+  //
+  // A chave é uma variável de ambiente, lida em tempo de build. O `.env` de
+  // produção não a define, o build de produção não a embute e o caminho fica
+  // exatamente como estava — que é o que os testes acima continuam provando.
+  const VARIAVEIS_DO_EMULADOR = [
+    'REACT_APP_EMULADORES',
+    'REACT_APP_EMULADOR_HOST',
+    'REACT_APP_EMULADOR_PORTA_AUTH',
+    'REACT_APP_EMULADOR_PORTA_FIRESTORE',
+    'REACT_APP_EMULADOR_PORTA_STORAGE',
+  ];
+
+  afterEach(() => {
+    VARIAVEIS_DO_EMULADOR.forEach((nome) => delete process.env[nome]);
+  });
+
+  function ligacoes() {
+    let resultado;
+
+    jest.isolateModules(() => {
+      require('../firebase');
+      resultado = {
+        auth: require('firebase/auth').__emuladoresLigados(),
+        firestore: require('firebase/firestore').__emuladoresLigados(),
+        storage: require('firebase/storage').__emuladoresLigados(),
+      };
+    });
+
+    return resultado;
+  }
+
+  it('sem a variável, não liga em emulador nenhum — o padrão é produção', () => {
+    const ligado = ligacoes();
+
+    expect(ligado.auth).toEqual([]);
+    expect(ligado.firestore).toEqual([]);
+    expect(ligado.storage).toEqual([]);
+  });
+
+  it('com a variável, liga os três nas portas padrão do firebase.json', () => {
+    process.env.REACT_APP_EMULADORES = '1';
+
+    const ligado = ligacoes();
+
+    expect(ligado.auth).toEqual([{ host: '127.0.0.1', porta: 9099 }]);
+    expect(ligado.firestore).toEqual([{ host: '127.0.0.1', porta: 8080 }]);
+    expect(ligado.storage).toEqual([{ host: '127.0.0.1', porta: 9199 }]);
+  });
+
+  it('as portas são configuráveis — duas sessões não disputam a 8080', () => {
+    // Não é conforto: o projeto é tocado por um orquestrador que roda várias
+    // branches em paralelo, cada uma na própria worktree, e a porta é a única
+    // coisa que elas de fato compartilham.
+    process.env.REACT_APP_EMULADORES = '1';
+    process.env.REACT_APP_EMULADOR_HOST = 'localhost';
+    process.env.REACT_APP_EMULADOR_PORTA_FIRESTORE = '28080';
+
+    const ligado = ligacoes();
+
+    expect(ligado.firestore).toEqual([{ host: 'localhost', porta: 28080 }]);
+    expect(ligado.auth).toEqual([{ host: 'localhost', porta: 9099 }]);
+  });
+
+  it('só liga uma vez, ainda que o módulo seja importado por meio mundo', () => {
+    process.env.REACT_APP_EMULADORES = '1';
+
+    const ligado = ligacoes();
+
+    expect(ligado.firestore).toHaveLength(1);
+  });
+
+  it('a config continua vindo do ambiente, e não é trocada pelo emulador', () => {
+    process.env.REACT_APP_EMULADORES = '1';
+    process.env.REACT_APP_FIREBASE_PROJECT_ID = 'demo-senai-duvidas';
+
+    const { config } = carregarFirebase();
+
+    expect(config.projectId).toBe('demo-senai-duvidas');
+  });
+});
