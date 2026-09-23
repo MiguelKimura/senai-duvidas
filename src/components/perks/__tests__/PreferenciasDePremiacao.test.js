@@ -109,7 +109,9 @@ describe('PreferenciasDePremiacao — a mudança de ideia (AC-PERK-08)', () => {
 
     await userEvent.click(daAnimacao());
 
-    await waitFor(() => expect(preferenciasGravadas()).toEqual({ animacoes: false, som: false }));
+    await waitFor(() =>
+      expect(preferenciasGravadas()).toEqual({ animacoes: false, som: false })
+    );
     expect(daAnimacao()).not.toBeChecked();
   });
 

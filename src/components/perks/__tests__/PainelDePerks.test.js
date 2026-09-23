@@ -16,6 +16,7 @@
 import React from 'react';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { act } from 'react-dom/test-utils';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
   Timestamp,
@@ -93,13 +94,39 @@ async function conceder({ aluno = 'uid-ana', tipo, nivel, justificativa, validad
   // `!== undefined`, e não truthy: "sem validade" é a string vazia, que é
   // justamente o caso do perk permanente.
   if (validade !== undefined) {
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: /validade/i }), validade);
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /validade/i }),
+      validade
+    );
   }
   if (justificativa) {
-    await userEvent.type(screen.getByRole('textbox', { name: /justificativa/i }), justificativa);
+    await userEvent.type(
+      screen.getByRole('textbox', { name: /justificativa/i }),
+      justificativa
+    );
   }
 
-  await userEvent.click(screen.getByRole('button', { name: /conceder/i }));
+  userEvent.click(screen.getByRole('button', { name: /conceder/i }));
+  await escritaConcluida();
+}
+
+/**
+ * Deixa a escrita terminar dentro de um `act`.
+ *
+ * O `userEvent` da v13 é síncrono: ele devolve antes de `concederPerk`
+ * resolver, e o `setAviso` do fim do handler cairia fora do act — o aviso
+ * "not wrapped in act(...)" que polui a saída do CI e, de tanto aparecer,
+ * esconde o dia em que houver um problema de verdade.
+ *
+ * O `act` vazio é o flush, e não um invólucro da chamada do Testing Library:
+ * envolver a chamada é o que a regra `no-unnecessary-act` proíbe, com razão.
+ */
+async function escritaConcluida() {
+  // Uma volta na fila de microtarefas, dentro do act: é onde a promessa de
+  // `concederPerk` resolve e o estado do painel é atualizado.
+  await act(async () => {
+    await Promise.resolve();
+  });
 }
 
 beforeEach(() => {
@@ -136,7 +163,9 @@ describe('PainelDePerks — quem pode ser premiado (AC-PERK-01)', () => {
 
     const tipos = screen.getByRole('combobox', { name: /tipo/i });
 
-    expect(within(tipos).getByRole('option', { name: /Prioridade no Atendimento/ })).toBeInTheDocument();
+    expect(
+      within(tipos).getByRole('option', { name: /Prioridade no Atendimento/ })
+    ).toBeInTheDocument();
     expect(within(tipos).getByRole('option', { name: /Destaque da Aula/ })).toBeInTheDocument();
     expect(within(tipos).getByRole('option', { name: /Colaborador/ })).toBeInTheDocument();
     expect(within(tipos).getByRole('option', { name: /Resolvedor/ })).toBeInTheDocument();
@@ -253,10 +282,16 @@ describe('PainelDePerks — a revogação (AC-PERK-07, AC-PERK-10)', () => {
     visualizadoEm: null,
   };
 
-  it('lista as premiações ativas da sala com o nome de quem as recebeu', () => {
+  it('lista as premiações ativas da sala com o nome de quem as recebeu', async () => {
     renderizar({ perks: [PERK_ATIVO] });
+    await aTurmaCarregada();
 
-    expect(screen.getByText(/Ana Souza/)).toBeInTheDocument();
+    // Dentro da lista, e não na tela toda: "Ana Souza" também é uma opção do
+    // seletor de aluno, e a afirmação aqui é sobre o que já foi concedido.
+    const lista = screen.getByRole('list', { name: 'Premiações ativas na sala' });
+
+    expect(within(lista).getByText(/Ana Souza/)).toBeInTheDocument();
+    expect(within(lista).getByText(/Prioridade no Atendimento/)).toBeInTheDocument();
   });
 
   it('revoga o perk e registra o evento, em vez de apagar a linha', async () => {
@@ -265,7 +300,8 @@ describe('PainelDePerks — a revogação (AC-PERK-07, AC-PERK-10)', () => {
     renderizar({ perks: [PERK_ATIVO] });
     await aSessaoPronta();
 
-    await userEvent.click(screen.getByRole('button', { name: /revogar/i }));
+    userEvent.click(screen.getByRole('button', { name: /revogar/i }));
+    await escritaConcluida();
 
     await waitFor(() => expect(__documentosDe(AUDITORIA_DA_SALA)).toHaveLength(1));
     __confirmarCarimbos();
@@ -280,10 +316,11 @@ describe('PainelDePerks — a revogação (AC-PERK-07, AC-PERK-10)', () => {
     });
   });
 
-  it('não oferece revogar o perk que já foi revogado', () => {
+  it('não oferece revogar o perk que já foi revogado', async () => {
     renderizar({
       perks: [{ ...PERK_ATIVO, revogadoEm: Timestamp.fromDate(new Date(AGORA)) }],
     });
+    await aTurmaCarregada();
 
     expect(screen.queryByRole('button', { name: /revogar/i })).toBeNull();
   });
@@ -292,6 +329,13 @@ describe('PainelDePerks — a revogação (AC-PERK-07, AC-PERK-10)', () => {
 describe('PainelDePerks — a sala arquivada (AC-SALA-10)', () => {
   it('não oferece conceder numa sala somente leitura', async () => {
     renderizar({ somenteLeitura: true });
+    await aSessaoPronta();
+
+    // Sem formulário não há lista de alunos para esperar: a sala arquivada não
+    // aceita escrita nenhuma, e o painel vira só a lista do que já existe.
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Premiações' })).toBeVisible()
+    );
 
     expect(screen.queryByRole('button', { name: /conceder/i })).toBeNull();
   });

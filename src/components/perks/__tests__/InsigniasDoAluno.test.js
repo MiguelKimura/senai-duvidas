@@ -56,9 +56,7 @@ describe('InsigniasDoAluno — o reconhecimento que fica (AC-PERK-05)', () => {
   it('anuncia o nível junto do tipo, para quem lê por leitor de tela', () => {
     renderizar([perk({ nivel: 3 })]);
 
-    expect(
-      screen.getByTitle('Prioridade no Atendimento — nível 3')
-    ).toBeInTheDocument();
+    expect(screen.getByTitle('Prioridade no Atendimento — nível 3')).toBeInTheDocument();
   });
 
   it('mostra uma insígnia por perk ativo do aluno', () => {

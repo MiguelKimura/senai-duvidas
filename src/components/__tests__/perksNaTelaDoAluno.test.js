@@ -87,9 +87,7 @@ describe('TelaAluno — a vitrine "Minhas conquistas" (AC-PERK-06)', () => {
 
     renderComProvedores(<TelaAluno salaId={SALA} />);
 
-    expect(
-      within(vitrine()).getByRole('list', { name: 'Histórico' })
-    ).toBeInTheDocument();
+    expect(within(vitrine()).getByRole('list', { name: 'Histórico' })).toBeInTheDocument();
   });
 
   it('explica a vitrine vazia para quem ainda não foi premiado', () => {

@@ -23,7 +23,7 @@ import {
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
-import PremiacaoDaSala from '../PremiacaoDaSala';
+import PremiacaoDaSala, { premiacoesPendentes } from '../PremiacaoDaSala';
 import { renderComProvedores } from '../../../test-utils';
 
 const SALA = 'sala-a';
@@ -32,6 +32,7 @@ const PERKS_DA_SALA = `salas/${SALA}/perks`;
 const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
 
 const NO_FUTURO = Timestamp.fromDate(new Date('2099-01-01T00:00:00.000Z'));
+const AGORA_ISO = '2026-09-22T12:00:00.000Z';
 
 function perk(sobrescritas = {}) {
   return {
@@ -53,9 +54,7 @@ function perk(sobrescritas = {}) {
 }
 
 function renderizar(perks) {
-  return renderComProvedores(
-    <PremiacaoDaSala salaId={SALA} perks={perks} uid={ANA.uid} />
-  );
+  return renderComProvedores(<PremiacaoDaSala salaId={SALA} perks={perks} uid={ANA.uid} />);
 }
 
 /** A premiação em tela cheia, se ela estiver aberta. */
@@ -71,7 +70,7 @@ function visualizadoEmDe(id) {
 beforeEach(() => {
   __resetarAuth();
   __resetarFirestore();
-  __definirRelogioDoServidor('2026-09-22T12:00:00.000Z');
+  __definirRelogioDoServidor(AGORA_ISO);
   __definirUsuarioAtual(ANA);
 
   // O jsdom não traz `matchMedia`, e o hook de movimento reduzido o consulta.
@@ -105,7 +104,9 @@ describe('PremiacaoDaSala — quando a premiação aparece (AC-PERK-04)', () => 
   });
 
   it('não abre nada para o perk que o aluno já viu', () => {
-    const perks = [perk({ visualizadoEm: Timestamp.fromDate(new Date('2026-09-20T13:05:00Z')) })];
+    const perks = [
+      perk({ visualizadoEm: Timestamp.fromDate(new Date('2026-09-20T13:05:00Z')) }),
+    ];
     __semearColecao(PERKS_DA_SALA, perks);
 
     renderizar(perks);
@@ -139,7 +140,11 @@ describe('PremiacaoDaSala — quando a premiação aparece (AC-PERK-04)', () => 
 
   it('mostra uma premiação por vez, começando pela mais antiga', () => {
     const perks = [
-      perk({ id: 'novo', tipo: 'destaque', concedidoEm: Timestamp.fromDate(new Date('2026-09-21T13:00:00Z')) }),
+      perk({
+        id: 'novo',
+        tipo: 'destaque',
+        concedidoEm: Timestamp.fromDate(new Date('2026-09-21T13:00:00Z')),
+      }),
       perk({ id: 'antigo', tipo: 'colaborador' }),
     ];
     __semearColecao(PERKS_DA_SALA, perks);
@@ -165,9 +170,7 @@ describe('PremiacaoDaSala — o recibo que impede a repetição (AC-PERK-04)', (
     await waitFor(() => expect(__carimbosPendentes()).toBeGreaterThan(0));
     __confirmarCarimbos();
 
-    expect(visualizadoEmDe('perk-1').toDate().toISOString()).toBe(
-      '2026-09-22T12:00:00.000Z'
-    );
+    expect(visualizadoEmDe('perk-1').toDate().toISOString()).toBe('2026-09-22T12:00:00.000Z');
   });
 
   it('não reabre a premiação depois de fechada, mesmo com o perk ainda sem recibo', async () => {
@@ -211,5 +214,58 @@ describe('PremiacaoDaSala — o recibo que impede a repetição (AC-PERK-04)', (
     await userEvent.click(screen.getByRole('button', { name: 'Pular' }));
 
     expect(await screen.findByText('Destaque da Aula')).toBeInTheDocument();
+  });
+});
+
+// A ordem em que as premiações entram na fila — AC-PERK-09.
+//
+// Duas premiações concedidas no mesmo lote saem do servidor com o MESMO
+// carimbo, e as duas chegam sem carimbo nenhum enquanto a escrita está em voo.
+// Sem um desempate estável, a ordem em que o aluno as vê dependeria da ordem
+// em que o snapshot as entregou — que não é garantida e muda entre
+// dispositivos. É a mesma regra da fila de chamados, pelo mesmo motivo.
+describe('premiacoesPendentes — a ordem é sempre a mesma (AC-PERK-09)', () => {
+  it('põe a mais antiga primeiro', () => {
+    const antiga = perk({
+      id: 'a',
+      concedidoEm: Timestamp.fromDate(new Date('2026-09-20T13:00:00Z')),
+    });
+    const nova = perk({
+      id: 'b',
+      concedidoEm: Timestamp.fromDate(new Date('2026-09-21T13:00:00Z')),
+    });
+
+    expect(premiacoesPendentes([nova, antiga], ANA.uid).map((p) => p.id)).toEqual(['a', 'b']);
+  });
+
+  it('manda para o fim quem ainda não tem carimbo do servidor', () => {
+    const carimbada = perk({ id: 'carimbada' });
+    const emVoo = perk({ id: 'emVoo', concedidoEm: null });
+
+    expect(premiacoesPendentes([emVoo, carimbada], ANA.uid).map((p) => p.id)).toEqual([
+      'carimbada',
+      'emVoo',
+    ]);
+  });
+
+  it('desempata duas premiações sem carimbo pelo id, em qualquer ordem de entrada', () => {
+    const primeira = perk({ id: 'aaa', concedidoEm: null });
+    const segunda = perk({ id: 'bbb', concedidoEm: null });
+
+    expect(premiacoesPendentes([segunda, primeira], ANA.uid).map((p) => p.id)).toEqual([
+      'aaa',
+      'bbb',
+    ]);
+    expect(premiacoesPendentes([primeira, segunda], ANA.uid).map((p) => p.id)).toEqual([
+      'aaa',
+      'bbb',
+    ]);
+  });
+
+  it('não devolve premiação de outro aluno nem já vista', () => {
+    const deOutro = perk({ id: 'outro', alunoUid: 'uid-bruno' });
+    const vista = perk({ id: 'vista', visualizadoEm: Timestamp.fromDate(new Date(AGORA_ISO)) });
+
+    expect(premiacoesPendentes([deOutro, vista], ANA.uid)).toEqual([]);
   });
 });

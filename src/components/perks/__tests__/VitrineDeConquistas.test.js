@@ -62,7 +62,9 @@ describe('VitrineDeConquistas — ativos e histórico (AC-PERK-06)', () => {
   });
 
   it('o perk revogado vai para o histórico, e não some da vitrine', () => {
-    renderizar([perk({ revogadoEm: Timestamp.fromDate(new Date('2026-09-21T10:00:00.000Z')) })]);
+    renderizar([
+      perk({ revogadoEm: Timestamp.fromDate(new Date('2026-09-21T10:00:00.000Z')) }),
+    ]);
 
     expect(within(coluna('Histórico')).getByText(/Colaborador/)).toBeInTheDocument();
   });

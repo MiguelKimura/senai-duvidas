@@ -85,11 +85,6 @@ export default function PremiacaoDaSala({ salaId, perks = [], uid }) {
   if (!atual) return null;
 
   return (
-    <AnimacaoDePerk
-      key={atual.id}
-      perk={atual}
-      preferencias={preferencias}
-      aoFechar={fechar}
-    />
+    <AnimacaoDePerk key={atual.id} perk={atual} preferencias={preferencias} aoFechar={fechar} />
   );
 }
