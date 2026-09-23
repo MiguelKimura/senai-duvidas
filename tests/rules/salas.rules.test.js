@@ -649,6 +649,66 @@ describe('chamados da sala — escopo por turma (AC-SALA-07, AC-SEC-02)', () => 
     });
   });
 
+  // O endurecimento acima tem um efeito colateral que precisa ser provado, e
+  // não suposto. Numa atualização, `request.resource.data` é o documento
+  // **inteiro** depois da escrita, e não só os campos enviados. Um chamado
+  // gravado antes desta versão, com uma `cor` que o conjunto novo não
+  // reconhece, deixaria de aceitar qualquer update — inclusive "marcar como
+  // atendido" e o preenchimento de `horarioIso`, que são escritas que o app
+  // faz sozinho, sem ninguém pedir.
+  //
+  // Nenhum valor conhecido de produção cai nesse caso: a v0.1.0 gravava
+  // `hsl(...)` e a v0.7.0 grava hexadecimal, e os dois passam. O ponto é que
+  // "nenhum valor conhecido" não é garantia — é inventário, e inventário
+  // envelhece. A regra correta é a mesma que o `horario` já pratica desde a
+  // v0.4.0: o campo que **não mudou** não é reconferido.
+  describe('o chamado antigo continua atualizável (retroativa)', () => {
+    beforeEach(async () => {
+      await semear(`salas/${SALA_A}/chamados/antigo`, {
+        autorUid: ANA,
+        autorNome: 'Ana Souza',
+        descricao: 'do tempo em que cor era o que o navegador aceitasse',
+        cor: 'lightgoldenrodyellow',
+        formato: 'wiki',
+        atendido: false,
+        horario: Timestamp.now(),
+      });
+    });
+
+    it('o professor marca como atendido sem esbarrar na cor legada', async () => {
+      await assertSucceeds(
+        updateDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/chamados/antigo`), {
+          atendido: true,
+          atendidoEm: serverTimestamp(),
+        })
+      );
+    });
+
+    it('a autora completa horarioIso sem esbarrar no formato legado', async () => {
+      await assertSucceeds(
+        updateDoc(doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/chamados/antigo`), {
+          horarioIso: '2025-03-10T13:00:00.000Z',
+        })
+      );
+    });
+
+    it('mas trocar a cor legada por outra inválida continua negado', async () => {
+      await assertFails(
+        updateDoc(doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/chamados/antigo`), {
+          cor: 'url(https://rastreador.exemplo/pixel.png)',
+        })
+      );
+    });
+
+    it('e trocá-la por uma válida é aceito', async () => {
+      await assertSucceeds(
+        updateDoc(doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/chamados/antigo`), {
+          cor: '#ffd6a5',
+        })
+      );
+    });
+  });
+
   describe('exclusão (AC-CHAMADO-05)', () => {
     beforeEach(async () => {
       await semearMembro(SALA_A, BRUNO);
