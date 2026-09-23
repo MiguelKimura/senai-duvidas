@@ -12,6 +12,7 @@ import { corAutomatica } from '../utils/paleta';
 import { estiloDoCard } from '../utils/cardDoChamado';
 import { usePerksDaSala } from '../hooks/usePerksDaSala';
 import InsigniasDoAluno from './perks/InsigniasDoAluno';
+import VitrineDeConquistas from './perks/VitrineDeConquistas';
 import '../styles/TelaAluno.css';
 import Chat from './chat/Chat';
 import BotaoSair from './BotaoSair';
@@ -35,7 +36,7 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
   // A ordem da fila passa a depender dos perks da sala (AC-PERK-02). O aluno
   // vê a mesma fila do professor porque os dois a ordenam com a mesma função e
   // com o mesmo instante do servidor — discordar aqui geraria briga em sala.
-  const { fila, perksPorUid, agoraServidor } = usePerksDaSala(salaId, problemas);
+  const { fila, perks, perksPorUid, agoraServidor } = usePerksDaSala(salaId, problemas);
 
   // A insígnia do chat sai do mesmo índice do card: uma consulta de perks por
   // sala, e não uma por balão renderizado (AC-PERK-05, AC-PERF-03).
@@ -197,6 +198,16 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
           </div>
         ))}
       </div>
+      {/* A vitrine fica depois da fila, e não antes: o que o aluno vem fazer
+          aqui é abrir e acompanhar chamado. As conquistas dele são o que ele
+          encontra ao rolar, não o que empurra a fila para fora da tela
+          (AC-PERK-06). */}
+      <VitrineDeConquistas
+        perks={perks}
+        uid={auth.currentUser?.uid}
+        agoraServidor={agoraServidor}
+      />
+
       {isModalOpen && (
         <Modal
           salaId={salaId}
