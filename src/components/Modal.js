@@ -20,13 +20,24 @@ import { removerAnexo } from '../services/anexos';
 import { reservarChamado } from '../services/salas';
 import { corAutomatica } from '../utils/paleta';
 import { guardarCorPreferida, lerCorPreferida } from '../utils/preferenciaDeCor';
+import {
+  CONTADOR_A_PARTIR_DE,
+  DESCRICAO_MAXIMA,
+  mensagemDeDescricao,
+  validarDescricao,
+} from '../utils/descricaoDoChamado';
 import '../styles/Modal.css';
 
 const ID_DO_TITULO = 'modal-novo-chamado-titulo';
+const ID_DO_ERRO = 'modal-novo-chamado-erro';
 
 function Modal({ salaId = null, onClose, onSubmit, autor = '' }) {
   const [descricao, setDescricao] = useState('');
   const [anexo, setAnexo] = useState(null);
+  // `null` enquanto o aluno não tentou concluir. A recusa só aparece depois de
+  // uma tentativa de envio: acusar "descreva o problema" no modal recém-aberto,
+  // antes de a pessoa escrever a primeira letra, é ruído.
+  const [erroDaDescricao, setErroDaDescricao] = useState(null);
   // A preferência do chamado anterior já entra marcada (AC-COR-10). `null`
   // significa "não escolheu", e é o que mantém o sorteio de sempre.
   const [cor, setCor] = useState(lerCorPreferida);
@@ -51,10 +62,33 @@ function Modal({ salaId = null, onClose, onSubmit, autor = '' }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // AC-CHAMADO-01. A recusa acontece aqui e não lá na rule por um motivo
+    // prático: a rule só sabe responder `permission-denied`, e o que o aluno
+    // precisa saber é quanto do texto dele sobra cortar.
+    //
+    // Nada é limpo quando a descrição é recusada — nem o campo, nem o anexo
+    // que já subiu. Concluir não deu certo, mas o chamado ainda vai existir.
+    const resultado = validarDescricao(descricao);
+
+    if (!resultado.valida) {
+      setErroDaDescricao(mensagemDeDescricao(resultado));
+      campoDaDescricao.current?.focus();
+      return;
+    }
+
     guardarCorPreferida(cor);
-    onSubmit(descricao, anexo, chamadoId, cor || sorteada.current);
+    // Vai o texto aparado, e não o do campo: é o mesmo que a validação mediu.
+    onSubmit(resultado.texto, anexo, chamadoId, cor || sorteada.current);
     setDescricao('');
     setAnexo(null);
+    setErroDaDescricao(null);
+  };
+
+  const escreverDescricao = (valor) => {
+    setDescricao(valor);
+    // O aviso some assim que a pessoa mexe no texto. Deixá-lo na tela enquanto
+    // ela corrige transforma a correção em ansiedade.
+    if (erroDaDescricao) setErroDaDescricao(null);
   };
 
   /**
@@ -95,9 +129,31 @@ function Modal({ salaId = null, onClose, onSubmit, autor = '' }) {
           <textarea
             ref={campoDaDescricao}
             value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
+            onChange={(e) => escreverDescricao(e.target.value)}
             placeholder="Descreva o problema"
+            aria-invalid={erroDaDescricao ? 'true' : 'false'}
+            aria-describedby={erroDaDescricao ? ID_DO_ERRO : undefined}
           />
+
+          {erroDaDescricao && (
+            <p className="modal-erro" id={ID_DO_ERRO} role="alert">
+              {erroDaDescricao}
+            </p>
+          )}
+
+          {/* O contador só nos últimos 20%. Um número ao lado de toda frase
+              digitada vira ruído, e o limite de 1000 é teórico para a dúvida
+              de duas linhas que é o caso comum. */}
+          {descricao.length >= CONTADOR_A_PARTIR_DE && (
+            <p
+              className={`modal-contador${
+                descricao.length > DESCRICAO_MAXIMA ? ' modal-contador--estourado' : ''
+              }`}
+              data-testid="contador-da-descricao"
+            >
+              {descricao.length}/{DESCRICAO_MAXIMA}
+            </p>
+          )}
         </section>
 
         <section className="modal-secao" data-testid="secao-anexo">
