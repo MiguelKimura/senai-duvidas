@@ -450,3 +450,128 @@ describe('Modal — teclado e foco (AC-ANIM-10)', () => {
     expect(screen.getByRole('dialog')).toHaveClass('entra-caixa');
   });
 });
+
+describe('Modal — a descrição obrigatória de 1 a 1000 caracteres (AC-CHAMADO-01)', () => {
+  // A rule recusa `descricao` vazia ou acima de 1000 desde a v0.5.0. Até esta
+  // versão o modal não sabia disso: ele chamava `onSubmit` com o que estivesse
+  // no campo, a escrita era negada do outro lado da rede e o aluno ficava
+  // olhando para uma fila sem o chamado dele, sem nenhuma explicação.
+  const textoLongo = 'a'.repeat(1001);
+
+  it('não envia o chamado com o campo vazio', () => {
+    const { aoEnviar } = montar();
+
+    userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    expect(aoEnviar).not.toHaveBeenCalled();
+  });
+
+  it('e explica por quê, em vez de não fazer nada', () => {
+    montar();
+
+    userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/descreva/i);
+  });
+
+  it('não envia o chamado acima de 1000 caracteres', () => {
+    const { aoEnviar } = montar();
+
+    userEvent.paste(screen.getByPlaceholderText('Descreva o problema'), textoLongo);
+    userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    expect(aoEnviar).not.toHaveBeenCalled();
+  });
+
+  it('e diz quanto passou, em vez de só recusar', () => {
+    montar();
+
+    userEvent.paste(screen.getByPlaceholderText('Descreva o problema'), textoLongo);
+    userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    const aviso = screen.getByRole('alert');
+    expect(aviso).toHaveTextContent('1001');
+    expect(aviso).toHaveTextContent('1000');
+  });
+
+  it('o texto longo continua no campo: recusar não pode custar o que foi escrito', () => {
+    montar();
+    const campo = screen.getByPlaceholderText('Descreva o problema');
+
+    userEvent.paste(campo, textoLongo);
+    userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    expect(campo).toHaveValue(textoLongo);
+  });
+
+  it('o aviso some assim que o aluno corrige o texto', () => {
+    montar();
+    const campo = screen.getByPlaceholderText('Descreva o problema');
+
+    userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    userEvent.type(campo, 'o teclado trocou as letras');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('mostra o contador ao se aproximar do teto, e não antes', () => {
+    montar();
+    const campo = screen.getByPlaceholderText('Descreva o problema');
+
+    userEvent.paste(campo, 'a'.repeat(799));
+    expect(screen.queryByTestId('contador-da-descricao')).not.toBeInTheDocument();
+
+    userEvent.paste(campo, 'a'.repeat(1));
+    expect(screen.getByTestId('contador-da-descricao')).toHaveTextContent('800/1000');
+  });
+
+  it('envia o texto já sem os espaços das pontas', () => {
+    const { aoEnviar } = montar();
+
+    userEvent.paste(screen.getByPlaceholderText('Descreva o problema'), '   o mouse trava   ');
+    userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    expect(aoEnviar).toHaveBeenCalledWith(
+      'o mouse trava',
+      null,
+      expect.any(String),
+      COR_AUTOMATICA
+    );
+  });
+
+  it('o campo é anunciado como inválido para quem usa leitor de tela', () => {
+    montar();
+    const campo = screen.getByPlaceholderText('Descreva o problema');
+
+    expect(campo).toHaveAttribute('aria-invalid', 'false');
+
+    userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    expect(campo).toHaveAttribute('aria-invalid', 'true');
+    expect(campo).toHaveAccessibleDescription(screen.getByRole('alert').textContent);
+  });
+
+  it('o anexo já enviado não é apagado quando a descrição é recusada', async () => {
+    // Recusar o envio não é fechar o modal: o arquivo continua sendo o anexo
+    // daquele chamado, que o aluno ainda vai concluir depois de escrever.
+    const { aoEnviar } = montar();
+
+    userEvent.upload(seletorDeArquivo(), print());
+    await waitFor(() => expect(__arquivosEnviados()).toHaveLength(1));
+
+    userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+    expect(aoEnviar).not.toHaveBeenCalled();
+
+    userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'olha o erro');
+    userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+
+    expect(aoEnviar).toHaveBeenCalledWith(
+      'olha o erro',
+      expect.objectContaining({ origem: 'upload' }),
+      expect.any(String),
+      COR_AUTOMATICA
+    );
+  });
+});
