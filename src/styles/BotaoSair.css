@@ -9,21 +9,21 @@
   right: 16px;
   z-index: 900;
   padding: 8px 16px;
-  border: 1px solid #c62828;
+  border: 1px solid var(--cor-erro);
   border-radius: 6px;
-  background-color: #ffffff;
-  color: #c62828;
+  background-color: var(--cor-superficie);
+  color: var(--cor-erro);
   font-family: Arial, sans-serif;
   font-size: 14px;
   cursor: pointer;
 }
 
 .botao-sair:hover {
-  background-color: #c62828;
-  color: #ffffff;
+  background-color: var(--cor-erro);
+  color: var(--cor-texto-invertido);
 }
 
 .botao-sair:focus-visible {
-  outline: 2px solid #c62828;
+  outline: 2px solid var(--cor-erro);
   outline-offset: 2px;
 }

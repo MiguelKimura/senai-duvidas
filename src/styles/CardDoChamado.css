@@ -35,7 +35,7 @@
   font-weight: bold;
   margin: 0;
   text-align: center;
-  color: #000000;
+  color: var(--cor-texto-forte);
   overflow-wrap: anywhere;
 }
 
@@ -73,7 +73,7 @@
 .problema-card p {
   margin: var(--espaco-minimo) 0;
   font-size: 1rem;
-  color: #000000;
+  color: var(--cor-texto-forte);
 }
 
 /* O card ocupa a largura da tela no celular: 400px fixos numa tela de 360px

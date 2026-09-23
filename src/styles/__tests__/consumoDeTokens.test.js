@@ -69,21 +69,26 @@ const LITERAL_DE_COR = new RegExp(
   'g'
 );
 
-/** Os literais de cor de uma folha, com o número da linha de cada um. */
+/**
+ * Os literais de cor de uma folha, com o número da linha de cada um.
+ *
+ * Varre o **valor** de cada declaração, e não a linha: `white-space` é nome de
+ * propriedade e `.botao-white` seria classe — nenhum dos dois pinta nada. E o
+ * valor pode ocupar várias linhas, que é o caso do `linear-gradient` da
+ * amostra da paleta: varrer linha a linha deixaria justamente as nove cores
+ * mais fáceis de esquecer passarem em branco.
+ */
 function literaisDe(nome) {
-  const linhas = corpoDe(nome).split('\n');
+  const css = corpoDe(nome);
   const achados = [];
 
-  linhas.forEach((linha, indice) => {
-    // Só o lado direito de uma declaração: `white-space` é propriedade, e
-    // `.botao-white` seria classe. O que interessa é o **valor**.
-    const declaracao = /^[^{}]*:\s*(.+)$/.exec(linha.trim());
-    if (!declaracao) return;
+  for (const declaracao of css.matchAll(/[-\w]+\s*:\s*([^;{}]*)[;}]/g)) {
+    const linha = css.slice(0, declaracao.index).split('\n').length;
 
     for (const achado of declaracao[1].matchAll(LITERAL_DE_COR)) {
-      achados.push(`${nome}:${indice + 1} → ${achado[0]}`);
+      achados.push(`${nome}:${linha} → ${achado[0]}`);
     }
-  });
+  }
 
   return achados;
 }
@@ -109,17 +114,22 @@ describe('as folhas consomem os tokens (AC-ANIM-09)', () => {
 
   it('todo token que uma folha invoca existe em tokens.css', () => {
     const tokens = new Set(
-      [...fs.readFileSync(path.join(PASTA, 'tokens.css'), 'utf8').matchAll(/(--[a-z0-9-]+)\s*:/g)].map(
-        ([, nome]) => nome
-      )
+      [
+        ...fs
+          .readFileSync(path.join(PASTA, 'tokens.css'), 'utf8')
+          .matchAll(/(--[a-z0-9-]+)\s*:/g),
+      ].map(([, nome]) => nome)
     );
 
     const orfaos = [];
 
     for (const nome of folhas()) {
-      for (const [, invocado] of corpoDe(nome).matchAll(/var\(\s*(--[a-z0-9-]+)/g)) {
-        // O segundo argumento de `var()` é o padrão, e um padrão só faz
-        // sentido quando o token pode não existir — o que não é o caso aqui.
+      // `var(--x, padrão)` fica de fora: o segundo argumento é a declaração
+      // explícita de que a variável pode não existir, e é assim que o CSS
+      // recebe um valor que o JavaScript escreve inline — o índice do card na
+      // entrada escalonada, por exemplo. Sem padrão, a variável é um token, e
+      // um token precisa existir.
+      for (const [, invocado] of corpoDe(nome).matchAll(/var\(\s*(--[a-z0-9-]+)\s*\)/g)) {
         if (!tokens.has(invocado)) orfaos.push(`${nome} invoca ${invocado}`);
       }
     }

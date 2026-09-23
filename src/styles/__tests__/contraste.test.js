@@ -82,6 +82,18 @@ const PARES_DE_TEXTO = [
   ['--cor-texto-discreto', '--cor-fundo-chat', 'Chat.css .mensagens-aviso, .conversa-previa'],
   ['--cor-erro', '--cor-superficie', 'Salas.css .salas-erro, Perks.css .perks-erro'],
   ['--cor-erro', '--cor-fundo-caixa', 'CampoAnexo.css .campo-anexo-erro'],
+  ['--cor-erro', '--cor-erro-fundo', 'Login.css .login-erro'],
+  ['--cor-texto-discreto', '--cor-fundo-pagina', 'Footer.css .footer'],
+  ['--cor-texto-forte', '--cor-superficie', 'CardDoChamado.css .user-name, .problema-card p'],
+  ['--cor-texto-forte', '--cor-borda', 'Modal.css .close-button'],
+  ['--cor-texto-forte', '--cor-borda-forte', 'Modal.css .close-button:hover'],
+  ['--cor-texto-titulo', '--cor-borda', 'ConfirmarAcao.css .confirmar-botao--seguro'],
+  [
+    '--cor-texto-titulo',
+    '--cor-borda-forte',
+    'ConfirmarAcao.css .confirmar-botao--seguro:hover',
+  ],
+  ['--cor-informacao', '--cor-fundo-chat', 'Chat.css .mensagens-anteriores, .mensagens-novas'],
   ['--cor-primaria', '--cor-superficie', 'Chat.css .chat-aba--ativa, Perks.css .perk-pontos'],
   ['--cor-primaria', '--cor-fundo-pagina', 'Salas.css .sala-cartao-destaque'],
   ['--cor-sucesso', '--cor-superficie', 'Toast.css .toast--sucesso'],
@@ -108,9 +120,7 @@ const PARES_NAO_TEXTUAIS = [
 
 describe('contraste dos tokens (AC-ANIM-10)', () => {
   it.each(PARES_DE_TEXTO)('AA em %s sobre %s — %s', (texto, fundo) => {
-    expect(razaoContraste(corDe(texto), corDe(fundo))).toBeGreaterThanOrEqual(
-      CONTRASTE_MINIMO
-    );
+    expect(razaoContraste(corDe(texto), corDe(fundo))).toBeGreaterThanOrEqual(CONTRASTE_MINIMO);
   });
 
   it.each(PARES_NAO_TEXTUAIS)('3:1 em %s sobre %s — %s', (frente, fundo) => {
@@ -131,8 +141,8 @@ describe('contraste dos tokens (AC-ANIM-10)', () => {
       '--cor-fundo-caixa': 'superfície',
       '--cor-fundo-chat': 'superfície',
       '--cor-superficie': 'superfície',
-      '--cor-borda': 'traço de 1px entre superfícies claras, sem texto',
-      '--cor-borda-campo': 'idem, no contorno dos campos de formulário',
+      '--cor-borda-campo': 'traço de 1px no contorno dos campos, sem texto',
+      '--cor-erro-fundo': 'superfície, aparece como fundo nos pares acima',
       '--cor-mensagem-enviada': 'sem uso no CSS desde a v0.10.0; ver ADR 0011',
       '--cor-mensagem-recebida': 'idem — o selo passou a usar --cor-sucesso',
       '--sombra-foco': 'halo translúcido, some sob qualquer conta de contraste',

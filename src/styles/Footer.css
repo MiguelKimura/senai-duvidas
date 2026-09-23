@@ -4,6 +4,6 @@
   width: 100%;
   text-align: center;
   padding: 10px 0;
-  color: grey;
+  color: var(--cor-texto-discreto);
   font-size: 10px;
 }

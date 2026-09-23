@@ -6,7 +6,7 @@
 
 body {
   font-family: Arial, sans-serif;
-  background-color: #f4f4f4;
+  background-color: var(--cor-fundo-pagina);
 }
 
 /* Container principal de login */
@@ -19,7 +19,7 @@ body {
 
 /* Caixa de login */
 .login-box {
-  background-color: white;
+  background-color: var(--cor-superficie);
   padding: 30px;
   border-radius: 8px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
@@ -29,7 +29,7 @@ body {
 
 h1 {
   text-align: center;
-  color: #333;
+  color: var(--cor-texto-titulo);
   margin-bottom: 20px;
 }
 
@@ -42,7 +42,7 @@ h1 {
 .input-group label {
   display: block;
   font-weight: bold;
-  color: #555;
+  color: var(--cor-texto-rotulo);
   margin-bottom: 5px;
 }
 
@@ -50,13 +50,13 @@ h1 {
   width: 100%;
   padding: 10px;
   border-radius: 5px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--cor-borda-campo);
   font-size: 16px;
   box-sizing: border-box;
 }
 
 .input-group input:focus {
-  border-color: #ff0000;
+  border-color: var(--cor-primaria);
   outline: none;
 }
 
@@ -69,8 +69,8 @@ h1 {
   width: 100%;
   margin-top: 30px;
   padding: 10px;
-  background-color: #ff0000;
-  color: white;
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
   border: none;
   border-radius: 5px;
   font-size: 16px;
@@ -80,7 +80,7 @@ h1 {
 }
 
 .button-container button:hover {
-  background-color: #8f0000;
+  background-color: var(--cor-primaria-hover);
 }
 
 /* Centraliza o link abaixo do botão */
@@ -89,7 +89,7 @@ p {
 }
 
 a {
-  color: #8f0000;
+  color: var(--cor-primaria-hover);
   text-decoration: none;
 }
 
@@ -104,14 +104,17 @@ a:hover {
   margin: 12px 0 0;
   padding: 10px 12px;
   border-radius: 6px;
-  background-color: #fdecea;
-  color: #8a1c13;
+  background-color: var(--cor-erro-fundo);
+  color: var(--cor-erro);
   font-size: 14px;
   text-align: left;
 }
 
+/* "Carregando..." era branco — sobre a página cinza-clara dá 1,1:1, ou seja,
+   texto invisível. Ninguém percebeu porque ele aparece por meio segundo, e é
+   justamente por isso que nenhuma revisão manual pegaria (AC-ANIM-10). */
 .login-carregando {
-  color: #ffffff;
+  color: var(--cor-texto-rotulo);
   font-size: 18px;
 }
 
@@ -134,16 +137,16 @@ a:hover {
   width: 100%;
   margin-bottom: 8px;
   padding: 10px 12px;
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--cor-borda);
   border-radius: 6px;
-  background-color: #ffffff;
-  color: #1f1f1f;
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto-titulo);
   font-size: 15px;
   cursor: pointer;
 }
 
 .botao-social:hover:not(:disabled) {
-  background-color: #f2f2f2;
+  background-color: var(--cor-fundo-pagina);
 }
 
 .botao-social:disabled {

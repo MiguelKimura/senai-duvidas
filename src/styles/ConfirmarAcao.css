@@ -59,7 +59,7 @@
 }
 
 .confirmar-botao--seguro:hover {
-  background-color: var(--cor-texto-discreto);
+  background-color: var(--cor-borda-forte);
 }
 
 .confirmar-botao--destrutiva {
