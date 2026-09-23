@@ -793,18 +793,37 @@ def process_task(cfg: dict[str, Any], repo: Path, task: Path, state: dict[str, A
 
 
 def processo_vivo(pid: int) -> bool:
+    """
+    O PID pertence a uma fila viva — não apenas a um processo qualquer.
+
+    Depois de um reboot os PIDs são redistribuídos: uma trava gravada antes do
+    desligamento pode apontar para um número que agora é do Explorer ou do
+    antivírus. Conferir só "existe processo com esse PID" faria a fila recusar
+    iniciar para sempre. Por isso exige que o processo seja um Python.
+    """
     if sys.platform == "win32":
         r = subprocess.run(
-            ["tasklist", "/FI", f"PID eq {pid}"],
+            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             creationflags=SEM_JANELA,
         )
-        return str(pid) in (r.stdout or "")
+        for linha in (r.stdout or "").splitlines():
+            campos = [c.strip('"') for c in linha.split('","')]
+            if len(campos) >= 2 and campos[1].strip('"') == str(pid):
+                return campos[0].lower().startswith("python")
+        return False
+
     try:
         os.kill(pid, 0)
-        return True
     except OSError:
         return False
+    cmdline = Path(f"/proc/{pid}/cmdline")
+    if cmdline.exists():
+        try:
+            return b"python" in cmdline.read_bytes().lower()
+        except OSError:
+            return True
+    return True
 
 
 def adquirir_trava(caminho: Path) -> bool:
