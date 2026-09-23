@@ -233,7 +233,7 @@ describe('Toast — acessibilidade (AC-ANIM-10)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'ok' }));
 
-    const regiao = screen.getByRole('status');
+    const regiao = screen.getByRole('log');
 
     expect(regiao).toHaveAttribute('aria-live', 'polite');
   });
@@ -243,7 +243,26 @@ describe('Toast — acessibilidade (AC-ANIM-10)', () => {
     // anunciada: o leitor precisa já estar observando o nó quando ele muda.
     montar([]);
 
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.getByRole('log')).toBeInTheDocument();
+  });
+
+  it('NÃO usa role="status", que as telas já usam para o próprio carregamento', () => {
+    // "Carregando...", "Abrindo a sala..." e a recusa ao salvar preferência são
+    // `role="status"`. Uma segunda região com o mesmo papel presente em TODA
+    // página tornaria cada uma dessas mensagens ambígua para quem consulta a
+    // tela por papel — e foi exatamente o que aconteceu quando esta pilha
+    // nasceu como `status`.
+    montar([]);
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('vive fora da árvore de quem a disparou, direto no <body>', () => {
+    // `position: fixed` dentro de um ancestral com `transform` deixa de ser
+    // relativo à janela. O cartão de premiação anima `transform`.
+    montar([]);
+
+    expect(screen.getByRole('log').parentElement).toBe(document.body);
   });
 
   it('todo toast tem botão de fechar alcançável por teclado', async () => {

@@ -11,6 +11,7 @@ import CriarSala from './components/CriarSala';
 import Sala from './components/Sala';
 import RotaProtegida from './components/RotaProtegida';
 import Footer from './components/Footer';
+import { ProvedorDeToasts } from './components/Toast';
 
 // O App é só roteamento.
 //
@@ -33,63 +34,69 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <div className="App">
-          <Routes>
-            <Route path="/" element={<Login />} />
-            <Route path="/cadastro" element={<Cadastro />} />
-            <Route
-              path="/salas"
-              element={
-                <RotaProtegida>
-                  <MinhasSalas />
-                </RotaProtegida>
-              }
-            />
-            <Route
-              path="/salas/entrar"
-              element={
-                <RotaProtegida>
-                  <EntrarComPin />
-                </RotaProtegida>
-              }
-            />
-            <Route
-              path="/salas/nova"
-              element={
-                <RotaProtegida papel="professor">
-                  <CriarSala />
-                </RotaProtegida>
-              }
-            />
-            {/* Sem `papel` de propósito: quem decide o que abrir aqui é o
+        {/* A pilha de avisos fica ACIMA das rotas: um toast disparado ao
+            excluir um chamado precisa sobreviver à navegação que a exclusão
+            possa causar, e uma pilha por tela some no meio do aviso
+            (AC-ANIM-07). */}
+        <ProvedorDeToasts>
+          <div className="App">
+            <Routes>
+              <Route path="/" element={<Login />} />
+              <Route path="/cadastro" element={<Cadastro />} />
+              <Route
+                path="/salas"
+                element={
+                  <RotaProtegida>
+                    <MinhasSalas />
+                  </RotaProtegida>
+                }
+              />
+              <Route
+                path="/salas/entrar"
+                element={
+                  <RotaProtegida>
+                    <EntrarComPin />
+                  </RotaProtegida>
+                }
+              />
+              <Route
+                path="/salas/nova"
+                element={
+                  <RotaProtegida papel="professor">
+                    <CriarSala />
+                  </RotaProtegida>
+                }
+              />
+              {/* Sem `papel` de propósito: quem decide o que abrir aqui é o
                 vínculo com a sala, não o papel global. Ver components/Sala. */}
-            <Route
-              path="/sala/:salaId"
-              element={
-                <RotaProtegida>
-                  <Sala />
-                </RotaProtegida>
-              }
-            />
-            <Route
-              path="/aluno"
-              element={
-                <RotaProtegida papel="aluno">
-                  <TelaAluno />
-                </RotaProtegida>
-              }
-            />
-            <Route
-              path="/professor"
-              element={
-                <RotaProtegida papel="professor">
-                  <TelaProfessor />
-                </RotaProtegida>
-              }
-            />
-          </Routes>
-          <Footer />
-        </div>
+              <Route
+                path="/sala/:salaId"
+                element={
+                  <RotaProtegida>
+                    <Sala />
+                  </RotaProtegida>
+                }
+              />
+              <Route
+                path="/aluno"
+                element={
+                  <RotaProtegida papel="aluno">
+                    <TelaAluno />
+                  </RotaProtegida>
+                }
+              />
+              <Route
+                path="/professor"
+                element={
+                  <RotaProtegida papel="professor">
+                    <TelaProfessor />
+                  </RotaProtegida>
+                }
+              />
+            </Routes>
+            <Footer />
+          </div>
+        </ProvedorDeToasts>
       </AuthProvider>
     </Router>
   );

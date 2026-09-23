@@ -230,7 +230,7 @@ describe('a folha inteira do projeto (AC-ANIM-06, AC-ANIM-09)', () => {
         // Dentro de `calc()` também conta: `* 40ms` é uma duração literal
         // tanto quanto `150ms` solto, e foi assim que o escalonamento
         // quase entrou com o próprio número cravado no CSS.
-        .flatMap(([, , , valor]) => [...valor.matchAll(/([0-9]*\.?[0-9]+(?:ms|s))/g)])
+        .flatMap(([, , , valor]) => [...valor.matchAll(/([0-9]*\.?[0-9]+(?:ms|s))(?![a-z])/g)])
         .map(([, tempo]) => tempo)
         .filter((pedaco) => emMilissegundos(pedaco) !== null)
         .map((pedaco) => `${nome}: ${pedaco}`)

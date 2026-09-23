@@ -63,6 +63,16 @@
   --cor-mensagem-enviada: #007bff;
   --cor-mensagem-recebida: #28a745;
 
+  /* As três variantes de aviso que faltavam (AC-ANIM-07). Todas escolhidas
+   * escuras o bastante para passarem em AA como **texto** sobre as superfícies
+   * claras do projeto, e não só como tarja colorida: o mesmo tom serve à borda
+   * do toast e ao texto da mensagem, e um único valor por papel é o que
+   * impede as duas de divergirem. `src/utils/__tests__/paleta.test.js` roda a
+   * conta da WCAG sobre cada uma. */
+  --cor-sucesso: #1e7e34;
+  --cor-aviso: #8a5300;
+  --cor-informacao: #0b5ed7;
+
   /* ---- Espaçamentos ----------------------------------------------------
    * Escala tirada dos valores realmente usados. Não é uma escala 4/8 teórica:
    * é a que o código já pratica, incluindo o 12px dos campos de formulário.

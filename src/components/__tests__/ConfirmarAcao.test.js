@@ -59,6 +59,13 @@ function ComGatilho({ aoConfirmar = () => {}, aoCancelar = () => {}, ...resto })
   );
 }
 
+/** O botão de confirmar que está DENTRO do diálogo. */
+function confirmarDoDialogo(nome = 'Excluir') {
+  return screen
+    .getAllByRole('button', { name: nome })
+    .find((botao) => botao.closest('[role="dialog"]'));
+}
+
 async function abrir(props = {}) {
   render(<ComGatilho {...props} />);
   await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
@@ -85,7 +92,9 @@ describe('ConfirmarAcao — a pergunta (AC-CHAMADO-04)', () => {
     const aoConfirmar = jest.fn();
     await abrir({ aoConfirmar });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Excluir', hidden: true }));
+    // O gatilho lá fora também se chama "Excluir": o botão do diálogo é o que
+    // está dentro dele, e é por isso que a busca passa pelo `role="dialog"`.
+    await userEvent.click(confirmarDoDialogo());
 
     expect(aoConfirmar).toHaveBeenCalledTimes(1);
   });
@@ -104,11 +113,7 @@ describe('ConfirmarAcao — a pergunta (AC-CHAMADO-04)', () => {
   it('marca a ação destrutiva na marcação, e não só na cor', async () => {
     await abrir();
 
-    const confirmar = screen
-      .getAllByRole('button', { name: 'Excluir' })
-      .find((botao) => botao.closest('[role="dialog"]'));
-
-    expect(confirmar).toHaveAttribute('data-destrutiva', 'true');
+    expect(confirmarDoDialogo()).toHaveAttribute('data-destrutiva', 'true');
   });
 
   it('sem `destrutiva`, o botão de confirmar não se marca como tal', async () => {

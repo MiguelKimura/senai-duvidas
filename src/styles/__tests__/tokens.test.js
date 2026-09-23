@@ -89,6 +89,9 @@ function resolver(valor, tokens, vistos = new Set()) {
 const TOKENS_DECIDIDOS = {
   '--cor-foco': 'AC-ANIM-10: o anel de foco único, provado por contraste',
   '--cor-erro': 'AC-ANIM-10: `red` sobre branco não passa em AA; ver paleta.test.js',
+  '--cor-sucesso': 'AC-ANIM-07: a variante de sucesso do toast, provada por contraste',
+  '--cor-aviso': 'AC-ANIM-07: a variante de aviso do toast, provada por contraste',
+  '--cor-informacao': 'AC-ANIM-07: a variante informativa do toast, idem',
   '--dur-rapida': 'AC-ANIM-01: a escala canônica de durações',
   '--dur-media': 'AC-ANIM-01: a escala canônica de durações',
   '--dur-lenta': 'AC-ANIM-01: a escala canônica de durações',

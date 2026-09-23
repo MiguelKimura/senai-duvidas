@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '../contexts/AuthContext';
+import { ProvedorDeToasts } from '../components/Toast';
 
 // Ponto único de montagem dos provedores nos testes.
 //
@@ -12,6 +13,11 @@ import { AuthProvider } from '../contexts/AuthContext';
 //
 // A ordem importa: o `AuthProvider` fica **dentro** do roteador, porque quem
 // consome o contexto também navega, e `useNavigate` exige um Router acima.
+//
+// A v0.10.0 acrescenta o `ProvedorDeToasts` pela mesma regra: `useToasts`
+// lança sem provedor acima — um aviso que não aparece é falha invisível, e a
+// tela que a causou seria a última a ser suspeita. Montá-lo aqui é o que faz
+// toda tela sob teste ter os avisos que ela tem em produção.
 
 /**
  * Renderiza `elemento` dentro dos provedores da aplicação.
@@ -24,7 +30,9 @@ export function renderComProvedores(elemento, { rota = '/', ...opcoesRender } = 
   function Provedores({ children }) {
     return (
       <MemoryRouter initialEntries={[rota]}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <ProvedorDeToasts>{children}</ProvedorDeToasts>
+        </AuthProvider>
       </MemoryRouter>
     );
   }

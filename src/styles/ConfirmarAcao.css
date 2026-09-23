@@ -1,0 +1,94 @@
+/* A confirmação de ação destrutiva — AC-CHAMADO-04, AC-ANIM-01, AC-ANIM-08. */
+
+.confirmar-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: var(--camada-sobreposicao);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--espaco-4);
+
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.confirmar-caixa {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--espaco-4);
+  border-radius: var(--raio-2);
+  background-color: var(--cor-superficie);
+  box-shadow: var(--sombra-elevada);
+  font-family: var(--fonte-base);
+}
+
+.confirmar-titulo {
+  margin: 0 0 var(--espaco-2);
+  font-size: 18px;
+  color: var(--cor-texto-titulo);
+}
+
+.confirmar-descricao {
+  margin: 0 0 var(--espaco-4);
+  color: var(--cor-texto-rotulo);
+  font-size: 14px;
+}
+
+.confirmar-botoes {
+  display: flex;
+  gap: var(--espaco-2);
+}
+
+.confirmar-botao {
+  flex: 1;
+  padding: var(--espaco-campo);
+  border: none;
+  border-radius: var(--raio-2);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 16px;
+}
+
+/* O botão seguro é o cinza, e é o que recebe o foco na abertura. A hierarquia
+   visual precisa concordar com a hierarquia de risco: o destaque vai para
+   sair, não para destruir. */
+.confirmar-botao--seguro {
+  background-color: var(--cor-borda);
+  color: var(--cor-texto-titulo);
+}
+
+.confirmar-botao--seguro:hover {
+  background-color: var(--cor-texto-discreto);
+}
+
+.confirmar-botao--destrutiva {
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
+}
+
+.confirmar-botao--destrutiva:hover {
+  background-color: var(--cor-primaria-hover);
+}
+
+/* Abaixo de 480px o diálogo ocupa a tela inteira: uma caixa de 400px centrada
+   numa tela de 360px é uma caixa colada nas bordas, e o polegar não alcança o
+   botão de cancelar sem esbarrar no de excluir (AC-ANIM-08). */
+@media (max-width: 480px) {
+  .confirmar-fundo {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .confirmar-caixa {
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-radius: 0;
+  }
+
+  .confirmar-botoes {
+    flex-direction: column-reverse;
+  }
+}
