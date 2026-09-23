@@ -14,6 +14,7 @@ import React from 'react';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
   Timestamp,
+  __consultasAtivas,
   __definirRelogioDoServidor,
   __resetarFirestore,
   __semearColecao,
@@ -156,8 +157,6 @@ describe.each([
 
   it('carrega os perks numa consulta só, com teto — nunca uma por card (AC-PERF-03)', () => {
     __semearColecao(PERKS_DA_SALA, [perkDePrioridade()]);
-
-    const { __consultasAtivas } = jest.requireMock('firebase/firestore');
 
     renderComProvedores(<Tela salaId={SALA} />);
 

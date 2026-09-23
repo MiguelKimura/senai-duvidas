@@ -5,16 +5,12 @@ import TextoMarkdown from './TextoMarkdown';
 import { auth } from '../firebase';
 import { deleteDoc, doc, limit, onSnapshot, query, setDoc } from 'firebase/firestore';
 import { camposDoAnexo, removerAnexoDoChamado } from '../services/anexos';
-import {
-  carimboServidor,
-  completarHorariosIso,
-  criarComparadorPorHorario,
-  formatarDataHora,
-} from '../services/tempo';
+import { carimboServidor, completarHorariosIso, formatarDataHora } from '../services/tempo';
 import { LIMITE_DE_CHAMADOS, PAPEL_DE_ALUNO, colecaoDeChamados } from '../services/salas';
 import { FORMATO_MARKDOWN, formatoDoTexto } from '../utils/markdown';
 import { corAutomatica } from '../utils/paleta';
 import { estiloDoCard } from '../utils/cardDoChamado';
+import { usePerksDaSala } from '../hooks/usePerksDaSala';
 import '../styles/TelaAluno.css';
 import Chat from './chat/Chat';
 import BotaoSair from './BotaoSair';
@@ -35,6 +31,11 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
   const [problemas, setProblemas] = useState([]);
   const [usuarioNome, setUsuarioNome] = useState('');
 
+  // A ordem da fila passa a depender dos perks da sala (AC-PERK-02). O aluno
+  // vê a mesma fila do professor porque os dois a ordenam com a mesma função e
+  // com o mesmo instante do servidor — discordar aqui geraria briga em sala.
+  const { fila } = usePerksDaSala(salaId, problemas);
+
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
@@ -50,14 +51,12 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
 
     const unsubscribe = onSnapshot(consulta, (querySnapshot) => {
       // `horario` fica cru: quem entende os formatos que convivem no banco é
-      // `services/tempo.js`, na hora de ordenar e na hora de exibir.
-      const problemasList = querySnapshot.docs.map((documento) => ({
-        id: documento.id,
-        ...documento.data(),
-      }));
-
-      problemasList.sort(criarComparadorPorHorario());
-      setProblemas(problemasList);
+      // `services/tempo.js`, na hora de ordenar e na hora de exibir. A lista
+      // também fica crua — ordená-la aqui, sem os perks, faria os cards
+      // trocarem de lugar sozinhos assim que a consulta de perks respondesse.
+      setProblemas(
+        querySnapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }))
+      );
 
       // Depois de publicar a lista, para que a reemissão provocada pela
       // escrita chegue por último e a tela fique com os dados mais novos.
@@ -148,7 +147,7 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
         </button>
       )}
       <div className="problemas-list">
-        {problemas.map((problema) => (
+        {fila.map((problema) => (
           <div key={problema.id} className="problema-card" style={estiloDoCard(problema)}>
             <div className="card-header">
               {/* `autorNome` primeiro, `nome` como leitura do formato antigo:

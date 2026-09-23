@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { deleteDoc, doc, limit, onSnapshot, query } from 'firebase/firestore';
-import { criarComparadorPorHorario, formatarDataHora } from '../services/tempo';
+import { formatarDataHora } from '../services/tempo';
 import { LIMITE_DE_CHAMADOS, PAPEL_DE_PROFESSOR, colecaoDeChamados } from '../services/salas';
 import { removerAnexoDoChamado } from '../services/anexos';
 import { formatoDoTexto } from '../utils/markdown';
 import { estiloDoCard } from '../utils/cardDoChamado';
+import { usePerksDaSala } from '../hooks/usePerksDaSala';
 import '../styles/TelaProfessor.css';
 import AnexoDoCard from './AnexoDoCard';
 import TextoMarkdown from './TextoMarkdown';
@@ -19,21 +20,26 @@ import BotaoSair from './BotaoSair';
 function TelaProfessor({ salaId = null, somenteLeitura = false }) {
   const [problemas, setProblemas] = useState([]);
 
+  // A fila que a tela desenha sai daqui, e não do estado cru: a ordem dela
+  // depende dos perks da sala, e quem os carrega — uma vez, não uma por card —
+  // é este hook (AC-PERK-02, AC-PERF-03).
+  const { fila } = usePerksDaSala(salaId, problemas);
+
   useEffect(() => {
     // AC-PERF-03: mesmo teto da tela do aluno, pela mesma razão.
     const consulta = query(colecaoDeChamados(salaId), limit(LIMITE_DE_CHAMADOS));
 
     const unsubscribe = onSnapshot(consulta, (querySnapshot) => {
       // A fila do professor é a mesma do aluno, e a ordem dela é decidida no
-      // mesmo lugar: `services/tempo.js`. O professor não preenche
+      // mesmo lugar: `services/filaChamados.js`. O professor não preenche
       // `horarioIso` de ninguém — quem faz isso é o cliente do autor.
-      const problemasList = querySnapshot.docs.map((documento) => ({
-        id: documento.id,
-        ...documento.data(),
-      }));
-
-      problemasList.sort(criarComparadorPorHorario());
-      setProblemas(problemasList);
+      //
+      // O estado guarda a lista **crua**: ordenar aqui, antes de os perks
+      // chegarem, faria a fila reordenar sozinha na frente da turma quando o
+      // segundo snapshot chegasse.
+      setProblemas(
+        querySnapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }))
+      );
     });
 
     return () => unsubscribe();
@@ -59,7 +65,7 @@ function TelaProfessor({ salaId = null, somenteLeitura = false }) {
       <h1>Chamados dos Alunos</h1>
 
       <div className="problemas-list">
-        {problemas.map((problema) => (
+        {fila.map((problema) => (
           <div key={problema.id} className="problema-card" style={estiloDoCard(problema)}>
             <div className="card-header">
               <div className="user-name-wrapper">
