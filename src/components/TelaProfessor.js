@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { deleteDoc, doc, limit, onSnapshot, query } from 'firebase/firestore';
 import { formatarDataHora } from '../services/tempo';
 import { LIMITE_DE_CHAMADOS, PAPEL_DE_PROFESSOR, colecaoDeChamados } from '../services/salas';
@@ -6,6 +6,7 @@ import { removerAnexoDoChamado } from '../services/anexos';
 import { formatoDoTexto } from '../utils/markdown';
 import { estiloDoCard } from '../utils/cardDoChamado';
 import { usePerksDaSala } from '../hooks/usePerksDaSala';
+import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import '../styles/TelaProfessor.css';
 import AnexoDoCard from './AnexoDoCard';
 import TextoMarkdown from './TextoMarkdown';
@@ -23,7 +24,21 @@ function TelaProfessor({ salaId = null, somenteLeitura = false }) {
   // A fila que a tela desenha sai daqui, e não do estado cru: a ordem dela
   // depende dos perks da sala, e quem os carrega — uma vez, não uma por card —
   // é este hook (AC-PERK-02, AC-PERF-03).
-  const { fila } = usePerksDaSala(salaId, problemas);
+  const { fila, perksPorUid, agoraServidor } = usePerksDaSala(salaId, problemas);
+
+  // A mesma insígnia do card, ao lado do nome no chat. O índice e o instante
+  // são os que a sala já carregou: o chat não abre consulta de perk nenhuma
+  // (AC-PERK-05, AC-PERF-03).
+  const insigniasDe = useCallback(
+    (mensagem) => (
+      <InsigniasDoAluno
+        perks={perksPorUid}
+        uid={mensagem.autorUid}
+        agoraServidor={agoraServidor}
+      />
+    ),
+    [perksPorUid, agoraServidor]
+  );
 
   useEffect(() => {
     // AC-PERF-03: mesmo teto da tela do aluno, pela mesma razão.
@@ -71,6 +86,11 @@ function TelaProfessor({ salaId = null, somenteLeitura = false }) {
               <div className="user-name-wrapper">
                 <p className="user-name">
                   <strong>{problema.autorNome || problema.nome}</strong>
+                  <InsigniasDoAluno
+                    perks={perksPorUid}
+                    uid={problema.autorUid}
+                    agoraServidor={agoraServidor}
+                  />
                 </p>
               </div>
 
@@ -103,7 +123,12 @@ function TelaProfessor({ salaId = null, somenteLeitura = false }) {
       {/* Quem chega a esta tela é o professor da sala, pelo vínculo que
           `Sala.jsx` conferiu. O papel vai junto porque é ele que libera o
           `!clear` na interface — a autorização que vale é a da rule. */}
-      <Chat salaId={salaId} papelNaSala={PAPEL_DE_PROFESSOR} somenteLeitura={somenteLeitura} />
+      <Chat
+        salaId={salaId}
+        papelNaSala={PAPEL_DE_PROFESSOR}
+        somenteLeitura={somenteLeitura}
+        insigniasDe={insigniasDe}
+      />
     </div>
   );
 }

@@ -28,11 +28,15 @@ const ABA_DAS_DIRETAS = 'diretas';
  * @param {'aluno'|'professor'} [props.papelNaSala] papel do **vínculo**, que é
  *   o que a rule consulta do outro lado.
  * @param {boolean} [props.somenteLeitura] sala arquivada (AC-SALA-10).
+ * @param {(mensagem: object) => React.ReactNode} [props.insigniasDe] as
+ *   insígnias de quem falou (AC-PERK-05). Vem pronta da sala, que já carregou
+ *   os perks — o chat não consulta o banco por causa disso (AC-PERF-03).
  */
 export default function Chat({
   salaId = null,
   papelNaSala = PAPEL_DE_ALUNO,
   somenteLeitura = false,
+  insigniasDe,
 }) {
   const { usuario } = useAuth();
   const [aberto, setAberto] = useState(false);
@@ -107,7 +111,12 @@ export default function Chat({
 
           {aba === ABA_DA_SALA || !salaId ? (
             <div role="tabpanel" aria-labelledby="aba-sala">
-              <AbaSala salaId={salaId} pessoa={pessoa} somenteLeitura={somenteLeitura} />
+              <AbaSala
+                salaId={salaId}
+                pessoa={pessoa}
+                somenteLeitura={somenteLeitura}
+                insigniasDe={insigniasDe}
+              />
             </div>
           ) : (
             <div role="tabpanel" aria-labelledby="aba-diretas">

@@ -14,7 +14,7 @@
 // cobra é que alguém finalmente o preencha, e sem abrir uma segunda consulta
 // de perks para isso (AC-PERF-03).
 import React from 'react';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
@@ -163,32 +163,38 @@ describe('a insígnia ao lado do nome no chat (AC-PERK-05)', () => {
     ]);
   });
 
-  /** Abre o painel do chat, que nasce fechado e sem listener nenhum. */
-  function abrirOChat() {
-    userEvent.click(screen.getByRole('button', { name: 'Abrir o chat' }));
+  /**
+   * Abre o painel do chat e espera a conversa chegar.
+   *
+   * O painel fechado não escuta nada (task 06): o listener só nasce no clique,
+   * e a primeira página chega depois dele.
+   */
+  async function abrirOChat() {
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir o chat' }));
+    await waitFor(() => expect(screen.getByText('alguém conseguiu rodar?')).toBeVisible());
   }
 
-  it('põe a insígnia no cabeçalho da mensagem de quem tem perk', () => {
+  it('põe a insígnia no cabeçalho da mensagem de quem tem perk', async () => {
     renderComProvedores(<TelaAluno salaId={SALA} />);
-    abrirOChat();
+    await abrirOChat();
 
     const balao = screen.getByText('alguém conseguiu rodar?').closest('.mensagem');
 
     expect(within(balao).getByText(/Colaborador/)).toBeInTheDocument();
   });
 
-  it('não põe insígnia na mensagem de quem não tem perk', () => {
+  it('não põe insígnia na mensagem de quem não tem perk', async () => {
     renderComProvedores(<TelaAluno salaId={SALA} />);
-    abrirOChat();
+    await abrirOChat();
 
     const balao = screen.getByText('ainda não').closest('.mensagem');
 
     expect(balao.querySelector('.perk-insignia')).toBeNull();
   });
 
-  it('não abre uma segunda consulta de perks para o chat (AC-PERF-03)', () => {
+  it('não abre uma segunda consulta de perks para o chat (AC-PERF-03)', async () => {
     renderComProvedores(<TelaAluno salaId={SALA} />);
-    abrirOChat();
+    await abrirOChat();
 
     const dePerks = __consultasAtivas().filter(
       (consulta) => consulta.caminho === PERKS_DA_SALA

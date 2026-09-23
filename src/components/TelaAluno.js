@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import Modal from './Modal';
 import AnexoDoCard from './AnexoDoCard';
 import TextoMarkdown from './TextoMarkdown';
@@ -11,6 +11,7 @@ import { FORMATO_MARKDOWN, formatoDoTexto } from '../utils/markdown';
 import { corAutomatica } from '../utils/paleta';
 import { estiloDoCard } from '../utils/cardDoChamado';
 import { usePerksDaSala } from '../hooks/usePerksDaSala';
+import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import '../styles/TelaAluno.css';
 import Chat from './chat/Chat';
 import BotaoSair from './BotaoSair';
@@ -34,7 +35,20 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
   // A ordem da fila passa a depender dos perks da sala (AC-PERK-02). O aluno
   // vê a mesma fila do professor porque os dois a ordenam com a mesma função e
   // com o mesmo instante do servidor — discordar aqui geraria briga em sala.
-  const { fila } = usePerksDaSala(salaId, problemas);
+  const { fila, perksPorUid, agoraServidor } = usePerksDaSala(salaId, problemas);
+
+  // A insígnia do chat sai do mesmo índice do card: uma consulta de perks por
+  // sala, e não uma por balão renderizado (AC-PERK-05, AC-PERF-03).
+  const insigniasDe = useCallback(
+    (mensagem) => (
+      <InsigniasDoAluno
+        perks={perksPorUid}
+        uid={mensagem.autorUid}
+        agoraServidor={agoraServidor}
+      />
+    ),
+    [perksPorUid, agoraServidor]
+  );
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -155,6 +169,11 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
                   chamado que a migração copiou da coleção global. */}
               <p className="user-name">
                 <strong>{problema.autorNome || problema.nome}</strong>
+                <InsigniasDoAluno
+                  perks={perksPorUid}
+                  uid={problema.autorUid}
+                  agoraServidor={agoraServidor}
+                />
               </p>
               {/* A miniatura do anexo, no mesmo canto onde o olho 👁️ ficava.
                   Clicar abre o visualizador na própria página — `window.open`
@@ -190,7 +209,12 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
       {/* O papel vai explícito: é ele que decide o selo do balão e quem pode
           usar o `!clear` (AC-CHAT-04, AC-CHAT-08). Quem abre esta tela é aluno
           na sala — a decisão de qual tela abrir é de `Sala.jsx`, pelo vínculo. */}
-      <Chat salaId={salaId} papelNaSala={PAPEL_DE_ALUNO} somenteLeitura={somenteLeitura} />
+      <Chat
+        salaId={salaId}
+        papelNaSala={PAPEL_DE_ALUNO}
+        somenteLeitura={somenteLeitura}
+        insigniasDe={insigniasDe}
+      />
     </div>
   );
 }
