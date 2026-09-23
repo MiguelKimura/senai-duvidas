@@ -14,7 +14,7 @@
 // INVERTIDAS, não apagadas, e hoje exigem o carimbo do servidor
 // (AC-TEMPO-01/02, a partir de `:252`).
 import React from 'react';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
@@ -29,6 +29,7 @@ import {
   __semearColecao,
 } from 'firebase/firestore';
 import TelaAluno from '../TelaAluno';
+import { PRAZO_DE_DESFAZER_MS } from '../../hooks/useExclusaoComDesfazer';
 import { PALETA } from '../../utils/paleta';
 import {
   corDeFundo,
@@ -45,6 +46,11 @@ jest.mock('react-router-dom', () => ({
 
 const db = getFirestore();
 const ANA = { uid: 'uid-ana', email: 'ana@senai.br', displayName: 'Ana Souza' };
+
+/** O botão que confirma a exclusão, de dentro do diálogo. */
+function confirmarNoDialogo() {
+  return within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' });
+}
 
 /** O instante que o servidor carimba. Três horas atrás do relógio do aluno. */
 const HORARIO_DO_SERVIDOR = '2025-03-10T13:45:00.000Z';
@@ -398,29 +404,53 @@ describe('TelaAluno — exclusão (AC-CHAMADO-04 e AC-CHAMADO-05)', () => {
     expect(within(cartaoAlheio).queryByRole('button', { name: 'Excluir' })).toBeNull();
   });
 
-  it('remove o chamado do banco e da tela ao clicar em Excluir', async () => {
+  // INVERTIDO pela task 08. Na v0.9.0 um clique só apagava a dúvida, com o
+  // print junto e sem volta. O AC-CHAMADO-04 sempre exigiu a confirmação, e
+  // este caso registrava a ausência dela apontando para esta task.
+  //
+  // A asserção vira de "some da tela e do banco num clique" para "pede
+  // confirmação, e só então some". A exclusão otimista e a janela de desfazer
+  // estão em `exclusaoDeChamado.test.js`; o que se afirma aqui é o que esta
+  // tela sempre afirmou — que o chamado sai da fila e sai do banco.
+  it('remove o chamado do banco e da tela DEPOIS de confirmar', async () => {
+    const relogio = fixarRelogio(HORARIO_DO_SERVIDOR);
     __semearColecao('chamados', [
       fabricaChamado({ id: 'meu', email: 'ana@senai.br', descricao: 'meu chamado' }),
     ]);
     renderComProvedores(<TelaAluno />);
 
-    userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    await userEvent.click(confirmarNoDialogo());
 
     await waitFor(() => expect(screen.queryByText('meu chamado')).not.toBeInTheDocument());
-    expect(await chamadosGravados()).toHaveLength(0);
+
+    // A gravação é adiada pela janela de desfazer (AC-CHAMADO-04): o documento
+    // sai do banco quando ela vence, e não no clique.
+    act(() => relogio.avancar(PRAZO_DE_DESFAZER_MS));
+    await waitFor(async () => expect(await chamadosGravados()).toHaveLength(0));
+
+    restaurarRelogio();
   });
 
-  it('exclui SEM pedir confirmação — o AC-CHAMADO-04 exige confirmar, a task 08 resolve', async () => {
+  // INVERTIDO pela task 08, pelo mesmo motivo do caso acima. Era
+  // "exclui SEM pedir confirmação".
+  it('NÃO exclui enquanto a confirmação não vem — nem pelo `window.confirm`', async () => {
     const confirmar = jest.spyOn(window, 'confirm').mockImplementation(() => true);
     __semearColecao('chamados', [
       fabricaChamado({ id: 'meu', email: 'ana@senai.br', descricao: 'meu chamado' }),
     ]);
     renderComProvedores(<TelaAluno />);
 
-    userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
 
-    await waitFor(async () => expect(await chamadosGravados()).toHaveLength(0));
+    // O diálogo é do app, e não do navegador: `window.confirm` vem suprimido
+    // por política do Windows em parte dos laboratórios, e suprimido ele
+    // devolve `false` em silêncio (AC-ANIM-07).
     expect(confirmar).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(await chamadosGravados()).toHaveLength(1);
+    expect(screen.getByText('meu chamado')).toBeInTheDocument();
+
     confirmar.mockRestore();
   });
 });
