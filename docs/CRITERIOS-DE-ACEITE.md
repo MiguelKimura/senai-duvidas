@@ -160,16 +160,16 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-PERK-01 | O professor consegue conceder um perk a um aluno da sua sala, escolhendo o tipo e uma justificativa opcional. | [POS] |
-| AC-PERK-02 | Existe o perk **"Prioridade no Atendimento"**, que move os chamados do aluno para o topo da fila dentro da sua faixa de prioridade. | [POS] |
-| AC-PERK-03 | Perks têm validade configurável (ex.: 7 dias) e expiram automaticamente pelo horário do servidor. | [POS] |
-| AC-PERK-04 | A concessão dispara uma **animação de premiação** em tela cheia para o aluno (estilo Call of Duty), com som opcional desativado por padrão. | [POS] |
-| AC-PERK-05 | O perk aparece como **insígnia** no card do chamado e no chat do aluno premiado. | [POS] |
-| AC-PERK-06 | O aluno tem uma vitrine ("Minhas conquistas") com os perks ativos e o histórico dos expirados. | [POS] |
-| AC-PERK-07 | Apenas professores concedem ou revogam perks, garantido por Firestore Rules. | [POS] |
-| AC-PERK-08 | A animação respeita `prefers-reduced-motion` e pode ser desativada nas preferências. | [POS] |
-| AC-PERK-09 | A ordenação da fila com perks é determinística e testada: prioridade desc, depois horário do servidor asc. | [POS] |
-| AC-PERK-10 | Existe log de auditoria de perks concedidos (quem, para quem, quando, por quê). | [POS] |
+| AC-PERK-01 ✅ | O professor consegue conceder um perk a um aluno da sua sala, escolhendo o tipo e uma justificativa opcional. | [POS] |
+| AC-PERK-02 ✅ | Existe o perk **"Prioridade no Atendimento"**, que move os chamados do aluno para o topo da fila dentro da sua faixa de prioridade. | [POS] |
+| AC-PERK-03 ✅ | Perks têm validade configurável (ex.: 7 dias) e expiram automaticamente pelo horário do servidor. | [POS] |
+| AC-PERK-04 ✅ | A concessão dispara uma **animação de premiação** em tela cheia para o aluno (estilo Call of Duty), com som opcional desativado por padrão. | [POS] |
+| AC-PERK-05 ✅ | O perk aparece como **insígnia** no card do chamado e no chat do aluno premiado. | [POS] |
+| AC-PERK-06 ✅ | O aluno tem uma vitrine ("Minhas conquistas") com os perks ativos e o histórico dos expirados. | [POS] |
+| AC-PERK-07 ✅ | Apenas professores concedem ou revogam perks, garantido por Firestore Rules. | [POS] |
+| AC-PERK-08 ✅ | A animação respeita `prefers-reduced-motion` e pode ser desativada nas preferências. | [POS] |
+| AC-PERK-09 ✅ | A ordenação da fila com perks é determinística e testada: prioridade desc, depois horário do servidor asc. | [POS] |
+| AC-PERK-10 ✅ | Existe log de auditoria de perks concedidos (quem, para quem, quando, por quê). | [POS] |
 
 ## 11. Animações e Interface (`ANIM`)
 
@@ -654,3 +654,76 @@ cliente por `criarComparadorPorHorario`, como em toda tela do app.
 id determinístico e assinatura do autor, mas não o tamanho do texto — o limite
 de 500 é do cliente. Endurecer isso é o mesmo trabalho pendente do `formato` e
 da `cor` do chamado, e fica para a task 09.
+
+---
+
+### v0.9.0 — Perks: premiação do professor, prioridade na fila e animação
+
+**Atendidos (✅)**
+
+| AC | Prova |
+|---|---|
+| AC-PERK-01 | `src/services/__tests__/perks.test.js:65` — a recusa em português antes de qualquer escrita (tipo, nível, justificativa, validade); `:105` — a concessão grava aluno, tipo, nível e quem concedeu; `src/components/perks/__tests__/PainelDePerks.test.js:141` — o painel oferece os alunos **da sala**; `:151` — e não oferece o próprio professor; `:176` — conceder grava; `:257` — justificativa longa demais é recusada em português, **sem tocar no banco** |
+| AC-PERK-02 | `src/services/__tests__/filaChamados.test.js:85` — nível 1 sobe acima de quem não tem perk; `:94` — nível 2 acima do nível 1; `:104` — vários perks valem pelo **maior** nível, nunca pela soma; `:121` — perk que não é de prioridade não mexe na fila; `src/components/__tests__/filaComPerks.test.js:122` — nas **duas telas**, o chamado de quem tem prioridade vai ao topo |
+| AC-PERK-03 | `src/services/__tests__/filaChamados.test.js:333` — a validade é conferida contra o instante do **servidor**; `:403` — atrasar o relógio da máquina **não revive** perk vencido; `:414` — adiantá-lo só encurta o próprio; `src/services/__tests__/tempo.test.js:475` — o piso de `agoraDoServidor`; `src/services/__tests__/perks.test.js:140` — `expiraEm` sai do instante do servidor; `src/components/perks/__tests__/PainelDePerks.test.js:213` — 7 dias contados de lá |
+| AC-PERK-04 | `src/components/perks/__tests__/AnimacaoDePerk.test.js:68` — tipo, nível, justificativa e quem concedeu, em tela cheia; `:79` — é um `dialog` anunciado a leitor de tela; `:102` — o botão de pular está visível **no primeiro quadro**; `:117` — `Esc` fecha; `:126` — fecha sozinha ao fim; `:225` — o áudio nasce **mudo**; `:248` — a premiação continua na tela se o navegador recusar tocar; `src/components/perks/__tests__/PremiacaoDaSala.test.js:86` — dispara para o perk não visto; `:106` — não dispara para o já visto; `:160` — grava o recibo; `:176` — **não reabre** enquanto o servidor não confirma; `:189` — a recusa do recibo não trava o app |
+| AC-PERK-05 | `src/components/perks/__tests__/InsigniasDoAluno.test.js:50` — a insígnia do perk ativo; `:68` — o vencido não aparece; `:74` — o revogado também não; `:86` — sem perk não desenha nem o invólucro; `src/components/__tests__/insigniasNasTelas.test.js:111` — no card do chamado, nas duas telas; `:177` — ao lado do nome no chat; `:195` — **sem** uma segunda consulta de perks |
+| AC-PERK-06 | `src/services/__tests__/perks.test.js:383` — `separarConquistas` divide as colunas; `:395` — o vencido **não some**, só muda de coluna; `src/components/perks/__tests__/VitrineDeConquistas.test.js:52` — ativos; `:58` — histórico; `:64` — o revogado vai para o histórico; `:82` — justificativa e quem concedeu; `:109` — a vitrine vazia é explicada; `src/components/__tests__/perksNaTelaDoAluno.test.js:77` — a vitrine está na tela do aluno; `:181` — e não na do professor |
+| AC-PERK-07 | `tests/rules/perks.rules.test.js:156` — **o servidor nega**: o aluno não concede perk a si mesmo; `:165` — nem a um colega; `:176` — o professor de outra sala não concede nesta; `:185` — nem a quem não é membro; `:194` — nem assinando em nome de outra pessoa; `:285` — o premiado não revoga nem desrevoga o próprio perk; `:293` — o professor de outra sala não revoga; `src/components/__tests__/perksNaTelaDoAluno.test.js:167` — a interface só oferece o painel ao dono |
+| AC-PERK-08 | `src/services/__tests__/perfilUsuario.test.js:325` — `preferencias` é aditivo, com padrão seguro (`animacoes: true`, `som: false`); `src/components/perks/__tests__/AnimacaoDePerk.test.js:168` — com `prefers-reduced-motion`, card estático com a **mesma** informação; `:192` — quem desligou animações recebe o mesmo card; `:200` — o card estático **espera** o aluno, em vez de sumir no tempo da animação; `src/components/perks/__tests__/PreferenciasDePremiacao.test.js:82` — onde o aluno muda de ideia; `:140` — a recusa do servidor devolve a caixa ao valor gravado; `tests/rules/perks.rules.test.js:463` — só o dono do documento escreve as próprias preferências |
+| AC-PERK-09 | `src/services/__tests__/filaChamados.test.js:156` — timestamps iguais desempatam pelo `chamadoId`; `:283` — **1000 embaralhamentos da mesma fila produzem exatamente a mesma saída**; `:316` — e nenhum atendido aparece antes de um aberto; `:216` — o pendente vai para o fim da **faixa**, não da lista; `src/components/perks/__tests__/PremiacaoDaSala.test.js:251` — a ordem das premiações pendentes também desempata por id |
+| AC-PERK-10 | `src/services/__tests__/perks.test.js:156` — a auditoria registra quem, para quem e por quê; `:174` — **não existe perk sem auditoria**: as duas escritas vão no mesmo lote atômico; `:222` — a revogação é registrada ao lado da concessão; `tests/rules/perks.rules.test.js:355` — append-only no servidor: nem o dono da sala altera ou apaga o que já passou; `src/components/perks/__tests__/PainelDePerks.test.js:198` — conceder pela tela grava o evento; `:297` — revogar também |
+| AC-CHAMADO-03 | **[REG]** `src/services/__tests__/filaChamados.test.js:55` — sem perk nenhum, a fila é a da v0.8.0: horário crescente; `:65` — `Timestamp` e string ISO da v0.1.0 convivem na mesma fila; `src/components/__tests__/filaComPerks.test.js:116` — nas duas telas, sala sem perk mantém a ordem de antes |
+| AC-SEC-03 | `src/services/__tests__/filaChamados.test.js:403` — mexer no relógio da máquina não concede privilégio; `tests/rules/perks.rules.test.js:156` — a escalada pelo cliente é negada pelo servidor; `src/components/perks/__tests__/PreferenciasDePremiacao.test.js:127` — gravar preferência não toca em `tipo` nem no resto do documento |
+| AC-PERF-03 | `src/services/__tests__/perks.test.js:301` — a consulta de perks tem teto; `:337` — sem sala não escuta nada; `src/components/__tests__/filaComPerks.test.js:158` — **uma** consulta por sala, nunca uma por card; `src/components/__tests__/insigniasNasTelas.test.js:195` — abrir o chat não abre uma segunda |
+| AC-DOC-04 | `docs/MANUAL-PROFESSOR.md` — o que é cada tipo, quando conceder, quando não, como revogar, e por que a justificativa é visível para a turma. Cobre perks; salas, PIN e moderação entram na 1.0.0 |
+
+**Compatibilidade desta versão**
+
+| Sentido | Prova |
+|---|---|
+| Retroativa | `src/components/__tests__/filaComPerks.test.js:116` — **a garantia mais importante desta versão**: sala sem perk nenhum produz a mesma ordem da v0.8.0, nas duas telas; `src/services/__tests__/filaChamados.test.js:142` — chamado da v0.1.0, sem `autorUid`, não recebe prioridade e continua na fila; `:204` — chamado sem o campo `atendido` conta como aberto, e não vai para o rodapé; `src/__tests__/compatibilidadeFutura.test.js:491` — a tela nova mostra o chamado da v0.1.0 numa sala sem perk; `src/services/__tests__/perfilUsuario.test.js:325` — perfil da v0.8.0, sem `preferencias`, cai no padrão seguro |
+| Futura | `src/__tests__/compatibilidadeFutura.test.js:491` — o cliente da v0.8.0 ordena a fila da v0.9.0 como sempre ordenou (a prioridade mora em **outra** coleção, que ele nunca consulta) e ignora `preferencias` sem lançar; a asserção sobre a forma do chamado quebra se alguém lhe acrescentar campo, que é o que tornaria a fila antiga incapaz de lê-lo |
+| Migração | **Nenhuma.** Ausência de perk é o estado padrão, e `preferencias` é aditivo com padrão seguro na leitura. |
+
+**Adiados, com motivo**
+
+| AC | Por quê | Versão |
+|---|---|---|
+| AC-CHAMADO-06 | Marcar como atendido continua sem interface. `ordenarFila` já lê o campo e manda o atendido para o fim — quando a interface existir, a fila não precisa mudar. | 08 |
+| AC-ANIM-09 | Inalterado por esta versão. A premiação já nasceu animando só `transform` e `opacity` e com `prefers-reduced-motion` respeitado, mas os componentes continuam usando valores crus em vez de `var(--token)`, e as duas regras de lint continuam desligadas com `TODO(task-08)`. | 08 |
+| AC-DOC-03 | `MANUAL-ALUNO.md` não existe. A vitrine e as preferências do aluno são autoexplicativas na tela; o manual dele é escopo da 1.0.0. | 09 |
+
+**Limites conhecidos**
+
+**A justificativa é legível por toda a turma.** As rules do Firestore liberam ou
+bloqueiam o documento inteiro, nunca campo por campo: quem pode ler o perk lê
+todos os campos dele. O `anunciarParaSala` controla o que a **interface** exibe
+para os colegas, não o que o banco entrega. A consequência está declarada no
+ADR 0010 e escrita com todas as letras no `docs/MANUAL-PROFESSOR.md`, para que
+o professor escreva a justificativa sabendo disso.
+
+**Dois chamados com o mesmo horário podem ter trocado de posição** em relação à
+v0.8.0, onde a ordem entre eles vinha da ordem do snapshot. É o preço do
+desempate determinístico que o AC-PERK-09 exige — e a ordem antiga nunca foi
+garantida pelo Firestore, era estável por acidente. O teste de caracterização de
+`TelaAluno` que dependia dela passou a achar os cartões pelo conteúdo: a
+afirmação dele nunca foi sobre ordem, e continua valendo inteira.
+
+**A expiração não é um evento.** Nenhum processo marca o perk como expirado no
+servidor; ele simplesmente deixa de contar na leitura, contra o instante do
+servidor. A ação `"expirar"` está prevista na auditoria e nenhuma escrita a
+produz — ela existe para quando houver uma Cloud Function, que este projeto não
+tem.
+
+**O piso do "agora" envelhece numa sala parada.** `agoraDoServidor` usa o maior
+`Timestamp` já visto vindo do banco como piso do instante corrente. Numa sala
+sem nenhuma escrita nova, esse piso envelhece junto com o último carimbo lido, e
+um relógio atrasado pode esticar um perk até ali. Em aula, qualquer chamado,
+mensagem ou premiação o atualiza, e o piso é de segundos atrás.
+
+**A rule não confere o `alunoNome` contra o documento do membro.** Ela exige que
+o premiado seja membro da sala e que o nome seja uma string, mas um professor
+adulterando o cliente poderia gravar um nome diferente do que está em
+`membros/{uid}`. O estrago é cosmético — o `alunoUid` é o que vale em toda
+leitura —, e conferir exigiria um `get()` a mais em cada concessão.

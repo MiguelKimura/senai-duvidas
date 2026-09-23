@@ -386,7 +386,14 @@ describe('TelaAluno — exclusão (AC-CHAMADO-04 e AC-CHAMADO-05)', () => {
 
     renderComProvedores(<TelaAluno />);
 
-    const [meuCartao, cartaoAlheio] = cartoes();
+    // Os cartões são achados pelo conteúdo, e não pela posição na lista: desde
+    // a v0.9.0 dois chamados com o MESMO horário desempatam pelo id do chamado
+    // (AC-PERK-09), e a ordem entre estes dois deixou de ser a de semeadura.
+    // A afirmação deste teste nunca foi sobre ordem — é sobre de quem é o
+    // botão —, e por isso ela continua valendo palavra por palavra.
+    const meuCartao = screen.getByText('meu chamado').closest('.problema-card');
+    const cartaoAlheio = screen.getByText('chamado do Bruno').closest('.problema-card');
+
     expect(within(meuCartao).getByRole('button', { name: 'Excluir' })).toBeInTheDocument();
     expect(within(cartaoAlheio).queryByRole('button', { name: 'Excluir' })).toBeNull();
   });

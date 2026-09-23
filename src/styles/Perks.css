@@ -1,0 +1,303 @@
+/*
+ * Perks — AC-PERK-04, AC-PERK-05, AC-PERK-06, AC-PERK-08, AC-ANIM-05/06.
+ *
+ * Duas regras valem para tudo aqui:
+ *
+ *   1. **So `transform` e `opacity` animam** (AC-ANIM-06). Animar `width`,
+ *      `top` ou `height` forca o navegador a recalcular o layout a cada
+ *      quadro, e a premiacao entra em tela cheia por cima de uma fila de ate
+ *      200 cards — e o alvo e uma maquina de laboratorio, nao um notebook novo.
+ *   2. **`prefers-reduced-motion: reduce` zera o movimento** (AC-ANIM-05). O
+ *      componente ja troca a forma animada pelo card estatico no JavaScript;
+ *      este bloco e a segunda tranca, para o caso de o `matchMedia` nao existir
+ *      no navegador.
+ *
+ * O polimento final — duracoes e curvas vindas dos tokens — e da task 08.
+ */
+
+/* ---- A premiacao em tela cheia --------------------------------------- */
+
+.perk-premiacao {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: var(--camada-sobreposicao);
+}
+
+.perk-premiacao-cartao {
+  background: var(--cor-superficie);
+  border-radius: var(--raio-3);
+  box-shadow: var(--sombra-elevada);
+  padding: var(--espaco-5);
+  max-width: 32rem;
+  text-align: center;
+}
+
+.perk-premiacao-chamada {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cor-primaria);
+  margin: 0 0 var(--espaco-2);
+  font-weight: bold;
+}
+
+.perk-premiacao-titulo {
+  margin: 0 0 var(--espaco-2);
+  color: var(--cor-texto-titulo);
+}
+
+.perk-premiacao-nivel {
+  margin: 0 0 var(--espaco-3);
+  color: var(--cor-primaria);
+  font-size: 1.4rem;
+}
+
+.perk-premiacao-nivel-texto {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--cor-texto-rotulo);
+}
+
+.perk-premiacao-justificativa {
+  margin: 0 0 var(--espaco-3);
+  color: var(--cor-texto-rotulo);
+}
+
+.perk-premiacao-autor {
+  margin: 0 0 var(--espaco-4);
+  color: var(--cor-texto-discreto);
+  font-size: 0.9rem;
+}
+
+/* Sempre visivel, sempre alcancavel pelo teclado (AC-PERK-04, AC-ANIM-10). */
+.perk-premiacao-pular {
+  background: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
+  border: none;
+  border-radius: var(--raio-1);
+  padding: var(--espaco-2) var(--espaco-4);
+  cursor: pointer;
+}
+
+.perk-premiacao-pular:hover {
+  background: var(--cor-primaria-hover);
+}
+
+.perk-premiacao-pular:focus-visible {
+  outline: 2px solid var(--cor-texto-titulo);
+  outline-offset: 2px;
+}
+
+/* ---- O movimento, so em transform e opacity (AC-ANIM-06) -------------- */
+
+@keyframes perk-entrada {
+  from {
+    opacity: 0;
+    transform: scale(0.82) translateY(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes perk-brilho {
+  from {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+.perk-premiacao--animada .perk-premiacao-cartao {
+  animation: perk-entrada 0.45s var(--aceleracao-padrao) both;
+}
+
+.perk-premiacao--animada .perk-premiacao-nivel {
+  animation: perk-brilho 1.2s var(--aceleracao-padrao) 0.3s both;
+}
+
+.perk-premiacao--saindo .perk-premiacao-cartao {
+  opacity: 0;
+  transform: scale(0.94);
+  transition:
+    opacity var(--duracao-transicao) var(--aceleracao-padrao),
+    transform var(--duracao-transicao) var(--aceleracao-padrao);
+}
+
+/* A forma estatica nao anima nada, por definicao. */
+.perk-premiacao--estatica .perk-premiacao-cartao {
+  animation: none;
+}
+
+/* ---- A insignia do perk (AC-PERK-05) ---------------------------------- */
+
+.perk-insignias {
+  display: inline-flex;
+  gap: var(--espaco-1);
+  margin-left: var(--espaco-1);
+}
+
+.perk-insignia {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--cor-fundo-caixa);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-4);
+  padding: 0 var(--espaco-1);
+  font-size: 0.75rem;
+  color: var(--cor-texto-rotulo);
+  line-height: 1.6;
+}
+
+.perk-insignia--prioridade {
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria);
+}
+
+/* ---- A vitrine "Minhas conquistas" (AC-PERK-06) ----------------------- */
+
+.perk-vitrine {
+  background: var(--cor-superficie);
+  border-radius: var(--raio-2);
+  box-shadow: var(--sombra-caixa);
+  padding: var(--espaco-3);
+  margin: var(--espaco-3) 0;
+}
+
+.perk-vitrine h3 {
+  margin: 0 0 var(--espaco-2);
+  color: var(--cor-texto-titulo);
+}
+
+.perk-vitrine-lista {
+  list-style: none;
+  margin: 0 0 var(--espaco-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.perk-vitrine-item--expirado {
+  opacity: 0.65;
+}
+
+.perk-vitrine-vazio {
+  color: var(--cor-texto-discreto);
+  margin: 0;
+}
+
+/* ---- O painel de concessao do professor (AC-PERK-01) ------------------ */
+
+.perk-painel {
+  background: var(--cor-fundo-caixa);
+  border-radius: var(--raio-2);
+  padding: var(--espaco-3);
+  margin-top: var(--espaco-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+}
+
+.perk-painel label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-minimo);
+  color: var(--cor-texto-rotulo);
+  font-size: 0.9rem;
+}
+
+.perk-painel-acoes {
+  display: flex;
+  gap: var(--espaco-2);
+}
+
+/* ---- Movimento reduzido: a segunda tranca (AC-ANIM-05) ---------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .perk-premiacao-cartao,
+  .perk-premiacao--animada .perk-premiacao-cartao,
+  .perk-premiacao--animada .perk-premiacao-nivel,
+  .perk-premiacao--saindo .perk-premiacao-cartao {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- As preferencias de premiacao (AC-PERK-08) ------------------------ */
+
+.perk-preferencias {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-2);
+  padding: var(--espaco-2) var(--espaco-3);
+  margin: var(--espaco-2) 0 var(--espaco-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.perk-preferencias legend {
+  color: var(--cor-texto-rotulo);
+  font-size: 0.9rem;
+  padding: 0 var(--espaco-1);
+}
+
+.perk-preferencias-opcao {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-1);
+  color: var(--cor-texto-rotulo);
+  font-size: 0.9rem;
+}
+
+.perk-preferencias-erro {
+  color: var(--cor-erro);
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.perk-painel-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+}
+
+.perk-painel-caixa {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--espaco-1);
+}
+
+.perk-painel-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+}
+
+.perk-painel-lista li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-2);
+  color: var(--cor-texto-rotulo);
+  font-size: 0.9rem;
+}
+
+.perk-painel-aviso {
+  color: var(--cor-texto-rotulo);
+  margin: 0;
+  font-size: 0.9rem;
+}

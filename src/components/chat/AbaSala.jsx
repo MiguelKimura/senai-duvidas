@@ -79,8 +79,9 @@ function useDiaCorrente() {
  * @param {string|null} props.salaId
  * @param {{uid: string, nome: string, email?: string, papel?: string}} props.pessoa
  * @param {boolean} [props.somenteLeitura] sala arquivada (AC-SALA-10).
+ * @param {(mensagem: object) => React.ReactNode} [props.insigniasDe] AC-PERK-05.
  */
-export default function AbaSala({ salaId, pessoa, somenteLeitura = false }) {
+export default function AbaSala({ salaId, pessoa, somenteLeitura = false, insigniasDe }) {
   const { mensagens, temMais, carregando, carregarAnteriores } = useMensagens(salaId);
   const agora = useDiaCorrente();
 
@@ -163,6 +164,7 @@ export default function AbaSala({ salaId, pessoa, somenteLeitura = false }) {
         temMais={mostrarHistorico && temMais}
         carregando={carregando}
         aoCarregarAnteriores={carregarAnteriores}
+        insigniasDe={insigniasDe}
       />
 
       <CampoMensagem aoEnviar={enviar} somenteLeitura={somenteLeitura} />

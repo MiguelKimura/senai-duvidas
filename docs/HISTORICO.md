@@ -618,7 +618,81 @@ mudou em que coleção ele lia, e parou aí.
 
 ## v0.9.0 — Perks
 
-*(a preencher pela task 07)*
+**O que existia**
+
+Nada disso. A fila era uma coisa só — `problemasList.sort((a, b) => a.horario - b.horario)` — e o
+professor não tinha instrumento nenhum de reconhecimento. Quando um aluno parava o próprio
+trabalho para ajudar um colega, o que sobrava era um "valeu" no meio da aula, que ninguém além
+dos dois ouvia.
+
+**O que o cliente pediu**
+
+> "Opção do professor dar perks aos alunos (ex.: prioridade no atendimento). Isso não é essencial
+> agora, mas queria perks tipo o do Call of Duty, pra ter animações legais, e funcionaria como uma
+> premiação que o professor pode dar a um aluno."
+
+O pedido parece ser sobre animação. Não é — ele é sobre **reconhecimento público**, e a animação
+é a forma que o cliente conhece de fazer reconhecimento parecer importante. Entregar a animação
+sem a insígnia, a vitrine e o registro seria entregar o efeito sem o valor.
+
+**As decisões, e o que foi descartado**
+
+- **Quatro tipos, e só um mexe na fila.** Prioridade no Atendimento muda a ordem; Destaque,
+  Colaborador e Resolvedor são reconhecimento puro. Se toda premiação furasse a fila, o professor
+  não teria como elogiar quem ajudou um colega sem, de quebra, atrasar o atendimento de outra
+  pessoa.
+- **A ordenação virou função pura, com desempate por id do chamado.** A fila é o que o professor
+  realmente usa, e uma ordem não determinística ali gera briga em sala. `ordenarFila` é testada
+  com 1000 embaralhamentos da mesma lista, e produz sempre a mesma saída. **Descartado:**
+  `localeCompare` no desempate — o resultado dele depende da tabela ICU do navegador, e o Chrome
+  do laboratório poderia discordar do Firefox do professor sobre dois ids.
+- **A validade é conferida contra um "agora" com piso no servidor.** Comparar `expiraEm` com
+  `new Date()` devolveria a decisão ao relógio da máquina, que nos laboratórios está errado com
+  frequência e é editável por qualquer aluno. Como o SDK do Firestore não expõe o relógio do
+  servidor, o app usa o maior `Timestamp` que já viu vindo dele como piso do instante corrente.
+  Atrasar o relógio não revive perk vencido; adiantá-lo só encurta o próprio.
+  **Descartado:** consultar uma API pública de horário — continuaria falsificável, porque quem
+  aplicaria a resposta seria o cliente.
+- **Revogar é um campo, não um `delete`.** O perk sai da fila e vai para o histórico da vitrine.
+  Apagá-lo reescreveria o passado da turma, e o `delete` está negado na rule por isso.
+- **A premiação e o registro dela são uma escrita só** (`writeBatch`). Um log escrito *depois* do
+  perk pode não ser escrito nunca — a rede do laboratório cai, a aba fecha —, e um perk sem evento
+  é um privilégio sem dono declarado.
+- **Uma consulta de perks por sala, nunca uma por card.** **Descartado:** resolver o perk dentro
+  do card, que seria a linha mais curta de escrever e custaria 200 leituras por abertura do app
+  no alvo declarado do projeto.
+- **A animação nasceu com três travas**, porque o ambiente é uma sala com 40 pessoas e um
+  projetor: botão de pular sempre visível (e `Esc`), card estático para quem pediu
+  `prefers-reduced-motion`, e som **desligado por padrão**.
+
+**O que ficou por resolver, e está declarado**
+
+- **A justificativa é legível por toda a turma.** As rules do Firestore liberam ou bloqueiam o
+  documento inteiro, nunca campo por campo. O "anunciar para a sala" controla o que a interface
+  exibe, não o que o banco entrega — e o `docs/MANUAL-PROFESSOR.md` diz isso com todas as letras,
+  para que o professor escreva a justificativa sabendo disso.
+- **Dois chamados com o mesmo horário podem ter trocado de posição** em relação à v0.8.0, onde a
+  ordem entre eles vinha do snapshot. É o preço do determinismo que o AC-PERK-09 exige, e a ordem
+  antiga nunca foi garantida — era estável por acidente.
+- **A expiração não é um evento.** Nenhum processo marca o perk como expirado no servidor; ele
+  deixa de contar na leitura. A ação `"expirar"` existe na auditoria e nada a produz ainda — ela
+  espera uma Cloud Function, que este projeto não tem.
+
+**O que o usuário sente na prática**
+
+- **O aluno premiado** abre a sala e recebe a premiação em tela cheia, com o tipo, o nível, a
+  justificativa e o nome de quem concedeu — **uma vez só**, e com o botão de pular à mão desde o
+  primeiro quadro. Depois disso, a insígnia fica ao lado do nome dele no card e no chat, e a
+  premiação entra na vitrine "Minhas conquistas", que guarda também as que já venceram.
+- **O aluno que não quer a tela cheia** desmarca uma caixa na própria sala. E quem já pediu menos
+  movimento ao sistema operacional não precisa nem disso: a premiação vira um card parado, com a
+  mesma informação e sem cronômetro.
+- **O professor** ganha um painel acima da fila onde conceder é um gesto de dez segundos, sem
+  sair da tela que ele está olhando, e onde ele revoga o que concedeu por engano.
+- **A turma inteira** vê por que um chamado está acima dos outros: a insígnia aparece no card. Um
+  chamado que fura a fila sem explicação parece erro do sistema — ou favorecimento.
+- **A sala sem nenhuma premiação** — que é toda sala existente no dia do deploy — funciona
+  exatamente como na v0.8.0. Essa é a garantia mais testada desta versão.
 
 ## v0.10.0 — Acabamento e acessibilidade
 
