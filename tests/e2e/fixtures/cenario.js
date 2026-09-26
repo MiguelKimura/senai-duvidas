@@ -8,7 +8,7 @@
 // A terceira pessoa — a Bia — existe por causa de um critério só, o AC-DM-04:
 // uma conversa direta não pode ser visível a terceiros. Sem alguém de fora da
 // conversa e dentro da sala, aquele critério não tem como ser exercitado.
-const { criarConta, gravar, gravarVarios } = require('./emulador');
+const { criarConta, gravar, gravarEmLote, gravarVarios } = require('./emulador');
 
 /** A aluna. É ela quem abre chamado, manda mensagem e exclui o próprio card. */
 const ANA = {
@@ -175,13 +175,28 @@ async function semearSala({ membros = [ANA, BIA], ativa = true } = {}) {
 
 /** O vínculo nos dois lugares: a autoridade e o espelho. */
 async function vincular(pessoa, papel) {
-  await gravar(`salas/${SALA.id}/membros`, pessoa.uid, {
+  await gravar(`salas/${SALA.id}/membros`, pessoa.uid, membro(pessoa, papel));
+  await espelharVinculo(pessoa, papel);
+}
+
+/** O documento de `salas/{id}/membros/{uid}` — a autoridade do vínculo. */
+function membro(pessoa, papel) {
+  return {
     nome: pessoa.nome,
     email: pessoa.email,
     papel,
     entrouEm: INSTANTE,
-  });
+  };
+}
 
+/**
+ * O espelho em `usuarios/{uid}/salas` — o lado que a lista "Minhas salas" lê.
+ *
+ * Separado de `vincular` porque o cenário de carga grava os 40 membros em um
+ * lote só e ainda precisa do espelho de quem faz login. Chamar `vincular` ali
+ * tentaria criar o membro duas vezes, e o REST do emulador responde 409.
+ */
+async function espelharVinculo(pessoa, papel) {
   await gravar(`usuarios/${pessoa.uid}/salas`, SALA.id, {
     salaId: SALA.id,
     papel,
@@ -265,6 +280,119 @@ function corpoDaMensagem({ autor, texto, quando }) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// O cenário de carga — AC-PERF-05
+// ---------------------------------------------------------------------------
+//
+// O alvo declarado do projeto, em documentos de verdade no emulador: 40 pessoas
+// na sala, 200 chamados na fila e 1000 mensagens no chat do dia. Não é o
+// cenário confortável de sempre — é o pior dia do ano, a turma inteira em
+// laboratório na semana de entrega.
+//
+// A escolha dos números não é livre: eles são exatamente os do AC-PERF-05 e os
+// mesmos que `docs/ARQUITETURA.md` § 5 usa na conta de custo. Semear 41 ou 999
+// tornaria o teste uma aproximação de um critério que é numérico.
+
+/** Quantas pessoas a sala cheia tem, contando o professor. */
+const TURMA_DE_CARGA = 40;
+
+/** Quantos chamados a fila cheia tem. É o teto de leitura de `salas.js`. */
+const CHAMADOS_DE_CARGA = 200;
+
+/** Quantas mensagens o chat do dia tem. */
+const MENSAGENS_DE_CARGA = 1000;
+
+/**
+ * Os 40 alunos da sala cheia: a Ana, a Bia e 38 colegas gerados.
+ *
+ * A Ana e a Bia entram na conta em vez de somar-se a ela porque são as duas que
+ * fazem login — um cenário de 42 pessoas provaria um número que o critério não
+ * pede, e deixaria de provar que **quem loga** é uma das 40.
+ */
+function turmaDeCarga() {
+  const gerados = [...Array(TURMA_DE_CARGA - 2)].map((_valor, indice) => {
+    const numero = String(indice + 1).padStart(2, '0');
+
+    return {
+      uid: `uid-colega-${numero}`,
+      nome: `Colega ${numero}`,
+      email: `colega${numero}@senai.br`,
+    };
+  });
+
+  return [ANA, BIA, ...gerados];
+}
+
+/**
+ * A sala do alvo do projeto, cheia.
+ *
+ * Semeia por lote (`gravarEmLote`) e não documento a documento: são 1240
+ * documentos, e um `POST` para cada levava mais de um minuto — o navegador
+ * abria depois de o Playwright já ter desistido.
+ *
+ * @returns {Promise<Array<object>>} a turma, para o spec afirmar sobre nomes.
+ */
+async function semearSalaCheia() {
+  const turma = turmaDeCarga();
+
+  await criarContas();
+  await semearPerfis();
+  await semearSala({ membros: [] });
+
+  await gravarEmLote(
+    `salas/${SALA.id}/membros`,
+    turma.map((pessoa) => ({ id: pessoa.uid, ...membro(pessoa, 'aluno') }))
+  );
+
+  // O espelho em `usuarios/{uid}/salas` só importa para quem abre a lista de
+  // salas, e nesta suíte isso é a Ana e a Bia. Semear os 38 colegas aqui seriam
+  // 38 documentos que nenhuma asserção olha.
+  await espelharVinculo(ANA, 'aluno');
+  await espelharVinculo(BIA, 'aluno');
+
+  await gravarEmLote(
+    `salas/${SALA.id}/chamados`,
+    [...Array(CHAMADOS_DE_CARGA)].map((_valor, indice) => {
+      const autor = turma[indice % turma.length];
+      const numero = String(indice + 1).padStart(3, '0');
+
+      return {
+        id: `chamado-${numero}`,
+        autorUid: autor.uid,
+        autorNome: autor.nome,
+        nome: autor.nome,
+        email: autor.email,
+        descricao: `Dúvida número ${numero} — a peça não encaixa no gabarito.`,
+        // Minuto crescente: com o mesmo carimbo em 200 documentos, a ordem da
+        // fila passaria a ser a do id, e a asserção falaria de uma ordem que a
+        // tela não promete.
+        horario: new Date(INSTANTE.getTime() + indice * 60000),
+        cor: '#d8e5ff',
+        formato: 'texto',
+        imagem: null,
+        anexo: null,
+        atendido: false,
+      };
+    })
+  );
+
+  await gravarEmLote(
+    `salas/${SALA.id}/chat`,
+    [...Array(MENSAGENS_DE_CARGA)].map((_valor, indice) => ({
+      id: `carga-${String(indice + 1).padStart(4, '0')}`,
+      ...corpoDaMensagem({
+        autor: turma[indice % turma.length],
+        texto: `Mensagem de carga ${indice + 1}`,
+        // Mil minutos a partir das 6h cabem no mesmo dia de Brasília, que é o
+        // que o chat mostra sem clique nenhum (AC-TEMPO-07).
+        quando: hojeEmBrasiliaAs(6 + Math.floor(indice / 60), indice % 60),
+      }),
+    }))
+  );
+
+  return turma;
+}
+
 /** O cenário completo: contas, perfis e a sala com os dois alunos dentro. */
 async function semearCenarioCompleto(opcoes = {}) {
   await criarContas();
@@ -276,8 +404,11 @@ module.exports = {
   ANA,
   BIA,
   CARLOS,
+  CHAMADOS_DE_CARGA,
   INSTANTE,
+  MENSAGENS_DE_CARGA,
   SALA,
+  TURMA_DE_CARGA,
   criarContas,
   hojeEmBrasiliaAs,
   resumoDoPin,
@@ -287,5 +418,6 @@ module.exports = {
   semearMensagem,
   semearPerfis,
   semearSala,
+  semearSalaCheia,
   vincular,
 };

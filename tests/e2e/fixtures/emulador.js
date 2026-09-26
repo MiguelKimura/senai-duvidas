@@ -228,6 +228,43 @@ async function gravarVarios(colecao, documentos) {
   }
 }
 
+/**
+ * Grava muitos documentos de uma vez, por `:commit`.
+ *
+ * Existe por causa do teste de carga (AC-PERF-05), que semeia 1240 documentos:
+ * um `POST` por documento levava mais de um minuto e estourava o teto do
+ * Playwright antes de o navegador abrir. O `:commit` manda um lote por
+ * requisição — nenhuma disputa, nenhum 429, e o mesmo resultado.
+ *
+ * O lote é de 400 e não de 500, que é o teto do Firestore: os 100 de folga são
+ * para o dia em que um documento deste cenário ganhar um campo de escrita
+ * implícita e o lote passar a contar mais do que se vê aqui.
+ *
+ * Diferença de semântica que vale saber: `gravar` recusa um id que já existe, e
+ * isto sobrescreve. Para semeadura depois de `limparTudo()` dá no mesmo.
+ *
+ * @param {string} colecao
+ * @param {Array<{id: string} & object>} documentos
+ */
+async function gravarEmLote(colecao, documentos) {
+  const TAMANHO_DO_LOTE = 400;
+  const prefixo = `projects/${projeto()}/databases/(default)/documents/${colecao}`;
+
+  for (let inicio = 0; inicio < documentos.length; inicio += TAMANHO_DO_LOTE) {
+    const lote = documentos.slice(inicio, inicio + TAMANHO_DO_LOTE);
+
+    // eslint-disable-next-line no-await-in-loop
+    await chamar(`${baseFirestore()}:commit`, {
+      method: 'POST',
+      body: JSON.stringify({
+        writes: lote.map(({ id, ...dados }) => ({
+          update: { name: `${prefixo}/${id}`, fields: campos(dados) },
+        })),
+      }),
+    });
+  }
+}
+
 /** Lê um documento de volta, para a asserção olhar o banco e não a tela. */
 async function ler(caminho) {
   const resposta = await fetch(`${baseFirestore()}/${caminho}`, { headers: CABECALHOS });
@@ -285,6 +322,7 @@ module.exports = {
   campos,
   criarConta,
   gravar,
+  gravarEmLote,
   gravarVarios,
   idsDe,
   ler,
