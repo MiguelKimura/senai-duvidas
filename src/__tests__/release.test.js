@@ -177,10 +177,14 @@ describe('.github/workflows/homologacao.yml', () => {
     // O erro que este teste existe para impedir é o de uma letra: o workflow de
     // `dev` apontando para a variável do projeto de produção publicaria
     // homologação em cima da aula.
-    const comandos = comandosDoWorkflow(lerHomologacao());
+    //
+    // A varredura é no **arquivo inteiro**, e não só nos `run`: o projeto entra
+    // por `env`, e olhar só os comandos deixaria passar exatamente a troca que
+    // se quer pegar.
+    const texto = fs.readFileSync(CAMINHO_HOMOLOGACAO, 'utf8');
 
-    expect(comandos).toContain('FIREBASE_PROJETO_HOMOLOGACAO');
-    expect(comandos).not.toContain('FIREBASE_PROJETO_PRODUCAO');
+    expect(texto).toContain('FIREBASE_PROJETO_HOMOLOGACAO');
+    expect(texto).not.toContain('FIREBASE_PROJETO_PRODUCAO');
   });
 
   it('roda a suíte antes de publicar, como o release faz', () => {
