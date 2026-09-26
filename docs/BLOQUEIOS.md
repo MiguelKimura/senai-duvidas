@@ -218,3 +218,60 @@ cheias, as leituras param no meio da tarde e o app passa a mostrar erro de
 carregamento para todo mundo até a virada do dia. A mitigação operacional é a que
 já existe e é boa: o professor exclui os chamados atendidos, e cada chamado
 excluído sai da conta de todas as aberturas seguintes.
+
+---
+
+## B-004 — O deploy existe no workflow e não tem credencial para rodar
+
+- **Versão:** 1.0.0 (task 09)
+- **Critério afetado:** AC-CI-08
+- **Estado:** automatizado até onde a automação alcança; a credencial é ação de dono
+
+### O limite
+
+`.github/workflows/release.yml` publica em produção a partir de `main`, e
+`.github/workflows/homologacao.yml` publica homologação a partir de `dev`. Os dois
+funcionam e nenhum dos dois pode rodar até que três coisas existam, e nenhuma
+delas é criável por uma sessão de automação:
+
+| O que falta | Onde se cria | Nome esperado |
+|---|---|---|
+| Projeto Firebase de produção | console do Firebase | variável `FIREBASE_PROJETO_PRODUCAO` |
+| Projeto Firebase de homologação | console do Firebase | variável `FIREBASE_PROJETO_HOMOLOGACAO` |
+| Conta de serviço com papel de deploy | IAM do projeto | segredo `FIREBASE_SERVICE_ACCOUNT` |
+
+Criar projeto no Firebase exige uma conta Google com faturamento associado e
+aceitação de termos; gerar a chave da conta de serviço exige papel de
+administrador no projeto. Não há API que a sessão possa chamar, e inventar
+identificadores de projeto no repositório seria pior do que deixar a lacuna
+visível: o workflow apontaria com confiança para um projeto que não existe.
+
+### O que foi feito, então
+
+- Os dois workflows estão escritos, revisados e testados no que é verificável sem
+  credencial: gatilho, ordem dos passos, origem do número da versão,
+  idempotência da tag e permissão do token — `src/__tests__/release.test.js`.
+- O passo de deploy é **condicionado à existência do segredo**. Sem ele o
+  workflow não falha: marca a versão, publica o release no GitHub e emite um
+  aviso dizendo que o deploy não rodou. Falhar ali deixaria a tag sem criar e
+  faria parecer que o release não saiu, quando o que falta é configuração de
+  painel.
+- `firebase.json` ganhou a seção `hosting`, com a reescrita de rota única que um
+  app de página única precisa. Essa parte é código, e está pronta.
+- O procedimento manual está em `docs/RELEASE.md` § 2.5, com a tabela acima.
+
+### Proposta para fechar
+
+1. Criar os dois projetos no console do Firebase (produção e homologação).
+2. Em cada um: IAM → conta de serviço → papel *Firebase Hosting Admin* +
+   *Cloud Datastore Owner* (para publicar as rules) → gerar chave JSON.
+3. No GitHub: *Settings → Secrets and variables → Actions* → o segredo
+   `FIREBASE_SERVICE_ACCOUNT` com o JSON, e as duas variáveis com os ids.
+4. Fazer um push em `dev` e conferir que a homologação subiu, **antes** do
+   primeiro merge em `main`.
+5. Apagar esta entrada, com o link da primeira execução verde do deploy.
+
+**Custo de não fazer agora:** a versão 1.0.0 é marcada e fica publicada no GitHub,
+e a instalação no laboratório continua sendo manual (`npm run build` e subida do
+`build/` à mão). Isso funciona e é exatamente o passo que um dia não é dado —
+razão pela qual o automatizado existe e está esperando a chave.

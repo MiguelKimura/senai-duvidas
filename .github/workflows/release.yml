@@ -1,0 +1,160 @@
+# Release do Projeto Dúvidas SENAI — AC-CI-07, AC-CI-08.
+#
+# Dispara em push para `main`, e só para `main`. O merge de `dev` em `main` **é**
+# o release: não há botão a apertar depois, e é isso que impede a versão que a
+# turma usa de ser diferente da versão que foi revisada.
+#
+# A ordem importa e é esta: verificar primeiro, publicar depois. O job `publicar`
+# depende de `verificar`, então nada chega ao laboratório sem lint, suíte
+# unitária, rules, end-to-end e build verdes. `main` já é protegida e só recebe
+# PR com o `ci.yml` verde; rodar de novo aqui parece redundante e não é — um
+# merge de dois PRs verdes pode produzir um `main` vermelho, e este é o último
+# lugar onde isso ainda dá para descobrir antes da aula.
+#
+# Sobre a tag: o número sai do `package.json`, nunca de um valor digitado aqui.
+# Duas fontes para a mesma versão é uma que vai discordar da outra, e o dia em
+# que isso acontece é o dia em que alguém procura a tag `v1.0.0` e encontra o
+# código da 0.10.0.
+#
+# O passo de publicação é condicionado à credencial existir. A razão está em
+# `docs/BLOQUEIOS.md`: criar o projeto de Hosting e o segredo do GitHub é ação de
+# dono, e não há API que a sessão de automação possa chamar. Sem a credencial o
+# workflow **não falha** — ele marca a versão, publica o release no GitHub e diz
+# em voz alta que o deploy não aconteceu. Falhar aqui deixaria a tag sem criar e
+# faria parecer que o release não saiu, quando o que falta é uma configuração de
+# painel.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+# Diferente do `ci.yml`, que só lê: este cria tag e release. Está escrito porque
+# um token com permissão implícita é o que transforma um workflow inofensivo num
+# que apaga branch.
+permissions:
+  contents: write
+
+jobs:
+  verificar:
+    name: verificar
+    runs-on: ubuntu-latest
+    # Generoso em comparação aos 5 minutos de cada job do `ci.yml`, porque aqui
+    # as quatro suítes rodam no mesmo job: é uma verificação de release, que
+    # acontece uma vez por versão, e não o retorno de cada push.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Instalar
+        run: npm ci
+      - name: Instalar o Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+      - name: ESLint, zero warnings
+        run: npm run lint
+      - name: Testes unitários com cobertura
+        run: npm run test:ci
+      - name: Testes de Firestore e Storage Rules
+        run: npm run test:rules
+      - name: Fluxos críticos no navegador
+        run: npm run test:e2e
+      - name: Build de produção
+        run: npm run build
+      - name: Orçamento do bundle inicial
+        run: npm run orcamento
+
+  publicar:
+    name: publicar
+    runs-on: ubuntu-latest
+    needs: verificar
+    timeout-minutes: 15
+    steps:
+      # `fetch-depth: 0` porque a tag é criada aqui e o passo abaixo pergunta ao
+      # remoto se ela já existe.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Instalar
+        run: npm ci
+
+      - name: Ler a versão do package.json
+        id: versao
+        run: echo "numero=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # A seção da versão no CHANGELOG vira o corpo do release no GitHub. Ela é
+      # gerada dos commits por `npm run changelog` (AC-CI-09), então o texto que
+      # o usuário lê e o histórico do git não podem divergir.
+      - name: Recortar a seção do CHANGELOG
+        id: notas
+        run: |
+          versao="${{ steps.versao.outputs.numero }}"
+          awk -v v="$versao" '
+            $0 ~ "^## \\[" v "\\]" { dentro = 1; next }
+            dentro && /^## \[/     { exit }
+            dentro                 { print }
+          ' CHANGELOG.md > notas-do-release.md
+          if [ ! -s notas-do-release.md ]; then
+            echo "::error::CHANGELOG.md não tem a seção da versão $versao (AC-CI-07)."
+            exit 1
+          fi
+          cat notas-do-release.md
+
+      - name: Build de produção
+        run: npm run build
+
+      # Idempotente de propósito. Um push a mais em `main` — a correção de um
+      # typo no README, um hotfix mesclado — não pode falhar o workflow por tag
+      # existente, e muito menos mover a tag de uma versão já publicada: quem
+      # tem a v1.0.0 instalada precisa continuar tendo a mesma v1.0.0.
+      - name: Criar a tag da versão
+        id: tag
+        run: |
+          versao="${{ steps.versao.outputs.numero }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$versao" >/dev/null 2>&1; then
+            echo "A tag v$versao já existe no remoto. Nada a marcar."
+            echo "criada=nao" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$versao" -m "Versão $versao"
+          git push origin "v$versao"
+          echo "criada=sim" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar o release no GitHub
+        if: steps.tag.outputs.criada == 'sim'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.versao.outputs.numero }}" \
+            --title "v${{ steps.versao.outputs.numero }}" \
+            --notes-file notas-do-release.md
+
+      # O deploy de produção, a partir de `main` (AC-CI-08). A homologação sai de
+      # `dev`, por `.github/workflows/homologacao.yml`.
+      - name: Publicar em produção
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: credencial.json
+          FIREBASE_PROJETO: ${{ vars.FIREBASE_PROJETO_PRODUCAO }}
+        run: |
+          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > credencial.json
+          npx firebase deploy --only hosting,firestore:rules,storage \
+            --project "$FIREBASE_PROJETO" --non-interactive
+          rm -f credencial.json
+
+      - name: Avisar quando o deploy não foi configurado
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT == '' }}
+        run: |
+          echo "::warning::A versão foi marcada, mas o deploy não rodou: falta o segredo FIREBASE_SERVICE_ACCOUNT. Ver docs/RELEASE.md e docs/BLOQUEIOS.md."
