@@ -47,6 +47,29 @@ const SALA = {
 const INSTANTE = new Date('2026-03-10T13:45:00.000Z');
 
 /**
+ * Um instante **de hoje**, em Brasília, na hora pedida.
+ *
+ * O chat da sala mostra só a conversa do dia corrente (AC-TEMPO-07): uma
+ * mensagem semeada em março de 2026 fica invisível atrás do botão "Ver dias
+ * anteriores". Quem testa o envio, o horário e a paginação precisa de mensagens
+ * de hoje, e "hoje" aqui é o dia de **Brasília**, não o do relógio da máquina —
+ * é o mesmo dia que `services/tempo.js` calcula do outro lado.
+ *
+ * O deslocamento fixo de -03:00 é correto para o Brasil desde 2019, quando o
+ * horário de verão foi extinto. Se ele voltar, este é o lugar de mudar.
+ *
+ * @param {number} [hora] hora de Brasília, 0 a 23.
+ * @param {number} [minuto]
+ */
+function hojeEmBrasiliaAs(hora = 10, minuto = 45) {
+  // `sv-SE` é o atalho para AAAA-MM-DD sem montar a data campo por campo.
+  const dia = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  const doisDigitos = (numero) => String(numero).padStart(2, '0');
+
+  return new Date(`${dia}T${doisDigitos(hora)}:${doisDigitos(minuto)}:00-03:00`);
+}
+
+/**
  * O resumo do PIN, no mesmo formato que `services/pin.js` grava e que a rule
  * refaz: `SHA-256(sal + pin)` em hexadecimal minúsculo, **sem separador**.
  *
@@ -196,16 +219,50 @@ async function semearChamado({
 }
 
 /** Uma mensagem do chat da sala. */
-async function semearMensagem({ id = 'mensagem-1', autor = ANA, texto = 'Bom dia!' } = {}) {
-  await gravar(`salas/${SALA.id}/chat`, id, {
+async function semearMensagem({
+  id = 'mensagem-1',
+  autor = ANA,
+  texto = 'Bom dia!',
+  quando = hojeEmBrasiliaAs(),
+} = {}) {
+  await gravar(`salas/${SALA.id}/chat`, id, corpoDaMensagem({ autor, texto, quando }));
+}
+
+/**
+ * Várias mensagens do chat, em minutos crescentes do mesmo dia.
+ *
+ * Minuto crescente, e não o mesmo instante repetido: a lista é ordenada por
+ * `horario`, e com carimbos iguais a ordem passaria a ser a do id — o teste de
+ * paginação afirmaria sobre uma ordem que a tela não promete.
+ *
+ * @param {{quantidade: number, autor?: object, primeiraHora?: number}} opcoes
+ */
+async function semearConversaDaSala({ quantidade, autor = ANA, primeiraHora = 8 }) {
+  const documentos = [...Array(quantidade)].map((_valor, indice) => ({
+    id: `mensagem-${String(indice + 1).padStart(3, '0')}`,
+    ...corpoDaMensagem({
+      autor,
+      texto: `Mensagem número ${indice + 1}`,
+      quando: hojeEmBrasiliaAs(primeiraHora + Math.floor(indice / 60), indice % 60),
+    }),
+  }));
+
+  await gravarVarios(`salas/${SALA.id}/chat`, documentos);
+}
+
+/** Os campos de uma mensagem, no formato desta versão. */
+function corpoDaMensagem({ autor, texto, quando }) {
+  return {
     texto,
     autorUid: autor.uid,
     autorNome: autor.nome,
     autorPapel: autor === CARLOS ? 'professor' : 'aluno',
+    // `nome` e `email` continuam ao lado dos campos novos: compatibilidade
+    // futura da v0.7.0, mantida na 1.0.0 (ver docs/MIGRACOES.md).
     nome: autor.nome,
     email: autor.email,
-    horario: INSTANTE,
-  });
+    horario: quando,
+  };
 }
 
 /** O cenário completo: contas, perfis e a sala com os dois alunos dentro. */
@@ -222,9 +279,11 @@ module.exports = {
   INSTANTE,
   SALA,
   criarContas,
+  hojeEmBrasiliaAs,
   resumoDoPin,
   semearCenarioCompleto,
   semearChamado,
+  semearConversaDaSala,
   semearMensagem,
   semearPerfis,
   semearSala,
