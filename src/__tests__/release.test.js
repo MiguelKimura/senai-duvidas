@@ -149,6 +149,48 @@ describe('docs/RELEASE.md', () => {
   });
 });
 
+describe('.github/workflows/homologacao.yml', () => {
+  const CAMINHO_HOMOLOGACAO = path.join(RAIZ, '.github', 'workflows', 'homologacao.yml');
+  const lerHomologacao = () => yaml.safeLoad(fs.readFileSync(CAMINHO_HOMOLOGACAO, 'utf8'));
+
+  it('existe: sem ele o AC-CI-08 tem metade', () => {
+    expect(fs.existsSync(CAMINHO_HOMOLOGACAO)).toBe(true);
+  });
+
+  it('dispara em push para dev, e não para main (AC-CI-08)', () => {
+    const workflow = lerHomologacao();
+    const gatilhos = workflow.on || workflow[true];
+
+    expect(gatilhos.push.branches).toEqual(['dev']);
+  });
+
+  it('não cria tag nem publica release', () => {
+    // Homologação não é uma versão: é o estado atual de `dev`. Marcar tag aqui
+    // encheria o repositório de tags que não correspondem a nada instalado.
+    const comandos = comandosDoWorkflow(lerHomologacao());
+
+    expect(comandos).not.toMatch(/git tag/);
+    expect(comandos).not.toMatch(/gh release create/);
+  });
+
+  it('publica no projeto de homologação, nunca no de produção', () => {
+    // O erro que este teste existe para impedir é o de uma letra: o workflow de
+    // `dev` apontando para a variável do projeto de produção publicaria
+    // homologação em cima da aula.
+    const comandos = comandosDoWorkflow(lerHomologacao());
+
+    expect(comandos).toContain('FIREBASE_PROJETO_HOMOLOGACAO');
+    expect(comandos).not.toContain('FIREBASE_PROJETO_PRODUCAO');
+  });
+
+  it('roda a suíte antes de publicar, como o release faz', () => {
+    const comandos = comandosDoWorkflow(lerHomologacao());
+
+    expect(comandos).toContain('npm run test:ci');
+    expect(comandos).toContain('npm run build');
+  });
+});
+
 describe('a versão é a mesma nos três lugares que a declaram', () => {
   const versao = versaoDoPacote();
 
