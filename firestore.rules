@@ -531,6 +531,28 @@ service cloud.firestore {
           return ehAutenticado() && request.auth.uid in resource.data.participantes;
         }
 
+        /// Quem está pedindo é um dos dois uids embutidos no id da conversa.
+        ///
+        /// Existe por causa do documento que **ainda não existe**. O cliente lê
+        /// a conversa antes de criá-la — é a leitura que distingue abrir de
+        /// reabrir, e um `setDoc` cego em cima de uma conversa existente seria
+        /// um `update` que recarimbaria `criadaEm`. Nesse `get`, `resource` é
+        /// nulo, e `participa()` estouraria ao procurar `participantes` dentro
+        /// dele: a primeira conversa de cada par seria sempre negada.
+        ///
+        /// O id é `uidMenor_uidMaior`, e `conversaBemFormada()` é quem garante
+        /// que ele corresponda aos participantes gravados. Isso o torna fonte
+        /// confiável de quem são os dois lados **antes** de haver documento.
+        ///
+        /// Por que não liberar o inexistente para qualquer membro da sala: um
+        /// terceiro compararia as duas respostas — vazio contra
+        /// permission-denied — e teria um detector de conversas alheias sem ler
+        /// uma única mensagem. Saber que duas pessoas conversam é informação
+        /// sobre elas (AC-DM-04).
+        function souParteDoId() {
+          return ehAutenticado() && request.auth.uid in conversaId.split('_');
+        }
+
         /// A pessoa tem vínculo com esta sala.
         function ehMembro(uid) {
           return exists(/databases/$(database)/documents/salas/$(salaId)/membros/$(uid));
@@ -559,7 +581,9 @@ service cloud.firestore {
             && request.resource.data.criadaEm == request.time;
         }
 
-        allow get, list: if participa();
+        // `resource == null` é o documento que ainda não existe: ali a rule
+        // não tem participantes para conferir, e o id é o que sobra.
+        allow get, list: if resource == null ? souParteDoId() : participa();
 
         allow create: if ehMembroDaSala(salaId)
           && salaEstaAtiva(salaId)
