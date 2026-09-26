@@ -275,3 +275,71 @@ visível: o workflow apontaria com confiança para um projeto que não existe.
 e a instalação no laboratório continua sendo manual (`npm run build` e subida do
 `build/` à mão). Isso funciona e é exatamente o passo que um dia não é dado —
 razão pela qual o automatizado existe e está esperando a chave.
+
+---
+
+## B-005 — `Modal.css` estiliza todo botão do aplicativo
+
+- **Versão:** 1.0.0 (task 09)
+- **Critério afetado:** nenhum diretamente; é a causa de um defeito de AC-CHAT-05
+- **Estado:** o sintoma está corrigido; a causa fica para a 1.1.0
+
+### O limite
+
+`src/styles/Modal.css` declara, sem escopo:
+
+```css
+button {
+  padding: 12px;
+  border-radius: 8px;
+  flex: 1;
+  font-size: 16px;
+}
+```
+
+O CSS do Create React App é **global**: um `import './styles/Modal.css'` dentro de
+`Modal.js` não restringe nada ao modal. A regra vale para todo `<button>` do
+aplicativo, e o `flex: 1` é o mais perigoso dos quatro, porque só se manifesta
+quando o botão é item de um flex container — condição que ninguém verifica ao
+escrever uma tela nova.
+
+Foi assim que o chat da sala perdeu a conversa: `.chat-historico` ("Ver dias
+anteriores") é o primeiro item de uma coluna flex, cresceu para 170px de altura, e
+deixou 162px dos 440 do painel para as mensagens — três balões visíveis por vez,
+com 170px de área clicável transparente por cima. O defeito apareceu ao tirar as
+capturas do manual do aluno, quase um ano depois de a regra ter sido escrita.
+
+### Por que não foi resolvido nesta task
+
+A correção é uma linha — trocar `button` por `.modal button` —, e é justamente por
+isso que ela é arriscada agora. Metade das telas do aplicativo herda daquela regra
+o padding, o raio de borda e o tamanho de fonte dos botões: escopá-la faz todos
+eles caírem para o `button` de `App.css`, que tem `padding: 10px`, `border-radius:
+5px` e nenhum `font-size`. Nenhum teste reprovaria isso — não há teste de
+regressão visual —, e a descoberta seria em sala de aula.
+
+A 1.0.0 é a versão que vai para o laboratório. Trocar a aparência de todos os
+botões do sistema na véspera não é estabilização.
+
+### O que foi feito, então
+
+- `src/styles/Chat.css` desfaz o `flex: 1` nos cinco botões-link do chat, do mesmo
+  jeito e pelo mesmo motivo que `SeletorDeCor.css` já desfazia em
+  `.seletor-de-cor__opcao`.
+- `tests/e2e/layout.spec.js` mede a razão entre a área de conversa e o painel:
+  o defeito não pode voltar sem reprovar.
+
+### Proposta para fechar
+
+1. Escopar as regras soltas de `Modal.css` (`button`, `button:hover` e `textarea`)
+   em `.modal`.
+2. Levantar os botões que dependiam delas — `git grep -l "<button"` em
+   `src/components` — e decidir, tela a tela, se o visual correto é o de `App.css`
+   ou se aquela tela precisa das próprias regras.
+3. Fechar com teste de layout nas telas afetadas, no molde do
+   `tests/e2e/layout.spec.js`: altura e largura medidas, não texto de CSS lido.
+4. Apagar esta entrada e o desfazer de `Chat.css`, que deixa de ser necessário.
+
+**Custo de não fazer agora:** cada tela nova que puser um botão dentro de um flex
+em coluna vai encontrar o mesmo defeito, e vai encontrá-lo do mesmo jeito — olhando
+para a tela, não rodando a suíte.

@@ -124,11 +124,28 @@
   cursor: pointer;
 }
 
+/*
+ * Os botões que são link, e não ação: histórico, voltar, carregar mais.
+ *
+ * `flex: 0 0 auto` desfaz o `button { flex: 1 }` que `Modal.css` declara sem
+ * escopo — o CSS do Create React App é global, e a regra alcança todo botão do
+ * app. Dentro de uma coluna, ela faz este botão crescer até tomar o que sobrar:
+ * no painel de 440px, o "Ver dias anteriores" ficava com 170px de altura e a
+ * conversa com 162, mostrando três mensagens. É o mesmo desfazer, pelo mesmo
+ * motivo, que `.seletor-de-cor__opcao` já precisa fazer em `SeletorDeCor.css`.
+ *
+ * A correção certa é escopar a regra de `Modal.css` em `.modal button`. Ela não
+ * cabe numa release de estabilização: metade das telas herda daquela regra o
+ * padding, o raio e o tamanho de fonte dos botões, e trocar isso sem medir cada
+ * tela é o tipo de mudança que se descobre em sala de aula. Está registrada em
+ * `docs/BLOQUEIOS.md` para a 1.1.0.
+ */
 .chat-historico,
 .conversas-nova,
 .conversa-voltar,
 .mensagens-anteriores,
 .mensagens-novas {
+  flex: 0 0 auto;
   align-self: center;
   margin: 8px;
   padding: 4px 10px;
