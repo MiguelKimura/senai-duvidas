@@ -8,7 +8,13 @@
 // A terceira pessoa — a Bia — existe por causa de um critério só, o AC-DM-04:
 // uma conversa direta não pode ser visível a terceiros. Sem alguém de fora da
 // conversa e dentro da sala, aquele critério não tem como ser exercitado.
-const { criarConta, gravar, gravarEmLote, gravarVarios } = require('./emulador');
+const {
+  ENDERECO_DO_APP,
+  criarConta,
+  gravar,
+  gravarEmLote,
+  gravarVarios,
+} = require('./emulador');
 
 /** A aluna. É ela quem abre chamado, manda mensagem e exclui o próprio card. */
 const ANA = {
@@ -281,6 +287,79 @@ function corpoDaMensagem({ autor, texto, quando }) {
 }
 
 // ---------------------------------------------------------------------------
+// O banco da v0.1.0 — compatibilidade retroativa de ponta a ponta
+// ---------------------------------------------------------------------------
+//
+// O `tasks/_PROTOCOLO.md` § 4 exige que documentos gravados pela versão anterior
+// continuem legíveis, e a task 09 pede a prova no formato mais antigo que existe:
+// o da v0.1.0. Ele é diferente do atual em cinco pontos, e cada um deles é uma
+// decisão que o app precisa continuar honrando:
+//
+//   1. `chamados` e `chat` são coleções **globais** — não há sala nenhuma;
+//   2. `horario` é **string ISO**, não `Timestamp` do servidor;
+//   3. `imagem` é **string de URL**, não o mapa `anexo`;
+//   4. o autor é identificado por `email`, não por `autorUid`;
+//   5. `usuarios` não tem `criadoEm`.
+//
+// Nada disso é hipótese: é o banco que estava em produção antes da 0.2.0, e é o
+// que um professor com dois anos de histórico ainda tem.
+
+/** A URL de imagem que a v0.1.0 gravava: uma string, sem mapa de anexo. */
+const IMAGEM_LEGADA = `${ENDERECO_DO_APP}/favicon.ico`;
+
+/** O `horario` da v0.1.0: string ISO, gravada pelo relógio do navegador. */
+const HORARIO_LEGADO = '2026-03-10T13:45:00.000Z';
+
+/**
+ * O banco inteiro da v0.1.0, sem uma sala sequer.
+ *
+ * Os perfis vão sem `criadoEm` e sem `uid` de propósito: aquela versão gravava
+ * só `nome`, `email` e `tipo`, e um perfil com os campos novos provaria a
+ * compatibilidade de um documento que a v0.1.0 nunca escreveu.
+ */
+async function semearBancoDaV010() {
+  await criarContas();
+
+  await gravarVarios('usuarios', [
+    { id: ANA.uid, nome: ANA.nome, email: ANA.email, tipo: 'aluno' },
+    { id: CARLOS.uid, nome: CARLOS.nome, email: CARLOS.email, tipo: 'professor' },
+  ]);
+
+  await gravar('autorizados', CARLOS.email, { Tipo: 'professor' });
+
+  // Dois chamados, um com anexo e um sem: o card com anexo é o que prova o
+  // AC-IMG-13, e o sem anexo é o que prova que a ausência do campo não quebra
+  // a mesma tela.
+  await gravarVarios('chamados', [
+    {
+      id: 'legado-com-print',
+      nome: ANA.nome,
+      email: ANA.email,
+      descricao: 'O torno travou — olha o print.',
+      horario: HORARIO_LEGADO,
+      cor: '#d8e5ff',
+      imagem: IMAGEM_LEGADA,
+    },
+    {
+      id: 'legado-sem-print',
+      nome: ANA.nome,
+      email: ANA.email,
+      descricao: 'A furadeira não liga.',
+      horario: '2026-03-10T14:10:00.000Z',
+      cor: '#ffe0e0',
+      imagem: '',
+    },
+  ]);
+
+  await gravar('chat', 'legado-mensagem', {
+    nome: CARLOS.nome,
+    email: CARLOS.email,
+    texto: 'Bom dia, turma. Hoje é torno.',
+    horario: HORARIO_LEGADO,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // O cenário de carga — AC-PERF-05
 // ---------------------------------------------------------------------------
 //
@@ -405,6 +484,8 @@ module.exports = {
   BIA,
   CARLOS,
   CHAMADOS_DE_CARGA,
+  HORARIO_LEGADO,
+  IMAGEM_LEGADA,
   INSTANTE,
   MENSAGENS_DE_CARGA,
   SALA,
@@ -417,6 +498,7 @@ module.exports = {
   semearConversaDaSala,
   semearMensagem,
   semearPerfis,
+  semearBancoDaV010,
   semearSala,
   semearSalaCheia,
   vincular,
