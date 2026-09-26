@@ -176,6 +176,60 @@ describe('conversa direta — leitura do documento (AC-DM-04)', () => {
   });
 });
 
+// O caso que a suíte end-to-end desta task encontrou, e que nenhum teste de
+// rules cobria: a conversa **antes de existir**.
+//
+// `services/chat.js` › `abrirConversa` lê o documento antes de criá-lo, porque
+// só a leitura distingue "abrir pela primeira vez" de "reabrir": um `setDoc`
+// cego em cima de uma conversa existente é um `update`, e carimbaria `criadaEm`
+// de novo. Ou seja: **toda** primeira conversa começa com um `get` em documento
+// que não existe.
+//
+// Aqui o AC-DM-01 (abrir a conversa) e o AC-DM-04 (ninguém vê a dos outros) se
+// encostam, e é o par de testes abaixo que separa os dois. O participante
+// precisa receber "não existe"; o terceiro precisa receber `permission-denied`
+// — e não "não existe", que já seria a resposta a uma pergunta que ele não pode
+// fazer. Saber que Ana e Bruno têm uma conversa é informação sobre Ana e Bruno.
+describe('conversa direta — o documento que ainda NÃO existe', () => {
+  it('o participante lê a conversa inexistente e recebe vazio (AC-DM-01)', async () => {
+    const leitura = await assertSucceeds(
+      getDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA}/conversas/${CONVERSA}`))
+    );
+
+    // Não é só "não foi negado": é "respondeu que não existe". Sem esta linha
+    // o teste passaria com uma rule que devolvesse qualquer coisa.
+    expect(leitura.exists()).toBe(false);
+  });
+
+  it('a outra participante também lê, pelo mesmo caminho (AC-DM-01)', async () => {
+    // Os dois lados calculam o MESMO id, e qualquer um dos dois pode ser quem
+    // abre a conversa primeiro.
+    await assertSucceeds(getDoc(doc(como(ANA), `salas/${SALA}/conversas/${CONVERSA}`)));
+  });
+
+  it('um terceiro da sala NÃO descobre se a conversa dos outros existe (AC-DM-04)', async () => {
+    // Se o inexistente fosse liberado para qualquer membro, o Bruno compararia
+    // as duas respostas — "vazio" contra "permission-denied" — e teria um
+    // detector de conversas alheias sem precisar ler uma única mensagem.
+    await assertFails(getDoc(doc(como(BRUNO), `salas/${SALA}/conversas/${CONVERSA}`)));
+  });
+
+  it('quem nem é da sala também não pergunta (AC-DM-04)', async () => {
+    await assertFails(getDoc(doc(como(FORASTEIRO), `salas/${SALA}/conversas/${CONVERSA}`)));
+  });
+
+  it('o participante lê o inexistente, e o terceiro não, na MESMA conversa', async () => {
+    // O par na mesma asserção: é a diferença entre as duas respostas que é o
+    // critério, e não cada uma delas em separado.
+    const entreOsAlunos = idDaConversa(ANA, BRUNO);
+
+    await assertSucceeds(getDoc(doc(como(ANA), `salas/${SALA}/conversas/${entreOsAlunos}`)));
+    await assertFails(
+      getDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA}/conversas/${entreOsAlunos}`))
+    );
+  });
+});
+
 describe('conversa direta — a CONSULTA da coleção (AC-DM-04)', () => {
   beforeEach(semearConversa);
 
