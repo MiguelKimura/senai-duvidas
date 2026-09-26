@@ -134,3 +134,87 @@ não a folha de estilo.
 nenhuma das regras guardadas acima entra sem ser vista, e só aparece quando
 alguém abrir o app na tela do laboratório. A mitigação até lá é a conferência
 manual nas duas resoluções antes do release.
+
+---
+
+## B-003 — Dez turmas em aula no mesmo dia não cabem na cota gratuita de leitura
+
+- **Versão:** 1.0.0 (task 09)
+- **Critério afetado:** AC-PERF-06
+- **Estado:** medido, documentado e projetado; o teto do plano gratuito não é
+  atingido no alvo declarado
+
+### O limite
+
+A conta está em `docs/ARQUITETURA.md` § 5 e é derivada dos `limit()` que o código
+usa de verdade — `src/__tests__/orcamentoDeLeitura.test.js` refaz a aritmética e
+confere o documento contra ela.
+
+O número: uma abertura de tela numa sala de novembro, com a fila no alvo de 200
+chamados, custa **296 leituras**. Quarenta alunos abrindo duas vezes por aula são
+80 aberturas por turma, ou 23 680 leituras por turma por dia letivo. A cota do
+plano Spark é de **50 000 leituras por dia**.
+
+| Turmas em aula no mesmo dia | Novembro (fila cheia) |
+|---|---|
+| 2 | 47 360 ✅ |
+| 3 | 71 040 ❌ |
+| 10 | 236 800 ❌ |
+
+Em março, com a fila curta, a mesma conta dá 74 leituras por abertura e caberiam
+oito turmas. **A capacidade não é um número: ela é função do tamanho da fila, e a
+fila cresce o ano letivo inteiro.**
+
+O termo que domina é sempre o mesmo: a fila de chamados, com 200 de 296 leituras.
+
+### Por que não foi resolvido nesta task
+
+A correção é conhecida e é a mesma que a v0.8.0 aplicou ao chat: trocar o
+`limit(200)` fixo por uma **janela decrescente e crescente sob demanda**, como
+`hooks/useMensagens` faz. Não foi feita aqui por três razões, e nenhuma delas é
+de esforço:
+
+1. **A fila é crescente por requisito.** O AC-CHAMADO-03 pede o mais antigo
+   primeiro. Uma janela decrescente entrega os 30 mais **recentes** — que é o fim
+   da fila, não o começo. Inverter isso muda a ordem da tela que a turma usa para
+   ser atendida, e essa é a tela que não pode mudar de véspera de release.
+2. **O `orderBy` do Firestore ordena por tipo antes de valor.** Os chamados da
+   v0.1.0 têm `horario` em string ISO e os novos têm `Timestamp`; uma janela
+   ordenada pelo servidor separaria os dois grupos em vez de intercalá-los, e é
+   exatamente por isso que hoje a ordenação é feita no cliente, por
+   `criarComparadorPorHorario`. Paginar pelo servidor exige a migração de
+   `horario` concluída em todos os documentos.
+3. **A paginação da tela já existe e não resolve.** `FilaDeChamados` mostra 30
+   cards por vez (`CHAMADOS_POR_PAGINA`), mas o **listener** traz 200. Reduzir a
+   leitura é mudar o listener, não a tela.
+
+### Proposta para fechar (1.1.0)
+
+1. Rodar `scripts/migrar-horarios.js` em produção até `horarioIso` não ser mais
+   necessário e todo `horario` ser `Timestamp` — o script já existe, é idempotente
+   e reversível.
+2. Trocar o listener da fila por janela: `orderBy('horario', 'asc') + limit(30)`,
+   crescendo de 30 em 30 até o teto de 200, com o mesmo desenho de
+   `useMensagens`. Com a migração concluída, o `orderBy` do servidor passa a ser
+   confiável, e a ordem crescente é a que o critério pede.
+3. Custo estimado depois da mudança: 2 + 3 + 1 + 30 + 40 + 50 = **126 leituras por
+   abertura**, ou 10 080 por turma por dia. Dez turmas em aula no mesmo dia dariam
+   100 800 — ainda acima de 50 000, o que leva ao item 4.
+4. Cortar o termo dos perks, que hoje lê 120 documentos por abertura para
+   decorar a fila: filtrar por `where('revogadoEm', '==', null)` e `limit(40)`
+   deixa a conta em **46 leituras**, ou 3 680 por turma por dia, e **dez turmas
+   passam a caber em 36 800**.
+
+### O que o dono do produto precisa decidir
+
+A alternativa a tudo acima é o **plano Blaze**, em que a leitura excedente custa
+US$ 0,06 por 100 000 documentos. As 236 800 leituras do pior caso custariam cerca
+de **US$ 0,11 por dia letivo** — uns 22 dólares no ano. A decisão de pagar dois
+dígitos de dólar por ano em vez de mexer na ordenação da fila é do dono do
+produto, não da sessão que escreveu isto.
+
+**Custo de não fazer agora:** se dez turmas usarem o app no mesmo dia com as filas
+cheias, as leituras param no meio da tarde e o app passa a mostrar erro de
+carregamento para todo mundo até a virada do dia. A mitigação operacional é a que
+já existe e é boa: o professor exclui os chamados atendidos, e cada chamado
+excluído sai da conta de todas as aberturas seguintes.

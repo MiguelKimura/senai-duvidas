@@ -185,20 +185,79 @@ passaria despercebido: a suíte ficaria verde com o app quebrado.
 Alvo declarado do projeto: 10 salas ativas, 40 alunos por sala, 200 chamados e
 1000 mensagens por sala.
 
+> **Esta seção é conferida por teste.** `src/__tests__/orcamentoDeLeitura.test.js`
+> lê as constantes que o código passa ao `limit()`, refaz a aritmética abaixo e
+> exige que os números desta página sejam os mesmos. Até a 1.0.0 a conta era
+> escrita à mão, e tinha envelhecido: a linha da lista de conversas dizia
+> `limit(50)` quando o código já cortava em 40, e a conclusão dizia que dez salas
+> caberiam com folga contra uma estimativa, na linha acima, que multiplicada por
+> dez dava três vezes a cota. Uma conta de capacidade que diverge do código é
+> pior do que nenhuma: ela dá a sensação de que a capacidade foi verificada.
+
+### Os cortes que o código impõe
+
 | Listener | Corte | Leituras por abertura |
 |---|---|---|
 | Fila de chamados | `limit(200)` | ≤ 200 |
 | Conversa da sala | `limit(50)`, decrescente, **só com o painel aberto** | ≤ 50 |
+| Teto da conversa, depois de paginar | `limit(300)` | ≤ 300 |
 | Mensagens de uma DM | `limit(50)`, decrescente | ≤ 50 |
-| Lista de conversas | `array-contains` + `limit(50)` | ≤ 50 |
+| Lista de conversas | `array-contains` + `limit(40)` | ≤ 40 |
+| Perks da sala | `limit(120)` | ≤ 120 |
 | Lista de salas (espelho) | `limit(20)` | ≤ 20 |
 | Membros (só o dono) | `limit(60)` | ≤ 60 |
 
-Nenhum `onSnapshot` escuta coleção inteira sem corte.
+Nenhum `onSnapshot` escuta coleção inteira sem corte, e
+`src/__tests__/listenersComTeto.test.js` varre o `src/` inteiro exigindo isso de
+cada listener, inclusive dos que ainda não existem.
 
-### O que a v0.8.0 mudou nesta conta (AC-PERF-06)
+### O custo de uma abertura de tela
 
-Esta é a maior economia de leitura do roadmap, e ela vem de duas mudanças
+O Firestore cobra por **documento entregue**, então cada termo é
+`min(o que existe na sala, o teto)` — não o teto sozinho. Um teto de 120 perks
+numa sala que tem três perks custa três leituras.
+
+| Termo | Sala de março | Sala de novembro |
+|---|---|---|
+| `usuarios/{uid}` + `autorizados/{email}` | 2 | 2 |
+| espelho `usuarios/{uid}/salas` | 1 | 3 |
+| `salas/{salaId}` | 1 | 1 |
+| fila de chamados | 20 | 200 |
+| perks da sala | 0 | 40 |
+| primeira página do chat | 50 | 50 |
+| **total por abertura** | **74** | **296** |
+
+Quarenta alunos abrindo a tela duas vezes por aula são 80 aberturas por turma por
+dia letivo: **5 920** leituras em março, **23 680** em novembro.
+
+### A projeção para o alvo, contra a cota gratuita
+
+A cota do plano Spark é de **50 000 leituras por dia** por projeto. O
+multiplicador que decide tudo não é quantas salas existem no ano — é **quantas
+turmas usam o app no mesmo dia**.
+
+| Turmas em aula no mesmo dia | Março (fila curta) | Novembro (fila cheia) |
+|---|---|---|
+| 2 | 11 840 ✅ | 47 360 ✅ |
+| 3 | 17 760 ✅ | 71 040 ❌ |
+| 8 | 47 360 ✅ | 189 440 ❌ |
+| 10 | 59 200 ❌ | 236 800 ❌ |
+
+**Dez turmas em aula no mesmo dia, com a fila cheia, não cabem na cota gratuita:
+são 236 800 leituras contra 50 000.** O que cabe hoje é duas turmas de novembro,
+ou oito de março. A capacidade deste app não é um número — ela é função do
+tamanho da fila, e a fila cresce o ano letivo inteiro.
+
+Isso está registrado como **B-003** em `docs/BLOQUEIOS.md`, com a causa técnica e
+a proposta de fechamento (paginar o listener da fila como o do chat já é
+paginado). Ele não foi resolvido na 1.0.0 porque a fila é ordenada de forma
+crescente e convive com `horario` em string ISO do banco antigo — uma janela
+decrescente ali mexe na ordenação da tela que a turma usa, e é mudança de 1.1.0,
+não de véspera de release.
+
+### O que a v0.8.0 mudou nesta conta
+
+Foi a maior economia de leitura do roadmap, e ela vem de duas mudanças
 independentes no chat.
 
 **A janela virou decrescente e começou em 50.** A v0.7.0 cortava em 300, mas
@@ -212,23 +271,23 @@ montavam o `<Chat/>` no rodapé e ele assinava a conversa na hora — com o pain
 fechado, em toda tela de toda pessoa, o dia inteiro. A tela do professor custava
 duas assinaturas de coleção; passou a custar uma.
 
-Com 40 alunos abrindo o app duas vezes por aula, e supondo que metade deles
-abra o chat de fato:
-
-| | v0.7.0 | v0.8.0 |
+| | v0.7.0 | v0.8.0 em diante |
 |---|---|---|
 | Leituras de chat por abertura de tela | 300 (sempre) | 0 com o painel fechado |
 | Leituras de chat por abertura do painel | — | 50, mais as novas que chegarem |
-| Chat por sala por dia letivo (40 alunos × 2) | ~24 000 | ~2 000 |
-| Sala inteira por dia letivo | ~40 000 | ~18 000 |
+| Chat por turma por dia letivo (40 alunos × 2) | ~24 000 | ~4 000 |
 
-O gargalo do plano gratuito (50 000 leituras/dia) deixa de ser o chat e volta a
-ser a fila de chamados. Dez salas ativas cabem com folga; antes, cinco salas em
-aula simultânea já raspavam o teto.
+Depois dessas duas mudanças o gargalo deixou de ser o chat e passou a ser a fila
+de chamados — que é exatamente onde a conta acima mostra que ele continua.
+
+### As escritas
 
 As `conversas` acrescentam escrita, não leitura: cada mensagem direta custa duas
-escritas (a mensagem e o `ultimaMensagem`/`naoLidas` do documento pai), contra
-um limite de 20 000 escritas/dia. É a troca descrita no ADR 0009.
+escritas (a mensagem e o `ultimaMensagem`/`naoLidas` do documento pai), contra um
+limite de 20 000 escritas/dia. Somando tudo o que um aluno escreve numa aula — um
+chamado, cinco mensagens de sala, uma direta, a entrada de membro —, dez turmas
+de 40 alunos ficam em torno de 3 600 escritas por dia, com margem de mais de
+cinco vezes. A troca está descrita no ADR 0009.
 
 ## 6. Compatibilidade
 
