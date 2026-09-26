@@ -217,3 +217,9 @@ jobs:
             fi
           done < <(git rev-list --no-merges "origin/$GITHUB_BASE_REF..HEAD")
           exit $falhou
+      # A ORDEM das mensagens, e não só o formato de cada uma: o AC-TEST-02 pede
+      # o ciclo comprovado no histórico, e o histórico completo só existe neste
+      # job — é o único com `fetch-depth: 0`. Rodar isto num clone raso passaria
+      # por falta de dado, que é o pior jeito de um check ficar verde.
+      - name: Verificar o ciclo red-green-refactor
+        run: node scripts/verificarCicloTdd.js "origin/$GITHUB_BASE_REF..HEAD"
