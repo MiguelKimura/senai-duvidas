@@ -1,0 +1,232 @@
+// O cenário determinístico dos testes end-to-end — AC-TEST-06, AC-TEST-09.
+//
+// Três pessoas, uma sala, e nenhum número sorteado. O determinismo é requisito
+// do AC-TEST-09 e é o que separa uma suíte que se pode ler de uma que se
+// aprende a ignorar: quando um teste falha, o banco em que ele falhou é o mesmo
+// banco de sempre.
+//
+// A terceira pessoa — a Bia — existe por causa de um critério só, o AC-DM-04:
+// uma conversa direta não pode ser visível a terceiros. Sem alguém de fora da
+// conversa e dentro da sala, aquele critério não tem como ser exercitado.
+const { criarConta, gravar, gravarVarios } = require('./emulador');
+
+/** A aluna. É ela quem abre chamado, manda mensagem e exclui o próprio card. */
+const ANA = {
+  uid: 'uid-ana',
+  nome: 'Ana Souza',
+  email: 'ana.souza@senai.br',
+  senha: 'senha-de-teste-ana',
+};
+
+/** O professor. Dono da sala, o único que concede perk e usa `!clear`. */
+const CARLOS = {
+  uid: 'uid-carlos',
+  nome: 'Carlos Lima',
+  email: 'carlos.lima@senai.br',
+  senha: 'senha-de-teste-carlos',
+};
+
+/** A terceira. Membro da sala, e de fora da conversa entre Ana e Carlos. */
+const BIA = {
+  uid: 'uid-bia',
+  nome: 'Bia Nunes',
+  email: 'bia.nunes@senai.br',
+  senha: 'senha-de-teste-bia',
+};
+
+/** A sala de sempre. */
+const SALA = {
+  id: 'sala-mecanica',
+  nome: 'Mecânica 2º ano',
+  curso: 'Mecânica — Turma B',
+  anoLetivo: 2026,
+  pin: '314159',
+};
+
+/** O instante fixo de qualquer documento semeado. */
+const INSTANTE = new Date('2026-03-10T13:45:00.000Z');
+
+/**
+ * O resumo do PIN, no mesmo formato que `services/pin.js` grava e que a rule
+ * refaz: `SHA-256(sal + pin)` em hexadecimal minúsculo, **sem separador**.
+ *
+ * Calculado aqui e não copiado como constante: um resumo literal continuaria
+ * parecendo válido se o algoritmo mudasse, e o teste de entrada por PIN passaria
+ * a falhar dizendo "PIN inválido" — a mesma mensagem genérica que o aluno vê,
+ * que é exatamente a que não aponta para a causa.
+ *
+ * @param {string} pin seis dígitos.
+ * @param {string} sal o `sal` gravado no documento do segredo.
+ */
+async function resumoDoPin(pin, sal) {
+  const { subtle } = require('node:crypto').webcrypto;
+  const bytes = new TextEncoder().encode(`${sal}${pin}`);
+  const resumo = await subtle.digest('SHA-256', bytes);
+
+  return [...new Uint8Array(resumo)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/** Cria as três contas no Auth do emulador. */
+async function criarContas() {
+  await criarConta(ANA);
+  await criarConta(CARLOS);
+  await criarConta(BIA);
+}
+
+/**
+ * Os perfis em `usuarios/{uid}` e a autorização do professor.
+ *
+ * `autorizados/{email}` é a fonte de verdade do papel (AC-AUTH-06): sem a
+ * entrada do Carlos ali, o app o trata como aluno, e é assim que deve ser.
+ */
+async function semearPerfis() {
+  await gravarVarios('usuarios', [
+    {
+      id: ANA.uid,
+      uid: ANA.uid,
+      nome: ANA.nome,
+      email: ANA.email,
+      tipo: 'aluno',
+      criadoEm: INSTANTE,
+    },
+    {
+      id: CARLOS.uid,
+      uid: CARLOS.uid,
+      nome: CARLOS.nome,
+      email: CARLOS.email,
+      tipo: 'professor',
+      criadoEm: INSTANTE,
+    },
+    {
+      id: BIA.uid,
+      uid: BIA.uid,
+      nome: BIA.nome,
+      email: BIA.email,
+      tipo: 'aluno',
+      criadoEm: INSTANTE,
+    },
+  ]);
+
+  await gravar('autorizados', CARLOS.email, { Tipo: 'professor' });
+}
+
+/**
+ * A sala pronta, com o PIN conferível e os membros que o cenário pede.
+ *
+ * @param {{membros?: Array<object>, ativa?: boolean}} opcoes
+ *   `membros` vazio é o cenário de "o aluno ainda vai entrar com o PIN".
+ */
+async function semearSala({ membros = [ANA, BIA], ativa = true } = {}) {
+  const sal = 'sal-fixo-do-cenario';
+  const resumo = await resumoDoPin(SALA.pin, sal);
+
+  await gravar('salas', SALA.id, {
+    nome: SALA.nome,
+    curso: SALA.curso,
+    anoLetivo: SALA.anoLetivo,
+    professorUid: CARLOS.uid,
+    professorNome: CARLOS.nome,
+    ativa,
+    arquivadaEm: null,
+    criadaEm: INSTANTE,
+    pinAtualizadoEm: INSTANTE,
+  });
+
+  // `segredo` no singular, e os campos `hash`/`sal`: é o documento que a rule
+  // lê para refazer o resumo, e o nome dele é contrato com `firestore.rules`.
+  await gravar(`salas/${SALA.id}/segredo`, 'pin', {
+    hash: resumo,
+    sal,
+    atualizadoEm: INSTANTE,
+  });
+
+  // `ativo`, e não `ativa`: é o campo que `salaDoPin` confere.
+  await gravar('indicePins', SALA.pin, { salaId: SALA.id, ativo: ativa, criadoEm: INSTANTE });
+
+  await vincular(CARLOS, 'professor');
+
+  for (const pessoa of membros) {
+    await vincular(pessoa, 'aluno');
+  }
+}
+
+/** O vínculo nos dois lugares: a autoridade e o espelho. */
+async function vincular(pessoa, papel) {
+  await gravar(`salas/${SALA.id}/membros`, pessoa.uid, {
+    nome: pessoa.nome,
+    email: pessoa.email,
+    papel,
+    entrouEm: INSTANTE,
+  });
+
+  await gravar(`usuarios/${pessoa.uid}/salas`, SALA.id, {
+    salaId: SALA.id,
+    papel,
+    entrouEm: INSTANTE,
+  });
+}
+
+/**
+ * Um chamado já aberto, do formato desta versão.
+ *
+ * @param {{id?: string, autor?: object, descricao?: string, atendido?: boolean}} opcoes
+ */
+async function semearChamado({
+  id = 'chamado-existente',
+  autor = ANA,
+  descricao = 'O torno travou no meio do exercício.',
+  atendido = false,
+  cor = '#d8e5ff',
+} = {}) {
+  await gravar(`salas/${SALA.id}/chamados`, id, {
+    autorUid: autor.uid,
+    autorNome: autor.nome,
+    // `nome` e `email` continuam ao lado dos campos novos: é a compatibilidade
+    // futura da v0.5.0, e a 1.0.0 mantém os dois (ver docs/MIGRACOES.md).
+    nome: autor.nome,
+    email: autor.email,
+    descricao,
+    horario: INSTANTE,
+    cor,
+    formato: 'texto',
+    imagem: null,
+    anexo: null,
+    atendido,
+  });
+}
+
+/** Uma mensagem do chat da sala. */
+async function semearMensagem({ id = 'mensagem-1', autor = ANA, texto = 'Bom dia!' } = {}) {
+  await gravar(`salas/${SALA.id}/chat`, id, {
+    texto,
+    autorUid: autor.uid,
+    autorNome: autor.nome,
+    autorPapel: autor === CARLOS ? 'professor' : 'aluno',
+    nome: autor.nome,
+    email: autor.email,
+    horario: INSTANTE,
+  });
+}
+
+/** O cenário completo: contas, perfis e a sala com os dois alunos dentro. */
+async function semearCenarioCompleto(opcoes = {}) {
+  await criarContas();
+  await semearPerfis();
+  await semearSala(opcoes);
+}
+
+module.exports = {
+  ANA,
+  BIA,
+  CARLOS,
+  INSTANTE,
+  SALA,
+  criarContas,
+  resumoDoPin,
+  semearCenarioCompleto,
+  semearChamado,
+  semearMensagem,
+  semearPerfis,
+  semearSala,
+  vincular,
+};

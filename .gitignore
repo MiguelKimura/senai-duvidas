@@ -11,6 +11,15 @@
 # production
 /build
 
+# build da suite end-to-end: mesmo app, ligado ao Emulator Suite
+/build-e2e
+
+# saida do Playwright
+/playwright-report
+/test-results
+/blob-report
+/.playwright
+
 # misc
 .DS_Store
 
