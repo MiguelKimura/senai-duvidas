@@ -45,7 +45,13 @@ async function entrar(page, { email, senha }) {
 async function abrirSala(page, salaId) {
   await page.goto(`/sala/${salaId}`);
 
-  await expect(page.getByRole('heading', { level: 2 })).toBeVisible();
+  // O cabeçalho da sala, e não "o primeiro h2 da página": a tela do professor
+  // monta o painel da turma, que também tem um h2. Sem o escopo, esta espera
+  // passa na tela do aluno e estoura na do professor por ambiguidade — que é
+  // um defeito do teste, e não do app.
+  await expect(
+    page.locator('.sala-cabecalho').getByRole('heading', { level: 2 })
+  ).toBeVisible();
 }
 
 /** O painel de chat da sala, aberto pelo botão que o esconde por padrão. */
@@ -59,14 +65,24 @@ async function abrirChat(page) {
 }
 
 /**
- * Um PNG de verdade, do menor tamanho possível.
+ * Um PNG 2×2 de verdade — assinatura, IHDR, IDAT e CRCs corretos.
  *
- * `services/anexos.js` confere o tipo por **magic bytes** (AC-SEC-08), então um
- * arquivo de texto renomeado para `.png` é recusado — e é bom que seja. Estes
- * bytes são um PNG 1×1 válido.
+ * Dois cuidados, os dois aprendidos aqui:
+ *
+ * **Passar pelos magic bytes não basta.** `services/anexos.js` confere o tipo
+ * pela assinatura (AC-SEC-08), e a assinatura são os oito primeiros bytes. O
+ * blob que estava neste lugar tinha a assinatura certa e o CRC do IDAT errado:
+ * a validação o aceitava, e a compressão morria depois, em
+ * `createImageBitmap`, com "The source image could not be decoded" — dentro de
+ * um `catch` que vira faixa vermelha na tela do aluno. Era um teste verde
+ * escondendo um caminho que nunca chegava ao Storage.
+ *
+ * **2×2, e não 1×1.** A compressão redimensiona e reencoda; uma imagem de um
+ * pixel é o caso em que largura, altura e razão de aspecto valem todos 1, e
+ * qualquer erro de aritmética em `dimensionarPara` passaria batido.
  */
 const PNG_DE_UM_PIXEL = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==',
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGP4z8DAwPCfAUIBABvyA/3MQfc+AAAAAElFTkSuQmCC',
   'base64'
 );
 
