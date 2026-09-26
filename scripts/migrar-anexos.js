@@ -300,10 +300,18 @@ async function principal(argumentos) {
     return;
   }
 
-  const admin = require('firebase-admin');
+  // A API modular (`firebase-admin/app`), e não o objeto `admin` de namespace:
+  // `admin.apps` foi removido na versão 10, e `if (admin.apps.length === 0)`
+  // estourava com `Cannot read properties of undefined` antes de ler um único
+  // documento. Nada disso aparecia nos testes de `scripts/__tests__/`, que
+  // exercitam as funções puras com dublês e nunca chegam a esta casca — o teste
+  // que pegou foi `tests/e2e/compatibilidade.spec.js`, rodando o script de
+  // verdade contra o emulador.
+  const { getApps, initializeApp } = require('firebase-admin/app');
+  const { getFirestore } = require('firebase-admin/firestore');
 
-  if (admin.apps.length === 0) admin.initializeApp();
-  const db = admin.firestore();
+  if (getApps().length === 0) initializeApp();
+  const db = getFirestore();
 
   for (const colecao of colecoes) {
     const relatorio = await migrar({
