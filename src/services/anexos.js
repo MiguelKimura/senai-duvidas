@@ -410,15 +410,28 @@ export async function enviarAnexo(arquivo, { salaId, chamadoId, onProgresso, sin
  * isso que o chamado aberto em março continua exibindo o print dele depois do
  * deploy — sem migração, sem janela de indisponibilidade.
  *
+ * A leitura **não confia** no que está gravado (AC-SEC-04). O formulário recusa
+ * esquema executável desde a v0.6.0, mas ninguém precisa do nosso formulário
+ * para gravar um documento: basta o SDK e um token de aluno, e as rules nunca
+ * olharam o formato deste campo. O que sai daqui vai para um atributo `src` na
+ * tela dos quarenta membros da sala, então é aqui que a URL é conferida — pela
+ * mesma função que o campo de anexo usa, não por uma segunda lista de esquemas
+ * para manter igual à primeira para sempre.
+ *
+ * Anexo recusado devolve `null`, que é o mesmo que "não há anexo": o card
+ * aparece inteiro, sem miniatura, e nada na tela quebra.
+ *
  * @param {string|object|null|undefined} valor
  * @returns {{url: string, origem: string}|null}
  */
 export function normalizarAnexo(valor) {
   if (!valor) return null;
 
-  if (typeof valor === 'string') return { url: valor, origem: ORIGEM_DE_URL };
+  const url = typeof valor === 'string' ? valor : valor.url;
 
-  return valor.url ? valor : null;
+  if (!ehUrlDeImagem(url)) return null;
+
+  return typeof valor === 'string' ? { url, origem: ORIGEM_DE_URL } : valor;
 }
 
 /**
