@@ -14,6 +14,9 @@
 # build da suite end-to-end: mesmo app, ligado ao Emulator Suite
 /build-e2e
 
+# tempos medidos por scripts/orcamentoDaSuite.js (AC-TEST-08)
+/.tempos
+
 # saida do Playwright
 /playwright-report
 /test-results

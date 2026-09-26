@@ -1,14 +1,21 @@
 # Pipeline de CI do Projeto Dúvidas SENAI.
 #
 # Baseado em docs/exemplos/ci.yml, com uma diferença deliberada: lá os jobs eram
-# dois ("rapido" e "completo"), aqui são quatro, com os nomes exatos que
-# docs/PROTECAO-BRANCHES.md manda marcar como obrigatórios em Settings →
-# Branches. A proteção de branch casa pelo nome do check; job e documento
-# precisam concordar, e `src/__tests__/ci.test.js` reprova se divergirem.
+# dois ("rapido" e "completo"), aqui são cinco obrigatórios — lint, test,
+# test-rules, e2e e build —, com os nomes exatos que docs/PROTECAO-BRANCHES.md
+# manda marcar em Settings → Branches. A proteção de branch casa pelo nome do
+# check; job e documento precisam concordar, e `src/__tests__/ci.test.js`
+# reprova se divergirem.
 #
-# A ordem é lint → test → test-rules → build. Encadear em vez de paralelizar
-# custa alguns segundos e economiza minutos: não faz sentido subir o emulador do
-# Firestore para um PR que não passa no lint.
+# A ordem é lint → test → test-rules → (e2e | build). Encadear em vez de
+# paralelizar custa alguns segundos e economiza minutos: não faz sentido subir o
+# emulador do Firestore para um PR que não passa no lint. Os dois últimos correm
+# em paralelo porque não dependem um do outro — e porque o `e2e` é o mais longo
+# do pipeline, e serializá-lo atrás do `build` só atrasaria o retorno.
+#
+# O tempo de cada suíte é medido por `scripts/orcamentoDaSuite.js` e somado no
+# fim do job `e2e`: o AC-TEST-08 é sobre a suíte completa, e um `timeout-minutes`
+# por job não sabe somar.
 name: ci
 
 on:
@@ -53,7 +60,7 @@ jobs:
       # Sai diferente de zero se a cobertura cair abaixo de 80% de linhas ou
       # 75% de branches — o threshold vive em package.json.
       - name: Testes unitários com cobertura
-        run: npm run test:ci
+        run: node scripts/orcamentoDaSuite.js medir unit -- npm run test:ci
       # A independência de fuso (AC-TEMPO-03, AC-TEST-09) não cabe dentro de um
       # teste: no contexto de VM do Jest, reatribuir `process.env.TZ` não
       # invalida o cache de fuso do V8. O fuso precisa vir do ambiente, então a
@@ -71,6 +78,14 @@ jobs:
           name: cobertura
           path: coverage/
           if-no-files-found: ignore
+      # O tempo medido viaja como artefato até o job que soma (AC-TEST-08).
+      # `test:fusos` fica fora da conta de propósito: é a mesma suíte rodada de
+      # novo em dois fusos, e contá-la três vezes mediria a paranoia, não a suíte.
+      - name: Publicar o tempo da suíte unitária
+        uses: actions/upload-artifact@v4
+        with:
+          name: tempos-unit
+          path: .tempos/
 
   test-rules:
     name: test-rules
@@ -95,7 +110,63 @@ jobs:
       # o SDK se recusar a sair para a nuvem; tests/rules/projetoDeTeste.js
       # verifica isso de novo, em tempo de execução.
       - name: Testes de Firestore e Storage Rules
-        run: npm run test:rules
+        run: node scripts/orcamentoDaSuite.js medir rules -- npm run test:rules
+      - name: Publicar o tempo da suíte de rules
+        uses: actions/upload-artifact@v4
+        with:
+          name: tempos-rules
+          path: .tempos/
+
+  # A suíte end-to-end (AC-TEST-06). Roda headless, contra o Emulator Suite, e
+  # é ela que fecha o orçamento de tempo da suíte completa (AC-TEST-08): o job
+  # baixa os tempos das duas etapas anteriores, mede a sua, e soma.
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    needs: test-rules
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      # O mesmo Java do job de rules, pela mesma razão: o `webServer` do
+      # Playwright sobe o Emulator Suite, que é uma aplicação Java.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Instalar
+        run: npm ci
+      # `--with-deps` traz as bibliotecas de sistema que o Chromium precisa no
+      # runner limpo do Ubuntu. Só o Chromium: baixar Firefox e WebKit seria
+      # mais de um minuto por execução para navegadores que a suíte não abre.
+      - name: Instalar o Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+      # `npm run test:e2e` constrói `build-e2e/` antes de abrir o navegador: a
+      # medição inclui o build, porque o build é parte do custo de rodar a suíte.
+      - name: Fluxos críticos no navegador
+        run: node scripts/orcamentoDaSuite.js medir e2e -- npm run test:e2e
+      - name: Publicar o rastro dos testes que falharam
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+      - name: Baixar os tempos das etapas anteriores
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tempos-*
+          merge-multiple: true
+          path: .tempos/
+      # Sai diferente de zero se as três etapas somadas passarem de 5 minutos, ou
+      # se alguma delas não tiver sido medida. É esta linha que faz o AC-TEST-08
+      # existir: sem ela o teto é uma frase, e cada job pode crescer até 5
+      # minutos sozinho.
+      - name: Orçamento de tempo da suíte completa
+        run: npm run orcamento:suite
 
   build:
     name: build
