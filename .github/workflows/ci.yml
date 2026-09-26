@@ -116,6 +116,12 @@ jobs:
       # que o AC-AUTH-10 promete continuar funcionando.
       - name: Build de produção
         run: npm run build
+      # Sai diferente de zero se o bundle inicial passar de 300 KB gzip ou se o
+      # code-splitting por rota desaparecer (AC-PERF-02). É esta linha que faz o
+      # orçamento existir: sem ela o número é uma frase num documento, e a
+      # dependência de 90 KB que o estoura entra num PR que passa em tudo.
+      - name: Orçamento do bundle inicial
+        run: npm run orcamento
 
   commits:
     name: commits

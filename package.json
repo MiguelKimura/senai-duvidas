@@ -29,6 +29,7 @@
     "emulators": "firebase emulators:start --project demo-senai-duvidas",
     "lint": "eslint \"src/**/*.{js,jsx}\" \"tests/**/*.js\" \"scripts/**/*.js\" --max-warnings=0",
     "format": "prettier --write \"src/**/*.{js,jsx,css}\" \"tests/**/*.js\" \"scripts/**/*.js\"",
+    "orcamento": "node scripts/verificarOrcamentoDoBundle.js",
     "eject": "react-scripts eject",
     "changelog": "node scripts/gerarChangelog.js"
   },
@@ -69,6 +70,7 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",
+    "@playwright/test": "^1.63.0",
     "cross-env": "^7.0.3",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
@@ -76,6 +78,7 @@
     "jest-axe": "^11.0.0",
     "js-yaml": "^3.14.1",
     "prettier": "^3.4.2",
+    "serve": "^14.2.6",
     "undici": "^6.28.1"
   }
 }
