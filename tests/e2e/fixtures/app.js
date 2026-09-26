@@ -1,9 +1,10 @@
 // Os gestos que todo spec repete — AC-TEST-06, AC-TEST-09.
 //
 // Uma regra governa este arquivo: **nenhuma espera cega**. Não há
-// `waitForTimeout` aqui, nem em nenhum spec, e
-// `tests/e2e/__meta__/semEsperaCega.test.js` varre a pasta para garantir que
-// continue assim. Um `sleep` de 500ms é duas coisas ao mesmo tempo: meio segundo
+// `waitForTimeout` aqui, nem em nenhum spec, e `scripts/varrerEsperaCega.js`
+// varre a pasta para garantir que continue assim — chamado por
+// `src/__tests__/semEsperaCegaNoE2E.test.js`, que roda no CI junto da suíte
+// unitária. Um `sleep` de 500ms é duas coisas ao mesmo tempo: meio segundo
 // desperdiçado em toda execução e uma falha intermitente no runner mais lento.
 // Espera-se por condição — um elemento que aparece, um texto que muda.
 const { expect } = require('@playwright/test');
