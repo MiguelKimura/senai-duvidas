@@ -141,6 +141,37 @@ test.describe('na 1024×768 dos laboratórios', () => {
     await naoVazaParaOLado(page);
   });
 
+  test('a conversa fica com o painel, e não com o botão de histórico (AC-CHAT-05)', async ({
+    page,
+  }) => {
+    // Encontrado tirando as capturas do manual do aluno: o painel de 440px
+    // mostrava três mensagens, e o resto era um botão "Ver dias anteriores" de
+    // 170px de altura com o fundo transparente — espaço vazio, ao clique, que
+    // ninguém identificaria como botão.
+    //
+    // A causa é uma regra solta: `Modal.css` declara `button { flex: 1 }` sem
+    // escopo nenhum, e o CSS do Create React App é global. Todo botão que for
+    // item de um flex em coluna cresce até preencher o que sobrar — e o do
+    // histórico é o único item da coluna que não devia crescer.
+    //
+    // Nenhum teste de jsdom pega isso: ali não há layout. A medida é a razão
+    // entre a área de conversa e o painel, e não um número de pixels — o painel
+    // muda de altura entre o laboratório e o celular, a proporção não.
+    await entrar(page, ANA);
+    await abrirSala(page, SALA.id);
+    await abrirChat(page);
+
+    const painel = await page.locator('.chat-box').boundingBox();
+    const conversa = await page.locator('.mensagens-rolagem').boundingBox();
+    const historico = await page.getByRole('button', { name: /ver dias anteriores/i }).boundingBox();
+
+    expect(conversa.height).toBeGreaterThan(painel.height * 0.5);
+
+    // E o botão tem a altura de um botão: o teto é generoso de propósito, para
+    // o teste não reprovar uma mudança de fonte ou de espaçamento.
+    expect(historico.height).toBeLessThan(60);
+  });
+
   test('o modal de nova dúvida cabe na janela (AC-ANIM-08)', async ({ page }) => {
     await entrar(page, ANA);
     await abrirSala(page, SALA.id);
