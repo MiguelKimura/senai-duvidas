@@ -9,6 +9,66 @@ Todas as mudanças relevantes deste projeto são registradas aqui, no formato
 > intervalo e os agrupa. Escrever à mão é escrever de memória no fim do trabalho, e o que
 > fica de fora é justamente o que ninguém lembrou.
 
+> node scripts/gerarChangelog.js 8fa523c..HEAD --versao 1.0.0 --data 2026-09-26
+
+## [1.0.0] - 2026-09-26
+
+### Adicionado
+
+- **chamado:** recusa a descrição fora de 1 a 1000 caracteres no modal
+- **rules:** valida formato e cor do chamado no servidor
+- **e2e:** liga o app ao Emulator Suite por variável de ambiente
+
+### Alterado
+
+- **release:** audita os critérios [MVP] antes de escrever código
+- **chamado:** exige a descrição de 1 a 1000 caracteres no cliente
+- **chamado:** tira a regra da descrição de dentro da tela do aluno
+- **sec:** verifica o que o app coleta, o que registra e o que versiona
+- **rules:** exige que o servidor valide formato e cor do chamado
+- **rules:** exige que o chamado antigo continue atualizável
+- **e2e:** exige que o app saiba falar com o Emulator Suite
+- **sec:** varre XSS por ponto de entrada, e não por sanitizador
+- **perf:** varre todo onSnapshot exigindo escopo, teto e cancelamento
+- **perf:** deriva o orçamento de leitura do código, não do documento
+- **perf:** refaz a conta de leitura e registra o que ela revelou
+- **perf:** exige orçamento medido e code-splitting por rota
+- **bundle:** divide as rotas e faz o CI reprovar quem estourar o teto
+- **e2e:** cobre o fluxo de login em navegador de verdade
+- **e2e:** prova o ciclo do PIN com duas pessoas em dois navegadores
+- **e2e:** abre chamado com print e exclui com desfazer, no navegador
+- **rules:** exige que a conversa direta seja legível antes de existir
+- **e2e:** cobre o chat da sala e a mensagem direta no navegador
+- **e2e:** mede a sala cheia do alvo com 1240 documentos no emulador
+- **e2e:** mede o FCP em 3G rápida e o que a primeira tela baixa
+- **e2e:** mede o layout em pixel na 1024×768 e em 360×640
+- **ci:** exige que o CI meça a suíte inteira, e não cada job em separado
+- **e2e:** põe o Playwright no pipeline e soma o tempo das três suítes
+- **regressao:** exige teste nomeado para cada critério [REG]
+- **ci:** exige o ciclo red-green-refactor lido no histórico de commits
+- **commits:** verifica a ordem do ciclo, e não só o formato da mensagem
+- **release:** exige o workflow de release e o procedimento de reversão
+- **release:** publica a versão a partir de main e documenta a volta atrás
+- **release:** exige o workflow que publica homologação a partir de dev
+- **homologacao:** publica o estado de dev no ambiente de homologação
+- **e2e:** sobe a 1.0.0 contra o banco da v0.1.0 no navegador
+- **e2e:** varre a suíte por espera cega, em vez de só afirmar que não há
+- **docs:** exige que a documentação concorde com o código
+- **chat:** exige que a conversa fique com o painel, não com o botão
+- **capturas:** gera as imagens dos manuais a partir do emulador
+- **release:** escreve a documentação que a 1.0.0 entrega
+
+### Corrigido
+
+- **sec:** tira o uid do aviso de rebaixamento de professor
+- **rules:** não reconfere formato e cor que a escrita não mudou
+- **sec:** não confia no esquema da URL gravada no anexo
+- **cor:** faz o painel de opções avançadas abrir em navegador de verdade
+- **rules:** deixa a conversa direta ser lida antes de existir
+- **migracao:** usa a API modular do firebase-admin nos três scripts
+- **e2e:** distingue o teto do Playwright de uma espera cega
+- **chat:** devolve ao painel a altura que o botão de histórico tomava
+
 > node scripts/gerarChangelog.js 0e13df5..HEAD --versao 0.10.0 --data 2026-09-23
 
 ## [0.10.0] - 2026-09-23

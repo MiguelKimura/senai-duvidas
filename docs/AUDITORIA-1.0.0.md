@@ -119,9 +119,15 @@ Todos os doze [MVP] ✅ (01–10, 12, 13), provados em `src/components/chat/__te
 Todos os seis [MVP] ✅, provados em `src/components/chat/__tests__/AbaDiretas.test.js`,
 `ListaConversas.test.js` e `tests/rules/conversas.rules.test.js`.
 
-Uma lacuna **de servidor** foi encontrada e fechada nesta task: a rule de mensagem direta não
-conferia o tamanho do texto (limite conhecido da v0.8.0, com a mesma remissão "fica para a
-task 09"). **Ciclo 4 desta task.**
+Um defeito **de servidor** foi encontrado e fechado nesta task, e ele era pior do que a
+lacuna que se esperava encontrar aqui. A auditoria previa conferir o tamanho do texto da
+mensagem direta; `git log -S` mostrou que essa rule já existia desde a v0.8.0, e que a
+previsão estava errada. O que **não** funcionava era a leitura da conversa **antes de ela
+existir**: `participa()` procurava `participantes` dentro de `resource`, que é nulo no
+documento ainda não criado — e é exatamente nesse `get` que toda primeira mensagem direta
+começa. Toda conversa nova recebia `permission-denied`, com o erro cru da rule aparecendo ao
+lado do nome do contato. Achado pela suíte e2e, que foi a primeira a abrir uma DM do zero num
+navegador. **Ciclo 9 desta task.**
 
 ## 10. Perks (`PERK`)
 

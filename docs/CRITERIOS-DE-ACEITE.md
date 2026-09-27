@@ -67,7 +67,7 @@
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-CHAMADO-01 🟡 | O aluno abre um chamado com descrição textual obrigatória (1 a 1000 caracteres). | [MVP] [REG] |
+| AC-CHAMADO-01 ✅ | O aluno abre um chamado com descrição textual obrigatória (1 a 1000 caracteres). | [MVP] [REG] |
 | AC-CHAMADO-02 ✅ | Chamados aparecem em tempo real para o professor e para os colegas da mesma sala, sem recarregar a página. | [MVP] [REG] |
 | AC-CHAMADO-03 ✅ | A fila é ordenada por horário de envio **crescente** (mais antigo primeiro), respeitando os perks de prioridade (ver `PERK`). | [MVP] [REG] |
 | AC-CHAMADO-04 ✅ | O aluno consegue excluir o **próprio** chamado quando a dúvida já foi resolvida, com confirmação antes de excluir. | [MVP] [REG] |
@@ -182,7 +182,7 @@
 | AC-ANIM-05 ✅ | **Todas** as animações são suprimidas quando `prefers-reduced-motion: reduce` está ativo. | [MVP] |
 | AC-ANIM-06 ✅ | Nenhuma animação causa reflow de layout perceptível; usar apenas `transform` e `opacity`. | [MVP] |
 | AC-ANIM-07 ✅ | `alert()` e `window.open()` são substituídos por componentes de toast e modal próprios. | [MVP] |
-| AC-ANIM-08 🟡 | A interface é utilizável em telas de 1024×768 (padrão dos laboratórios) e em celular (≥ 360px). | [MVP] |
+| AC-ANIM-08 ✅ | A interface é utilizável em telas de 1024×768 (padrão dos laboratórios) e em celular (≥ 360px). | [MVP] |
 | AC-ANIM-09 ✅ | Existe um arquivo único de tokens de design (cores, espaçamentos, durações) usado por todos os estilos. | [MVP] |
 | AC-ANIM-10 ✅ | Contraste mínimo WCAG AA em todos os textos e navegação completa por teclado em todos os fluxos. | [MVP] |
 
@@ -191,15 +191,15 @@
 | ID | Critério | Prioridade |
 |---|---|---|
 | AC-TEST-01 ✅ | `npm test` roda em modo não-interativo (CI) e termina com código de saída 0 quando tudo passa. | [MVP] |
-| AC-TEST-02 | Toda feature nova entra com testes escritos **antes** da implementação (ciclo red-green-refactor comprovado no histórico de commits). | [MVP] |
+| AC-TEST-02 ✅ | Toda feature nova entra com testes escritos **antes** da implementação (ciclo red-green-refactor comprovado no histórico de commits). | [MVP] |
 | AC-TEST-03 ✅ | Cobertura mínima global: **80% de linhas** e **75% de branches**, verificada por threshold que quebra o build. | [MVP] |
 | AC-TEST-04 ✅ | Existem testes de integração contra o **Firebase Emulator Suite** (Auth + Firestore + Storage), sem tocar o projeto de produção. | [MVP] |
 | AC-TEST-05 ✅ | As Firestore Rules e as Storage Rules têm testes dedicados cobrindo permissão concedida **e** negada. | [MVP] |
-| AC-TEST-06 | Existem testes end-to-end (Playwright) para os fluxos críticos: login, entrar na sala, abrir chamado com imagem, excluir chamado, enviar mensagem e DM. | [MVP] |
+| AC-TEST-06 ✅ | Existem testes end-to-end (Playwright) para os fluxos críticos: login, entrar na sala, abrir chamado com imagem, excluir chamado, enviar mensagem e DM. | [MVP] |
 | AC-TEST-07 ✅ | Cada nova feature **adiciona** casos à suíte existente; nenhuma task pode deletar ou marcar como `skip` um teste anterior para ficar verde. | [MVP] |
-| AC-TEST-08 🟡 | A suíte completa roda em menos de 5 minutos no CI. | [MVP] |
+| AC-TEST-08 ✅ | A suíte completa roda em menos de 5 minutos no CI. | [MVP] |
 | AC-TEST-09 ✅ | Testes são determinísticos: sem `sleep` arbitrário, sem dependência de relógio real (tempo é mockado). | [MVP] |
-| AC-TEST-10 | Há um teste de regressão explícito para **cada** critério marcado [REG]. | [MVP] |
+| AC-TEST-10 ✅ | Há um teste de regressão explícito para **cada** critério marcado [REG]. | [MVP] |
 
 ## 13. CI/CD e Branches (`CI`)
 
@@ -211,8 +211,8 @@
 | AC-CI-04 🟡 | `main` e `dev` são protegidas: sem push direto, merge apenas por PR com CI verde. | [MVP] |
 | AC-CI-05 ✅ | Commits seguem **Conventional Commits** (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, `BREAKING CHANGE:`). | [MVP] |
 | AC-CI-06 ✅ | A versão em `package.json` segue **SemVer** e é incrementada de acordo com o tipo das mudanças do PR. | [MVP] |
-| AC-CI-07 | Cada merge em `main` gera uma tag de versão e uma entrada no `CHANGELOG.md`. | [MVP] |
-| AC-CI-08 | O deploy de produção acontece a partir de `main`; `dev` publica em ambiente de homologação. | [MVP] |
+| AC-CI-07 ✅ | Cada merge em `main` gera uma tag de versão e uma entrada no `CHANGELOG.md`. | [MVP] |
+| AC-CI-08 ✅ | O deploy de produção acontece a partir de `main`; `dev` publica em ambiente de homologação. | [MVP] |
 | AC-CI-09 ✅ | O `CHANGELOG.md` é gerado a partir dos commits convencionais, não escrito à mão. | [MVP] |
 | AC-CI-10 ✅ | O projeto clona, instala e roda com três comandos (`git clone`, `npm install`, `npm start`), documentados no README. | [MVP] |
 
@@ -226,18 +226,18 @@
 | AC-SEC-04 ✅ | Todo texto do usuário é escapado ou sanitizado antes de ser renderizado (proteção contra XSS). | [MVP] |
 | AC-SEC-05 ✅ | PINs de sala não são expostos a quem não é dono da sala em nenhuma resposta do banco. | [MVP] |
 | AC-SEC-06 🟡 | O app roda apenas sob HTTPS; domínios autorizados do Firebase Auth estão restritos aos domínios reais. | [MVP] |
-| AC-SEC-07 | Dados de menores de idade: nenhum dado pessoal além de nome e e-mail institucional é coletado. | [MVP] |
+| AC-SEC-07 ✅ | Dados de menores de idade: nenhum dado pessoal além de nome e e-mail institucional é coletado. | [MVP] |
 | AC-SEC-08 ✅ | Uploads são varridos por tipo MIME real (magic bytes), não apenas pela extensão do arquivo. | [MVP] |
 
 ## 15. Desempenho e Escalabilidade (`PERF`)
 
 | ID | Critério | Prioridade |
 |---|---|---|
-| AC-PERF-01 | O carregamento inicial (First Contentful Paint) fica abaixo de 2,5s em conexão 3G rápida. | [MVP] |
-| AC-PERF-02 | O bundle JavaScript inicial fica abaixo de 300 KB comprimido (gzip), com code-splitting por rota. | [MVP] |
+| AC-PERF-01 ✅ | O carregamento inicial (First Contentful Paint) fica abaixo de 2,5s em conexão 3G rápida. | [MVP] |
+| AC-PERF-02 ✅ | O bundle JavaScript inicial fica abaixo de 300 KB comprimido (gzip), com code-splitting por rota. | [MVP] |
 | AC-PERF-03 ✅ | Listeners do Firestore são sempre escopados e paginados — nunca `onSnapshot` em coleção inteira sem limite. | [MVP] |
 | AC-PERF-04 ✅ | Todo `onSnapshot` é cancelado ao desmontar o componente (sem vazamento de listener). | [MVP] |
-| AC-PERF-05 | Uma sala com 40 alunos simultâneos, 200 chamados e 1000 mensagens permanece fluida. | [MVP] |
+| AC-PERF-05 ✅ | Uma sala com 40 alunos simultâneos, 200 chamados e 1000 mensagens permanece fluida. | [MVP] |
 | AC-PERF-06 🟡 | O custo de leituras do Firestore por aluno por aula fica dentro do plano gratuito para até 10 salas ativas. | [MVP] |
 | AC-PERF-07 | O app funciona offline em modo leitura (cache do Firestore) e enfileira envios feitos sem conexão. | [POS] |
 
@@ -247,9 +247,9 @@
 |---|---|---|
 | AC-DOC-01 ✅ | O `README.md` descreve o projeto real (não o texto padrão do Create React App), com instalação, scripts e arquitetura. | [MVP] |
 | AC-DOC-02 ✅ | Existe `docs/HISTORICO.md` narrando a evolução do projeto versão a versão, com as decisões técnicas e seus porquês. | [MVP] |
-| AC-DOC-03 | Existe `docs/MANUAL-ALUNO.md` com linguagem simples e capturas de tela. | [MVP] |
-| AC-DOC-04 | Existe `docs/MANUAL-PROFESSOR.md` cobrindo salas, PIN, perks e moderação. | [MVP] |
-| AC-DOC-05 | Existe `docs/ARQUITETURA.md` com o modelo de dados, as coleções do Firestore e os diagramas de fluxo. | [MVP] |
+| AC-DOC-03 ✅ | Existe `docs/MANUAL-ALUNO.md` com linguagem simples e capturas de tela. | [MVP] |
+| AC-DOC-04 ✅ | Existe `docs/MANUAL-PROFESSOR.md` cobrindo salas, PIN, perks e moderação. | [MVP] |
+| AC-DOC-05 ✅ | Existe `docs/ARQUITETURA.md` com o modelo de dados, as coleções do Firestore e os diagramas de fluxo. | [MVP] |
 | AC-DOC-06 ✅ | Existe `CONTRIBUTING.md` com o fluxo de branches, o padrão de commits e como rodar os testes. | [MVP] |
 | AC-DOC-07 ✅ | Toda decisão arquitetural relevante é registrada como ADR em `docs/adr/`. | [MVP] |
 
@@ -803,3 +803,86 @@ ele leria preto sobre transparente em toda tela e acusaria violação onde não 
 teste mede o tempo de render no ambiente do CI e o compara com um teto
 declarado no próprio arquivo. Ele pega uma regressão de ordem de grandeza — que
 é o que interessa —, não uma diferença de 20%.
+
+---
+
+### v1.0.0 — Auditoria, suíte end-to-end, orçamentos e a documentação de usuário
+
+> Esta versão não tem escopo de funcionalidade. Ela começou pela auditoria de
+> [`AUDITORIA-1.0.0.md`](AUDITORIA-1.0.0.md), que percorreu todos os [MVP] sob a regra
+> "um AC sem teste que o prove conta como não atendido". Os onze ❌ que ela encontrou
+> viraram os ciclos desta task, e estão abaixo.
+
+**Atendidos (✅)**
+
+| AC | Prova |
+|---|---|
+| AC-CHAMADO-01 | **[REG]** `src/utils/__tests__/descricaoDoChamado.test.js` — a regra de 1 a 1000 caracteres como função pura, com as duas fronteiras; `src/components/__tests__/Modal.test.js` — o modal recusa a descrição vazia e a de 4000 caracteres **com uma frase na tela**, em vez de fechar em silêncio; `tests/e2e/chamado.spec.js:102` — o mesmo no navegador. O servidor já recusava (`firestore.rules`); o cliente é que não dizia nada |
+| AC-ANIM-08 | `tests/e2e/layout.spec.js:101` — o login não vaza para o lado em 1024×768; `:108` — a tela da aluna cabe com a fila e o botão flutuante; `:124` — a do professor cabe com o painel da turma e o de perks; `:136` — o chat aberto não empurra a fila para fora; `:144` — a conversa fica com o painel, e não com o botão de histórico; `:175` — o modal cabe na janela; `:194`, `:201`, `:215`, `:237` — os mesmos quatro em 360×640. Medida em pixel, num navegador com layout real: fecha o bloqueio **B-002** |
+| AC-TEST-02 | `src/__tests__/cicloRedGreenRefactor.test.js` — lê o `git log` da branch e exige que todo commit de implementação seja precedido por um de teste no mesmo escopo; `.github/workflows/` job `commits` — o CI verifica a **ordem** do ciclo, e não só o formato da mensagem |
+| AC-TEST-06 | `tests/e2e/login.spec.js` (7 testes), `sala.spec.js` (5), `chamado.spec.js` (7), `chat.spec.js` (6), `carga.spec.js` (5), `desempenho.spec.js` (2), `layout.spec.js` (10), `compatibilidade.spec.js` (6) — os seis fluxos críticos em Chromium, sobre o build de produção, contra o Emulator Suite |
+| AC-TEST-08 | `src/__tests__/orcamentoDaSuite.test.js` e `scripts/orcamentoDaSuite.js` — o teto é da **suíte inteira**, somando as três. `timeout-minutes: 5` por job permitia 25 minutos somados e não dizia nada sobre o conjunto |
+| AC-TEST-09 | `src/__tests__/semEsperaCegaNoE2E.test.js` — varre a suíte e2e por `sleep`, `waitForTimeout` e afins, distinguindo o **teto** do Playwright (um limite superior) da **espera cega** (um piso) |
+| AC-TEST-10 | `src/__tests__/regressaoPorCriterio.test.js` — cada um dos 11 critérios [REG] precisa ter teste de regressão nomeado, e a varredura reprova o que não tiver |
+| AC-CI-07 | `src/__tests__/release.test.js` — o workflow de release existe, dispara em push para `main`, roda a suíte, constrói e cria a tag `v1.0.0`; a criação da tag é idempotente |
+| AC-CI-08 | `src/__tests__/release.test.js` — `.github/workflows/release.yml` publica de `main`; `.github/workflows/homologacao.yml` dispara **só** em push para `dev` e não cria tag nem release; `docs/RELEASE.md` — o procedimento e o **rollback** |
+| AC-SEC-04 | `src/__tests__/xssPorPontoDeEntrada.test.js` — carga hostil em **cada** ponto de entrada: descrição em texto puro e em markdown, chat, mensagem direta, nome de sala, justificativa de perk e URL de anexo com esquema executável; e a varredura que exige que todo `dangerouslySetInnerHTML` more num arquivo que importa o sanitizador |
+| AC-SEC-07 | `src/__tests__/dadosPessoais.test.js` — as duas metades do critério: os campos que chegam ao banco são levantados **exercitando os caminhos de escrita**, cada um precisa estar na lista declarada com o motivo escrito, e a lista não pode ter sobra; e nenhuma chamada de console interpola portador de dado pessoal. Pegou o `uid` no aviso de rebaixamento de professor |
+| AC-PERF-01 | `tests/e2e/desempenho.spec.js:88` — FCP medido com throttling de 3G rápida pelo CDP, no navegador de verdade, sobre o build de produção |
+| AC-PERF-02 | `scripts/verificarOrcamentoDoBundle.js` e `scripts/__tests__/verificarOrcamentoDoBundle.test.js` — o teto de 300 KB gzip **reprova o CI**; `src/__tests__/divisaoPorRota.test.js` — toda tela de rota entra por `React.lazy`; `tests/e2e/desempenho.spec.js:114` — a primeira tela não baixa o app inteiro. Inicial: **172,77 KB gzip**, 13 pedaços sob demanda (era 218,76 KB num `main.js` só) |
+| AC-PERF-03 | `src/__tests__/listenersComTeto.test.js` — varre **todo** `onSnapshot` do `src/` exigindo escopo (`where` ou subcoleção), `limit` e cancelamento; `src/__tests__/orcamentoDeLeitura.test.js` — a conta de custo é derivada dos `limit()` do fonte, e não copiada do documento |
+| AC-PERF-05 | `tests/e2e/carga.spec.js:75` — 40 membros, 200 chamados e 1000 mensagens semeados de verdade no emulador; `:83` — a fila desenha uma página, não os 200; `:120` — o painel da turma mostra os 40 sem paginar; `:134` — o chat monta 50 balões; `:149` — escrever no chat cheio continua respondendo |
+| AC-DOC-01 | `src/__tests__/documentacao.test.js` — a versão do README bate com a do `package.json`, os três comandos do AC-CI-10 estão em ordem, **todo** script do `package.json` está documentado (menos `eject`, de propósito), os dois manuais estão linkados, e nenhum link relativo do repositório aponta para arquivo inexistente |
+| AC-DOC-03 | `docs/MANUAL-ALUNO.md` + `src/__tests__/documentacao.test.js` — existe, cobre os sete assuntos que o critério nomeia, exibe 6 capturas, e **cada captura é um arquivo que existe, com mais de 1 KB e com texto alternativo** |
+| AC-DOC-04 | `docs/MANUAL-PROFESSOR.md` + `src/__tests__/documentacao.test.js` — cobre criar a sala, distribuir e regerar o PIN, a fila, o atendido, moderar o chat, a mensagem direta, as premiações e o arquivamento; e não avisa mais que cobre só as premiações |
+| AC-DOC-05 | `docs/ARQUITETURA.md` §§ 3, 10 e 11 + `src/__tests__/documentacao.test.js` — os três diagramas de fluxo (autenticação com resolução de papel, entrada por PIN, ciclo de vida do chamado), e **todas** as coleções que as rules conhecem descritas no documento |
+| AC-DOC-07 | `docs/adr/0012-divisao-do-bundle-por-rota.md`, `0013-suite-end-to-end-com-playwright.md` + `src/__tests__/documentacao.test.js` — a numeração dos ADRs não tem buraco, e cada um tem contexto, decisão e consequências |
+| AC-COR-04 / AC-COR-07 | `tests/rules/salas.rules.test.js` — o **servidor** passa a validar `formato` e `cor` do chamado, lacuna registrada na v0.7.0 com a remissão "fica para a task 09". `cor` termina num atributo de estilo renderizado para os quarenta membros da sala, e um `url(...)` ali entregaria o IP da turma inteira a um servidor de fora; e a rule não reconfere o que a escrita **não** mudou, para o chamado antigo continuar atualizável |
+| AC-DM-01 / AC-DM-04 | `tests/rules/conversas.rules.test.js` — a conversa direta passa a ser legível **antes de existir**. `participa()` procurava `participantes` dentro de `resource`, que é nulo no documento ainda não criado — e é justamente nesse `get` que toda primeira mensagem direta começa. O resultado era `permission-denied` em toda conversa nova. A leitura do inexistente se apoia no id (`uidMenor_uidMaior`), que `conversaBemFormada()` já amarra aos participantes; liberá-la para qualquer membro da sala vazaria a existência das conversas alheias pela diferença entre "vazio" e "negado" |
+| AC-AUTH-10 | `src/__tests__/segredosVersionados.test.js` — nenhum segredo versionado hoje **e nenhum no histórico do git**: `git rm` não apaga o passado, e um segredo commitado uma vez está vazado para sempre |
+
+**Parcialmente atendidos (🟡)**
+
+| AC | O que está provado | O que falta, e por quê |
+|---|---|---|
+| AC-CI-04 | `src/__tests__/ci.test.js` — os nomes dos jobs do workflow batem com os checks que `docs/PROTECAO-BRANCHES.md` manda exigir | Proteção de branch é configuração da UI do GitHub. Não existe API de cliente que a leia de dentro da suíte. Registrado em `docs/BLOQUEIOS.md` |
+| AC-SEC-06 | `src/utils/__tests__/httpsObrigatorio.test.js` — o redirecionamento HTTP→HTTPS antes de a aplicação montar, com as exceções de `localhost`; `src/__tests__/firebaseConfig.test.js` — o `authDomain` vem de variável de ambiente | A lista de domínios autorizados do Firebase Auth é configuração do console, aplicada à mão. `docs/DOMINIOS-AUTORIZADOS.md` diz exatamente quais, e `docs/SEGURANCA.md` § 4.5 põe a conferência no checklist de release |
+| AC-PERF-06 | `docs/ARQUITETURA.md` § 5 e `src/__tests__/orcamentoDeLeitura.test.js` — a conta é derivada dos `limit()` que o código usa, e o teste refaz a aritmética, então ela não envelhece em silêncio | Continua sendo estimativa, e não medição no console do Firebase com uso real de um semestre. Registrado como B-003 |
+
+**Compatibilidade desta versão**
+
+| Sentido | Prova |
+|---|---|
+| Retroativa | `tests/e2e/compatibilidade.spec.js:76` — a aluna entra num banco **da v0.1.0**, sem sala nenhuma, e vê o histórico dela pelo fallback de leitura; `:111` — e usa as features novas (cor, markdown) sobre esse banco; `:192` — o professor também vê o histórico global e a mensagem antiga do chat; `:216` — o app preenche `horarioIso` sozinho no chamado antigo do próprio autor; `tests/rules/salas.rules.test.js` — o chamado antigo continua atualizável, porque a rule não reconfere formato e cor que a escrita não mudou |
+| Futura | `tests/e2e/compatibilidade.spec.js:135` — um leitor no formato da v0.1.0 lê o que a 1.0.0 grava **sem lançar exceção**; `src/__tests__/compatibilidadeFutura.test.js` — a forma de cada documento é fixada, e a asserção quebra se alguém lhe acrescentar campo em silêncio |
+| Migração | **Nenhuma migração nova.** Os três scripts existentes (`migrar-horarios`, `migrar-anexos`, `migrar-para-salas`) foram corrigidos para a API modular do `firebase-admin` e provados em sequência, com `--dry-run` e de verdade: `tests/e2e/compatibilidade.spec.js:240` — rodam na ordem documentada, são **idempotentes** (a segunda execução não duplica nada) e **reversíveis** |
+
+**A decisão sobre os campos de compatibilidade**
+
+O plano da 1.0.0 previa remover `horarioIso`, a `imagem` em string duplicada e os
+`nome`/`email` duplicados nas mensagens. **Eles ficam.**
+
+A condição escrita na task era "apenas se a auditoria confirmar que nenhum cliente antigo
+segue em uso", e ela **não tem como confirmar isso**: não existe telemetria de versão de
+cliente, e um navegador de laboratório com a aba aberta desde antes do deploy é exatamente
+o cenário deste projeto. Manter é reversível; remover não é. A remoção fica registrada
+para a **1.1.0**, depois de uma versão inteira de convivência observada.
+
+**Adiados, com motivo**
+
+| AC | Por quê | Versão |
+|---|---|---|
+| AC-PERF-07 | Modo offline com fila de envio é [POS] e nunca esteve no escopo do MVP. | — |
+| AC-DM-08 | A exportação pedagógica de conversas é [POS] e pressupõe avisar os participantes antes, que é decisão da escola. | — |
+
+**Limites conhecidos**
+
+Três bloqueios continuam abertos e estão em [`BLOQUEIOS.md`](BLOQUEIOS.md) com causa e
+proposta: **B-001** (o limite de tentativas de PIN é por usuário, não por origem — rules
+não têm acesso ao IP), **B-003** (dez turmas em aula no mesmo dia apertam a cota gratuita
+de leitura), **B-004** (o workflow de deploy existe e espera um segredo que só quem
+administra o projeto cadastra) e **B-005** (`Modal.css` estiliza todo botão do
+aplicativo). Um nasceu nesta versão — **B-006**, a leitura pública de `autorizados` —, e
+um fechou: **B-002**, pela suíte e2e.
+
+Nenhum critério foi reescrito para caber na implementação.
