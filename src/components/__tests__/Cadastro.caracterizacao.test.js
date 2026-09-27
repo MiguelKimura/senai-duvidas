@@ -13,7 +13,7 @@ import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as firebaseAuth from 'firebase/auth';
-import { __registrarCredencial, __resetarAuth } from 'firebase/auth';
+import { __registrarCredencial, __resetarAuth, __verificacoesEnviadas } from 'firebase/auth';
 import {
   collection,
   getDocs,
@@ -113,13 +113,13 @@ describe('Cadastro de aluno (AC-AUTH-01)', () => {
     expect(usuario.criadoEm.toDate()).toEqual(new Date('2020-01-01T00:00:00.000Z'));
   });
 
-  it('leva o aluno para /aluno depois de cadastrar', async () => {
+  it('leva o aluno para /salas depois de cadastrar, onde ele digita o PIN', async () => {
     renderComProvedores(<Cadastro />);
 
     preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
     enviar();
 
-    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/aluno'));
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas'));
   });
 });
 
@@ -137,7 +137,7 @@ describe('Cadastro de professor (AC-AUTH-07)', () => {
 
     expect(
       await screen.findByText(
-        'Apenas usuários autorizados podem se cadastrar como professores.'
+        'Para se cadastrar como professor, use o seu e-mail @sp.senai.br.'
       )
     ).toBeInTheDocument();
     expect(await usuariosGravados()).toHaveLength(0);
@@ -156,7 +156,7 @@ describe('Cadastro de professor (AC-AUTH-07)', () => {
     });
     enviar();
 
-    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/professor'));
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas'));
     expect(await usuariosGravados()).toEqual([
       expect.objectContaining({ tipo: 'professor', email: 'carlos@senai.br' }),
     ]);
@@ -176,7 +176,7 @@ describe('Cadastro de professor (AC-AUTH-07)', () => {
 
     expect(
       await screen.findByText(
-        'Apenas usuários autorizados podem se cadastrar como professores.'
+        'Para se cadastrar como professor, use o seu e-mail @sp.senai.br.'
       )
     ).toBeInTheDocument();
   });
@@ -251,6 +251,50 @@ describe('Cadastro — erros do Firebase traduzidos (AC-AUTH-05)', () => {
   });
 });
 
+describe('Cadastro de professor pelo e-mail @sp.senai.br (v1.1.0)', () => {
+  it('aceita o e-mail institucional sem estar em autorizados, e manda o link de confirmação', async () => {
+    renderComProvedores(<Cadastro />);
+
+    preencher({
+      nome: 'Maria Silva',
+      email: 'maria.silva@sp.senai.br',
+      senha: 'senha123',
+      tipo: 'professor',
+    });
+    enviar();
+
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas'));
+    expect(__verificacoesEnviadas()).toEqual(['maria.silva@sp.senai.br']);
+  });
+
+  it('grava aluno até a confirmação: professor sem link aberto a rule recusaria', async () => {
+    renderComProvedores(<Cadastro />);
+
+    preencher({
+      nome: 'Maria Silva',
+      email: 'maria.silva@sp.senai.br',
+      senha: 'senha123',
+      tipo: 'professor',
+    });
+    enviar();
+
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas'));
+    expect(await usuariosGravados()).toEqual([
+      expect.objectContaining({ tipo: 'aluno', email: 'maria.silva@sp.senai.br' }),
+    ]);
+  });
+
+  it('não manda link de confirmação para o cadastro comum de aluno', async () => {
+    renderComProvedores(<Cadastro />);
+
+    preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
+    enviar();
+
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas'));
+    expect(__verificacoesEnviadas()).toEqual([]);
+  });
+});
+
 describe('Cadastro — sem alert bloqueando a aba (AC-AUTH-05)', () => {
   it('confirma o cadastro levando para a tela, e não com um alert', async () => {
     renderComProvedores(<Cadastro />);
@@ -258,7 +302,7 @@ describe('Cadastro — sem alert bloqueando a aba (AC-AUTH-05)', () => {
     preencher({ nome: 'Ana Souza', email: 'ana@senai.br', senha: 'senha123' });
     enviar();
 
-    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/aluno'));
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas'));
     expect(avisos).not.toHaveBeenCalled();
   });
 

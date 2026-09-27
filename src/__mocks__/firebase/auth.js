@@ -103,6 +103,21 @@ export async function signInWithPopup(_auth, provedor) {
   return { user: usuario };
 }
 
+// E-mails de confirmação "enviados", para os testes conferirem.
+let verificacoesEnviadas = [];
+
+export async function sendEmailVerification(usuario) {
+  verificacoesEnviadas.push(usuario && usuario.email);
+}
+
+export async function reload() {
+  return undefined;
+}
+
+export function __verificacoesEnviadas() {
+  return verificacoesEnviadas;
+}
+
 export async function setPersistence() {
   return undefined;
 }
@@ -133,6 +148,7 @@ export class GithubAuthProvider {
 
 /** Zera usuário, ouvintes e credenciais. Chamado entre testes. */
 export function __resetarAuth() {
+  verificacoesEnviadas = [];
   usuarioAtual = null;
   ouvintes = [];
   credenciais = new Map();

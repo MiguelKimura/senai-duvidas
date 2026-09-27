@@ -244,6 +244,74 @@ describe('salas/{salaId} — quem lê e quem cria', () => {
   });
 });
 
+describe('professor pelo e-mail @sp.senai.br confirmado (v1.1.0)', () => {
+  const MARIA = 'uid-maria';
+
+  /** Contexto com o token completo: e-mail e `email_verified`. */
+  function comoToken(uid, token) {
+    return ambiente.authenticatedContext(uid, token).firestore();
+  }
+
+  function salaDe(uid) {
+    return {
+      nome: 'Elétrica 1',
+      curso: 'Elétrica — Turma A',
+      anoLetivo: 2026,
+      professorUid: uid,
+      professorNome: 'Maria',
+      ativa: true,
+      arquivadaEm: null,
+      criadaEm: serverTimestamp(),
+    };
+  }
+
+  it('e-mail @sp.senai.br confirmado cria sala sem estar em `autorizados`', async () => {
+    const db = comoToken(MARIA, { email: 'maria.silva@sp.senai.br', email_verified: true });
+
+    await assertSucceeds(setDoc(doc(db, 'salas/da-maria'), salaDe(MARIA)));
+  });
+
+  it('o mesmo e-mail SEM confirmação NÃO cria sala', async () => {
+    const db = comoToken(MARIA, { email: 'maria.silva@sp.senai.br', email_verified: false });
+
+    await assertFails(setDoc(doc(db, 'salas/da-maria'), salaDe(MARIA)));
+  });
+
+  it('subdomínio e domínio parecido NÃO valem, mesmo confirmados', async () => {
+    const sub = comoToken(MARIA, { email: 'maria@aluno.sp.senai.br', email_verified: true });
+    const parecido = comoToken(MARIA, { email: 'maria@naosp.senai.br', email_verified: true });
+
+    await assertFails(setDoc(doc(sub, 'salas/sub'), salaDe(MARIA)));
+    await assertFails(setDoc(doc(parecido, 'salas/parecido'), salaDe(MARIA)));
+  });
+
+  it('o e-mail confirmado grava o próprio perfil como professor', async () => {
+    const db = comoToken(MARIA, { email: 'maria.silva@sp.senai.br', email_verified: true });
+
+    await assertSucceeds(
+      setDoc(doc(db, `usuarios/${MARIA}`), {
+        uid: MARIA,
+        nome: 'Maria',
+        email: 'maria.silva@sp.senai.br',
+        tipo: 'professor',
+      })
+    );
+  });
+
+  it('sem confirmação, o perfil NÃO se declara professor', async () => {
+    const db = comoToken(MARIA, { email: 'maria.silva@sp.senai.br', email_verified: false });
+
+    await assertFails(
+      setDoc(doc(db, `usuarios/${MARIA}`), {
+        uid: MARIA,
+        nome: 'Maria',
+        email: 'maria.silva@sp.senai.br',
+        tipo: 'professor',
+      })
+    );
+  });
+});
+
 describe('salas/{salaId} — quem altera (AC-SALA-10)', () => {
   beforeEach(async () => {
     await semearSala(SALA_A);
@@ -295,7 +363,9 @@ describe('salas/{salaId}/segredo — o resumo do PIN (AC-SEC-05)', () => {
   });
 
   it('o professor dono lê o resumo', async () => {
-    await assertSucceeds(getDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/segredo/pin`)));
+    await assertSucceeds(
+      getDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/segredo/pin`))
+    );
   });
 
   it('o aluno da própria sala NÃO lê o resumo do PIN', async () => {
@@ -329,7 +399,9 @@ describe('salas/{salaId}/segredo — o resumo do PIN (AC-SEC-05)', () => {
   });
 
   it('ninguém apaga o resumo para deixar a sala sem PIN', async () => {
-    await assertFails(deleteDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/segredo/pin`)));
+    await assertFails(
+      deleteDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/segredo/pin`))
+    );
   });
 });
 
@@ -637,8 +709,10 @@ describe('chamados da sala — escopo por turma (AC-SALA-07, AC-SEC-02)', () => 
     });
 
     it.each([
-      ['uma URL de imagem, que pediria o IP da turma ao servidor do outro lado',
-        'url(https://rastreador.exemplo/pixel.png)'],
+      [
+        'uma URL de imagem, que pediria o IP da turma ao servidor do outro lado',
+        'url(https://rastreador.exemplo/pixel.png)',
+      ],
       ['uma expressão CSS inteira', 'red; background-image: url(//x)'],
       ['número no lugar de string', 0x00ff00],
       ['string longa demais para ser cor', 'a'.repeat(200)],
@@ -1078,9 +1152,7 @@ describe('tentativasPin — o limite de força bruta (AC-SALA-12)', () => {
   }
 
   it('a primeira tentativa da janela é registrada', async () => {
-    await assertSucceeds(
-      setDoc(doc(como(ANA), `tentativasPin/${ANA}`), tentativa(PIN_A, 1))
-    );
+    await assertSucceeds(setDoc(doc(como(ANA), `tentativasPin/${ANA}`), tentativa(PIN_A, 1)));
   });
 
   it('a primeira tentativa não começa valendo cinco', async () => {
