@@ -97,7 +97,7 @@ O PR precisa dos cinco checks verdes: `lint`, `test`, `test-rules`, `e2e`, `buil
    tag `vX.Y.Z`, publica o release no GitHub com essa seção como corpo, e faz o deploy de
    produção.
 
-A tag desta versão é **`v1.0.0`**.
+A tag desta versão é **`v1.1.0`**.
 
 A criação da tag é idempotente: se `vX.Y.Z` já existe no remoto, o workflow diz isso e não
 faz nada. Uma tag publicada nunca é movida — quem instalou a `v1.0.0` precisa continuar

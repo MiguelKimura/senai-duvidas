@@ -9,6 +9,31 @@ Todas as mudanças relevantes deste projeto são registradas aqui, no formato
 > intervalo e os agrupa. Escrever à mão é escrever de memória no fim do trabalho, e o que
 > fica de fora é justamente o que ninguém lembrou.
 
+> node scripts/gerarChangelog.js 3c28e0e..HEAD --versao 1.1.0 --data 2026-09-27
+
+## [1.1.0] - 2026-09-27
+
+### Adicionado
+
+- **chamado:** padroniza o card em coluna única com Ler mais e olho no anexo
+- **sala:** separa conquistas, premiações e turma em abas
+- **sala:** leva todo login à lista de salas em vez da fila global
+- **auth:** libera o papel de professor ao e-mail @sp.senai.br confirmado
+
+### Alterado
+
+- **chamado:** exige card padrão em coluna única, com Ler mais e olho no anexo
+- **sala:** exige conquistas, premiações e turma fora da tela inicial
+- **chamado:** exige caixa de descrição de tamanho fixo no novo chamado
+- **sala:** exige que todo login entre pela lista de salas
+- **auth:** exige professor pelo e-mail @sp.senai.br confirmado e PIN no primeiro acesso
+- **manual:** descreve as abas da sala, o PIN no primeiro acesso e o professor @sp.senai.br
+- **e2e:** acompanha as abas da sala, o olho do anexo e o login por /salas
+
+### Corrigido
+
+- **chamado:** fixa o tamanho da caixa de descrição do novo chamado
+
 > node scripts/gerarChangelog.js 8fa523c..HEAD --versao 1.0.0 --data 2026-09-26
 
 ## [1.0.0] - 2026-09-26
