@@ -105,7 +105,14 @@ else {
     # O PATH do processo criado no logon pode ser menor que o do seu terminal.
     # Como as cinco ferramentas acabaram de ser VALIDADAS neste PATH, gravamos
     # ele dentro do .vbs para a fila herdar exatamente o mesmo ambiente.
-    $pathAtual = $env:PATH -replace '"', '""'
+    #
+    # Deduplicado de propósito: em máquinas com muitas ferramentas instaladas o
+    # PATH acumula entradas repetidas (o instalador de cada ferramenta tende a
+    # se acrescentar de novo), e um bloco de ambiente inflado no Windows é
+    # candidato a falhas intermitentes de CreateProcess (WinError 206 e afins).
+    $pastas = $env:PATH -split ';' | Where-Object { $_ -ne '' } |
+        Select-Object -Unique
+    $pathAtual = ($pastas -join ';') -replace '"', '""'
 
     $conteudo = @"
 ' Sobe a fila de automacao do Projeto Duvidas SENAI em janela oculta.

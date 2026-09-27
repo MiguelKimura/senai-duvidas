@@ -67,6 +67,10 @@ retry:
     - "502"
     - "503"
     - "504"
+    # Falha do Windows ao lançar um processo (CreateProcess) — vista num git push
+    # depois de install/lint/test/build bem-sucedidos na mesma sessão. É hiccup
+    # de sistema, não comando inválido; vale o backoff exponencial da fila.
+    - "winerror"
 
 reset_detection:
   enabled: true

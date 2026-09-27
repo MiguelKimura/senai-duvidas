@@ -110,20 +110,35 @@ class CommandResult:
 def run(cmd: list[str], cwd: Path, timeout: int | None = None) -> CommandResult:
     if cmd and not os.path.isabs(cmd[0]):
         cmd = resolver_executavel(cmd[0]) + list(cmd[1:])
-    p = subprocess.run(
-        cmd,
-        cwd=str(cwd),
-        text=True,
-        # No Windows, text=True sem encoding usa a codificação local (cp1252 em
-        # PT-BR), que não decodifica a saída UTF-8 do git, do gh e do Claude.
-        encoding="utf-8",
-        errors="replace",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=timeout,
-        creationflags=SEM_JANELA,
-    )
-    return CommandResult(p.returncode, p.stdout, p.stderr)
+
+    # CreateProcess pode falhar de forma passageira no Windows — WinError 206
+    # ("nome do arquivo ou extensão muito grande") apareceu num `git push` depois
+    # de um `npm install`, `lint`, `test` e `build` bem-sucedidos na mesma sessão,
+    # o que aponta para um hiccup do sistema (ambiente/recursos), não um comando
+    # inválido. Uma pequena nova tentativa aqui evita perder uma task inteira —
+    # e o custo de API que ela já gastou — por causa de um OSError de um instante.
+    ultimo_erro: OSError | None = None
+    for tentativa in range(3):
+        try:
+            p = subprocess.run(
+                cmd,
+                cwd=str(cwd),
+                text=True,
+                # No Windows, text=True sem encoding usa a codificação local (cp1252 em
+                # PT-BR), que não decodifica a saída UTF-8 do git, do gh e do Claude.
+                encoding="utf-8",
+                errors="replace",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=timeout,
+                creationflags=SEM_JANELA,
+            )
+            return CommandResult(p.returncode, p.stdout, p.stderr)
+        except OSError as exc:
+            ultimo_erro = exc
+            if tentativa < 2:
+                time.sleep(2)
+    raise ultimo_erro
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
