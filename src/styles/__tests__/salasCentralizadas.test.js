@@ -28,3 +28,21 @@ describe('Salas.css — o PIN centralizado', () => {
     expect(regras).toMatch(/box-shadow:\s*none/);
   });
 });
+
+describe('o botão Sair não herda largura de outra tela', () => {
+  const pasta = path.join(__dirname, '..');
+
+  it('Cadastro.css não estiliza todo <button> do app', () => {
+    const cadastro = fs.readFileSync(path.join(pasta, 'Cadastro.css'), 'utf8');
+
+    // Um `button { width: 100% }` solto vale para o app inteiro depois que a
+    // tela de cadastro é visitada — e esticava o Sair de uma borda à outra.
+    expect(cadastro).not.toMatch(/(^|\n|\})\s*button\s*(:hover\s*)?\{/);
+  });
+
+  it('o Sair tem largura própria', () => {
+    const sair = fs.readFileSync(path.join(pasta, 'BotaoSair.css'), 'utf8');
+
+    expect(sair).toMatch(/\.botao-sair\s*\{[^}]*width:\s*auto/);
+  });
+});

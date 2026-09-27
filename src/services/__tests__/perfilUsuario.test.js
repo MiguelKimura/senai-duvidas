@@ -189,13 +189,34 @@ describe('resolução do papel — as duas fontes precisam concordar (AC-AUTH-06
     await expect(garantirPerfil(ANA_DO_GOOGLE)).resolves.toMatchObject({ papel: 'aluno' });
   });
 
-  it('é aluno quando só autorizados diz professor e o documento ainda diz aluno', async () => {
+  // v1.1.0: `autorizados` é a autoridade, e a Security Rule já aceita o
+  // `tipo: "professor"` de quem está lá. A conta que ficou `aluno` — pela
+  // corrida entre o cadastro e o primeiro login, ou porque o e-mail entrou na
+  // lista depois — sobe para professor na próxima resolução do papel.
+  it('promove a professor a conta aluno cujo e-mail está em autorizados', async () => {
     __semearColecao('usuarios', [
       { id: 'uid-carlos', uid: 'uid-carlos', email: 'carlos@senai.br', tipo: 'aluno' },
     ]);
     __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'professor' }]);
 
+    await expect(garantirPerfil(CARLOS)).resolves.toMatchObject({
+      papel: 'professor',
+      rebaixado: false,
+    });
+    expect(await usuariosGravados()).toEqual([
+      expect.objectContaining({ id: 'uid-carlos', tipo: 'professor' }),
+    ]);
+  });
+
+  it('não promove a conta aluno que não está em autorizados', async () => {
+    __semearColecao('usuarios', [
+      { id: 'uid-carlos', uid: 'uid-carlos', email: 'carlos@senai.br', tipo: 'aluno' },
+    ]);
+
     await expect(garantirPerfil(CARLOS)).resolves.toMatchObject({ papel: 'aluno' });
+    expect(await usuariosGravados()).toEqual([
+      expect.objectContaining({ id: 'uid-carlos', tipo: 'aluno' }),
+    ]);
   });
 
   it('é aluno quando autorizados traz um Tipo diferente de professor', async () => {
