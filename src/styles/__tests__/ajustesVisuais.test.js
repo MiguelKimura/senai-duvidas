@@ -96,3 +96,28 @@ describe('o diálogo de novo chamado com tudo aberto (revisão da v1.1.0)', () =
     expect(regras).toMatch(/background/);
   });
 });
+
+describe('premiações e conquistas centralizadas (revisão da v1.1.0)', () => {
+  it('o painel de premiações do professor fica no centro da aba', () => {
+    expect(bloco('Perks.css', '.perk-painel')).toMatch(/margin:\s*[^;]*auto/);
+  });
+
+  it('a vitrine fica no centro e larga o bastante para três cartões por linha', () => {
+    const vitrine = bloco('Perks.css', '.perk-vitrine');
+    const largura = Number(vitrine.match(/max-width:\s*(\d+)px/)[1]);
+
+    expect(vitrine).toMatch(/margin:\s*[^;]*auto/);
+    // Três colunas de 240px, com os vãos e o preenchimento da caixa.
+    expect(largura).toBeGreaterThanOrEqual(3 * 240 + 2 * 16 + 2 * 32);
+  });
+
+  it('as preferências acompanham a vitrine: mesma largura, também no centro', () => {
+    const preferencias = bloco('Perks.css', '.perk-preferencias');
+    const vitrine = bloco('Perks.css', '.perk-vitrine');
+
+    expect(preferencias).toMatch(/margin:\s*[^;]*auto/);
+    expect(preferencias.match(/max-width:\s*(\d+)px/)[1]).toBe(
+      vitrine.match(/max-width:\s*(\d+)px/)[1]
+    );
+  });
+});
