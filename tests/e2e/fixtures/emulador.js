@@ -144,6 +144,60 @@ async function respondeu(url) {
 }
 
 /**
+ * O estado das três portas, para o erro poder dizer quem está de pé.
+ *
+ * A sondagem entra por parâmetro para que o teste prove a varredura sem rede e
+ * sem emulador.
+ *
+ * @param {(url: string) => Promise<boolean>} [sonda]
+ * @returns {Promise<Array<{nome: string, respondeu: boolean}>>}
+ */
+async function varrerSondas(sonda = respondeu) {
+  return Promise.all(
+    SONDAS.map(async ([nome, endereco]) => ({ nome, respondeu: await sonda(endereco()) }))
+  );
+}
+
+/**
+ * A mensagem de quem não subiu, dita em função de quem subiu.
+ *
+ * São dois problemas diferentes com conselhos opostos. **Nada de pé**: a Suíte
+ * não subiu, e subir os emuladores resolve. **Alguém de pé**: a Suíte subiu pela
+ * metade, e subir os emuladores é exatamente o que não vai acontecer — o
+ * `reuseExistingServer` do Playwright acha a porta respondendo, conclui que já
+ * tem Suíte e não sobe. O que resolve é encerrar o processo que segura a porta.
+ *
+ * Confundir os dois manda quem lê para o lado oposto da causa, e foi o que
+ * aconteceu na execução de release da 1.0.0.
+ *
+ * @param {string} nome o emulador que não respondeu.
+ * @param {string} url onde ele foi procurado.
+ * @param {Array<{nome: string, respondeu: boolean}>} varredura o estado dos três.
+ */
+function mensagemDeFalha(nome, url, varredura) {
+  const dePe = varredura.filter((porta) => porta.respondeu && porta.nome !== nome);
+
+  if (dePe.length === 0) {
+    return (
+      `O emulador de ${nome} não respondeu em ${url}, e nenhum dos três está de pé. ` +
+      'Suba o Emulator Suite (`npm run emulators`) ou rode via `npm run test:e2e`.'
+    );
+  }
+
+  const nomes = dePe.map((porta) => porta.nome);
+  const lista = nomes.length === 1 ? nomes[0] : `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`;
+
+  return (
+    `O emulador de ${nome} não respondeu em ${url}, mas ${lista} ` +
+    `${nomes.length === 1 ? 'está' : 'estão'} de pé: a Suíte subiu pela metade. ` +
+    'A causa quase sempre é um emulador órfão de uma execução anterior segurando a ' +
+    `porta ${PORTA_FIRESTORE} — o \`reuseExistingServer\` do Playwright a encontra ` +
+    'respondendo, conclui que a Suíte já está de pé e não sobe nenhuma. Encerre o ' +
+    'processo órfão e rode de novo.'
+  );
+}
+
+/**
  * Espera os três emuladores, uma vez por processo.
  *
  * Memoizada: com 1 worker e dez arquivos de spec, a espera acontece na primeira
@@ -161,10 +215,12 @@ function aguardarEmuladores() {
       // eslint-disable-next-line no-await-in-loop
       while (!(await respondeu(url))) {
         if (Date.now() > limite) {
-          throw new Error(
-            `O emulador de ${nome} não respondeu em ${url}. ` +
-              'Suba o Emulator Suite (`npm run emulators`) ou rode via `npm run test:e2e`.'
-          );
+          // A varredura antes do `throw`: é ela que separa "a Suíte não subiu"
+          // de "há órfão na porta", e custa três sondagens uma única vez.
+          // eslint-disable-next-line no-await-in-loop
+          const varredura = await varrerSondas();
+
+          throw new Error(mensagemDeFalha(nome, url, varredura));
         }
 
         // eslint-disable-next-line no-await-in-loop
@@ -328,6 +384,8 @@ module.exports = {
   idsDe,
   ler,
   limparTudo,
+  mensagemDeFalha,
   projeto,
+  varrerSondas,
   valor,
 };
