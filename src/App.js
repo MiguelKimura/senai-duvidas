@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import RotaProtegida from './components/RotaProtegida';
 import Footer from './components/Footer';
@@ -17,10 +17,13 @@ import { ProvedorDeToasts } from './components/Toast';
 // `services/auth.js` (chamadas ao SDK) e para `RotaProtegida` (quem entra
 // onde). Aqui ficou o mapa de rotas.
 //
-// A v0.5.0 acrescenta as rotas de sala e **não aposenta** `/aluno` nem
-// `/professor`. As duas antigas continuam abrindo as telas sem `salaId`, que
-// leem as coleções globais — é o fallback de leitura da migração, no nível da
-// navegação, e ele continua na 1.0.0 (`docs/MIGRACOES.md`).
+// A v0.5.0 acrescentou as rotas de sala sem aposentar `/aluno` e
+// `/professor`, que abriam as telas sem `salaId` e liam as coleções globais —
+// o fallback de leitura da migração. A v1.1.0 aposenta as duas: elas
+// redirecionam para `/salas`. Os dados das coleções globais eram de uma turma
+// que já se formou, e a tela sem sala fazia o aluno novo "entrar numa sala"
+// sem PIN nenhum. Os endereços continuam respondendo, para não quebrar
+// favorito antigo (`docs/MIGRACOES.md`).
 //
 // ---------------------------------------------------------------------------
 // Code-splitting por rota (AC-PERF-02)
@@ -42,8 +45,6 @@ import { ProvedorDeToasts } from './components/Toast';
 // uma segunda ida à rede para carregar o que vai ser usado de qualquer forma.
 const Login = lazy(() => import('./components/Login'));
 const Cadastro = lazy(() => import('./components/Cadastro'));
-const TelaAluno = lazy(() => import('./components/TelaAluno'));
-const TelaProfessor = lazy(() => import('./components/TelaProfessor'));
 const MinhasSalas = lazy(() => import('./components/MinhasSalas'));
 const EntrarComPin = lazy(() => import('./components/EntrarComPin'));
 const CriarSala = lazy(() => import('./components/CriarSala'));
@@ -117,22 +118,8 @@ function App() {
                     </RotaProtegida>
                   }
                 />
-                <Route
-                  path="/aluno"
-                  element={
-                    <RotaProtegida papel="aluno">
-                      <TelaAluno />
-                    </RotaProtegida>
-                  }
-                />
-                <Route
-                  path="/professor"
-                  element={
-                    <RotaProtegida papel="professor">
-                      <TelaProfessor />
-                    </RotaProtegida>
-                  }
-                />
+                <Route path="/aluno" element={<Navigate to="/salas" replace />} />
+                <Route path="/professor" element={<Navigate to="/salas" replace />} />
               </Routes>
             </Suspense>
             <Footer />
