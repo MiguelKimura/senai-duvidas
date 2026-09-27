@@ -314,6 +314,7 @@ async function criarConta({ uid, email, senha, nome }) {
 
 module.exports = {
   ENDERECO_DO_APP,
+  ESPERA_MAXIMA_MS,
   HOST,
   PORTA_AUTH,
   PORTA_FIRESTORE,
