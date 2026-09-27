@@ -218,3 +218,26 @@ Para copiar no PR:
 - [ ] cinco checks verdes no PR de `dev` → `main`
 - [ ] depois do merge: tag `vX.Y.Z` criada e release publicado
 - [ ] depois do deploy: abrir a tela de login em produção e entrar com uma conta de teste
+
+
+## Vercel (v1.1.0)
+
+As turmas usam o app pelo Vercel, e não pelo Firebase Hosting. O banco, o login
+e as regras continuam no Firebase: o Vercel só serve o site. O `vercel.json` na
+raiz diz como construir (`npm run build`, saída em `build/`) e manda toda rota
+para o `index.html`, para que abrir `/sala/…` direto, ou recarregar a página,
+não dê 404.
+
+O que se configura uma vez, no painel do Vercel:
+
+1. **Settings → Git → Production Branch:** `main`. Push em `dev` e nas outras
+   branches vira preview, com endereço próprio.
+2. **Settings → Environment Variables:** as seis `REACT_APP_FIREBASE_*` do
+   `.env`, com os mesmos valores, marcadas para **Production** e **Preview**.
+   O CRA embute essas variáveis no build: mudar um valor exige um novo deploy.
+3. **Firebase → Authentication → Settings → Authorized domains:** acrescentar
+   o domínio de produção do Vercel (ver `docs/DOMINIOS-AUTORIZADOS.md`).
+
+Depois de mudar as Security Rules, o deploy delas continua sendo pelo Firebase:
+`npx firebase deploy --only firestore:rules --project senai-duvidas`. O Vercel
+não sabe nada das rules.
