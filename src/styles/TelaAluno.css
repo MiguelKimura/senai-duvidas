@@ -56,11 +56,8 @@
   overflow-x: hidden;
 }
 
+/* Só a cor: o tamanho do botão é fixo e mora em CardDoChamado.css. */
 .tela-aluno .problema-card .delete-button {
-  margin-top: 10px;
-  width: 100%;
-  text-align: center;
-  padding: 5px 10px;
   background-color: var(--cor-primaria);
   color: var(--cor-texto-invertido);
   border: none;

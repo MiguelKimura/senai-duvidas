@@ -16,13 +16,13 @@
 // O que varia entre as duas telas é só o rodapé de ações, e ele entra por
 // `acoes`. Tudo o mais é idêntico e precisa continuar sendo: a fila é a mesma,
 // e o card do professor tem de mostrar o que o do aluno mostra.
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import AnexoDoCard from './AnexoDoCard';
 import TextoMarkdown from './TextoMarkdown';
 import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import { formatarDataHora } from '../services/tempo';
 import { formatoDoTexto } from '../utils/markdown';
-import { classesDoCard, estiloDoCard } from '../utils/cardDoChamado';
+import { classesDoCard, descricaoEhLonga, estiloDoCard } from '../utils/cardDoChamado';
 import '../styles/CardDoChamado.css';
 
 /**
@@ -45,6 +45,13 @@ function CardDoChamado({
   agoraServidor,
   acoes = null,
 }) {
+  // Recolhida por padrão: é o que dá a todo card a mesma altura na fila, e é
+  // o que impede um chamado de vinte linhas de empurrar os outros para fora
+  // da tela do professor.
+  const [expandido, setExpandido] = useState(false);
+  const longo = descricaoEhLonga(chamado.descricao);
+  const idDaDescricao = `descricao-${chamado.id}`;
+
   return (
     <div
       className={classesDoCard({ saindo })}
@@ -65,19 +72,39 @@ function CardDoChamado({
           </p>
         </div>
 
-        {/* A miniatura do anexo, no mesmo canto onde o olho 👁️ ficava. Clicar
-            abre o visualizador na própria página — `window.open` vinha
-            bloqueado em parte dos laboratórios (AC-IMG-10). */}
+        {/* O olho 👁️ do anexo, no canto de sempre. Clicar abre o
+            visualizador na própria página — `window.open` vinha bloqueado em
+            parte dos laboratórios (AC-IMG-10). */}
         <AnexoDoCard chamado={chamado} />
       </div>
 
-      {/* Chamado sem `formato` é texto puro e continua sendo renderizado como
-          texto, sem interpretar markdown (AC-COR-05). */}
-      <TextoMarkdown texto={chamado.descricao} formato={formatoDoTexto(chamado)} />
-
-      <p>
+      {/* Data e hora logo abaixo do nome, antes do texto: é a primeira coisa
+          que o professor procura para saber quem está esperando há mais
+          tempo. */}
+      <p className="card-horario">
         <em>{formatarDataHora(chamado.horario)}</em>
       </p>
+
+      {/* Chamado sem `formato` é texto puro e continua sendo renderizado como
+          texto, sem interpretar markdown (AC-COR-05). */}
+      <div
+        id={idDaDescricao}
+        className={`card-descricao${longo && !expandido ? ' card-descricao--recolhida' : ''}`}
+      >
+        <TextoMarkdown texto={chamado.descricao} formato={formatoDoTexto(chamado)} />
+      </div>
+
+      {longo && (
+        <button
+          type="button"
+          className="card-ler-mais"
+          aria-expanded={expandido}
+          aria-controls={idDaDescricao}
+          onClick={() => setExpandido((atual) => !atual)}
+        >
+          {expandido ? 'Ler menos' : 'Ler mais'}
+        </button>
+      )}
 
       {acoes}
     </div>

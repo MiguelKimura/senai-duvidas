@@ -40,13 +40,21 @@ export function anexoDoChamado(chamado) {
 }
 
 /**
- * A miniatura do anexo, que abre o visualizador ao ser clicada.
+ * O olho 👁️ do anexo, que abre o visualizador ao ser clicado.
+ *
+ * A miniatura que a v0.6.0 pôs aqui saiu a pedido do cliente: com print no
+ * card, a fila virava uma galeria, cada card ficava de uma altura e a turma
+ * via o print do colega sem ter pedido. O olho é o ícone que a turma já
+ * conhecia desde a v0.1.0 — e a imagem só é baixada quando alguém clica,
+ * o que também poupa a banda do laboratório.
+ *
+ * A imagem quebrada continua avisada: quem avisa agora é o `Lightbox`, que é
+ * onde ela tenta carregar (AC-IMG-12).
  *
  * @param {{chamado: object}} props
  */
 export default function AnexoDoCard({ chamado }) {
   const [aberto, setAberto] = useState(false);
-  const [quebrada, setQuebrada] = useState(false);
 
   const anexo = anexoDoChamado(chamado);
 
@@ -54,28 +62,19 @@ export default function AnexoDoCard({ chamado }) {
 
   const descricao = chamado.descricao || 'anexo do chamado';
 
-  if (quebrada) {
-    return <p className="anexo-indisponivel">{AVISO_INDISPONIVEL}</p>;
-  }
-
   return (
     <>
       {/* `title` continua sendo "Ver imagem": é como esta ação é conhecida
-          desde a v0.1.0, e é por ele que os testes de caracterização a
-          alcançam. O que mudou é que agora é um <button>, e não uma <div>
-          com onClick — quem navega por teclado alcança o anexo. */}
+          desde a v0.1.0. É um <button>, e não uma <div> com onClick — quem
+          navega por teclado alcança o anexo. */}
       <button
         type="button"
         className="view-image-icon"
         title="Ver imagem"
+        aria-label="Ver imagem anexada"
         onClick={() => setAberto(true)}
       >
-        <img
-          className="anexo-miniatura"
-          src={anexo.url}
-          alt={`Anexo do chamado: ${descricao}`}
-          onError={() => setQuebrada(true)}
-        />
+        <span aria-hidden="true">👁️</span>
       </button>
 
       {aberto && (
