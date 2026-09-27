@@ -1,14 +1,3 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: Arial, sans-serif;
-  background-color: var(--cor-fundo-pagina);
-}
-
 /* Container principal de login */
 .login-container {
   display: flex;
@@ -27,11 +16,6 @@ body {
   max-width: 400px;
 }
 
-h1 {
-  text-align: center;
-  color: var(--cor-texto-titulo);
-  margin-bottom: 20px;
-}
 
 /* Estilização dos campos de entrada */
 .input-group {
@@ -83,19 +67,6 @@ h1 {
   background-color: var(--cor-primaria-hover);
 }
 
-/* Centraliza o link abaixo do botão */
-p {
-  text-align: center;
-}
-
-a {
-  color: var(--cor-primaria-hover);
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
-}
 
 /* Mensagem de erro do login (AC-AUTH-05).
    Substitui o alert() da v0.2.0: o texto fica na tela, junto do formulário,

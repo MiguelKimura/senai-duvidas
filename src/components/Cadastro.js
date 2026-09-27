@@ -7,6 +7,7 @@ import { DOMINIO_DE_PROFESSOR, ehEmailDeProfessor } from '../utils/professorPorD
 import { db, auth } from '../firebase';
 import { verificarPermissao } from '../utils/permissoes'; // Importa a função de verificação
 import { traduzirErroDeAuth } from '../utils/errosAuth';
+import { useAuth } from '../contexts/AuthContext';
 
 import '../styles/Cadastro.css';
 
@@ -18,6 +19,7 @@ const Cadastro = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
+  const { tentarNovamente } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,6 +82,11 @@ const Cadastro = () => {
 
       // A tela inicial de todo mundo é a lista de salas: o aluno novo vê ali
       // o campo do PIN, e não cai numa sala sozinho.
+      // O primeiro login (disparado pela criação da conta) resolveu o papel
+      // antes de este documento existir, e gravou `aluno`. Refazer a
+      // resolução agora é o que faz o professor autorizado já cair em
+      // "Minhas salas" com o "Criar sala", sem sair e entrar de novo.
+      tentarNovamente();
       navigate('/salas');
     } catch (error) {
       // Um único tradutor para todo o projeto (AC-AUTH-05). A cadeia de `if`

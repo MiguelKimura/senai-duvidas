@@ -6,13 +6,45 @@
  * `!important` e não por ordem — mas os estados de botão, sim (AC-ANIM-05). */
 @import './styles/animacoes.css';
 
+/* A base do app inteiro (v1.1.0).
+ *
+ * Estas regras moravam soltas em Login.css e Cadastro.css. Como cada folha de
+ * tela só carrega quando a tela abre, e não sai mais da página, elas valiam
+ * para o app inteiro, mas só para quem tivesse passado por aquela tela: o
+ * layout mudava conforme o caminho. Aqui elas carregam sempre. São as mesmas
+ * que valiam para quem entrava pelo login, que é o caminho de quase todo
+ * mundo, e por isso a aparência desse caminho não muda. */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
-    'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: Arial, sans-serif;
+  background-color: var(--cor-fundo-pagina);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1 {
+  text-align: center;
+  color: var(--cor-texto-titulo);
+  margin-bottom: 20px;
+}
+
+p {
+  text-align: center;
+}
+
+a {
+  color: var(--cor-primaria-hover);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }
 
 code {

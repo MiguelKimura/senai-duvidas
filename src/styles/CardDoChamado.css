@@ -80,6 +80,9 @@
 
 .card-descricao {
   overflow-wrap: anywhere;
+  /* Alinhado à esquerda mesmo com o `p` centralizado da base (index.css):
+     texto de várias linhas centralizado é difícil de ler. */
+  text-align: left;
 }
 
 /* Recolhida: quatro linhas e um degradê avisando que há mais texto. A altura

@@ -124,7 +124,20 @@ export async function garantirPerfil(usuario) {
     // aqui. A rule aceita a escrita porque lê o mesmo `email_verified` do
     // token (`ehProfessorPorDominio()`). Não custa leitura nenhuma: a
     // condição sai toda do usuário do Auth.
-    if (porDominio && perfilExistente.tipo !== PAPEL_PROFESSOR) {
+    //
+    // A mesma promoção vale para quem está em `autorizados`: é a autoridade
+    // manual, e a rule aceita a escrita por ela também. Sem isto, a conta que
+    // ficou `aluno` — pela corrida entre o cadastro, que grava `professor`, e
+    // o primeiro login, que grava `aluno` — nunca mais sairia de aluno. A
+    // leitura extra só acontece para conta aluno, e só na resolução do papel.
+    const promover =
+      perfilExistente.tipo !== PAPEL_PROFESSOR &&
+      (porDominio ||
+        (await estaAutorizadoComoProfessor(perfilExistente.email || usuario.email).catch(
+          () => false
+        )));
+
+    if (promover) {
       await setDoc(referencia, { tipo: PAPEL_PROFESSOR }, { merge: true });
       perfilExistente = { ...perfilExistente, tipo: PAPEL_PROFESSOR };
     }
