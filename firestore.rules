@@ -751,7 +751,15 @@ service cloud.firestore {
     // ANTES de existir sessão, então a leitura continua pública enquanto o
     // fluxo de cadastro for esse.
     //
-    // TODO(task-09): mover a checagem para um custom claim e fechar a leitura.
+    // A task 09 auditou este ponto e decidiu MANTER a leitura aberta. Fechá-la
+    // exige mover o papel para um custom claim, que exige `setCustomUserClaims`
+    // do Admin SDK, que exige um ambiente de servidor (Cloud Function, plano
+    // Blaze) que este projeto não tem. A autorização em si está fechada: a
+    // escrita é negada a todos, e a rule de `usuarios/{uid}` reconfere o papel a
+    // cada escrita. O que fica legível é a lista, não o poder.
+    //
+    // Registrado como B-006 em `docs/BLOQUEIOS.md`, com a migração em duas
+    // etapas, e explicado em `docs/SEGURANCA.md` § 2.3. Previsto para a 1.1.0.
     match /autorizados/{email} {
       allow read: if true;
       allow write: if false;

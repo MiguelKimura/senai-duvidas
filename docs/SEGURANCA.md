@@ -74,8 +74,9 @@ gastar a rede**, e tem uma contraparte no servidor que é a que vale.
 
 ## 2. Auditoria das Security Rules
 
-A auditoria foi feita linha a linha sobre `firestore.rules` (800 linhas) e `storage.rules`
-(89 linhas). O resultado por critério está abaixo.
+A auditoria foi feita linha a linha sobre `firestore.rules` e `storage.rules`. O resultado por
+critério está abaixo, e cada afirmação traz o teste que a prova — as duas folhas somadas têm
+249 testes, em cinco arquivos.
 
 ### 2.1 AC-SEC-01 — deny by default
 
