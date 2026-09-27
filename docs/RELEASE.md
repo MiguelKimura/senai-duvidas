@@ -12,10 +12,33 @@ decorada.
 
 ## 1. Os dois ambientes
 
-| Ambiente | Sai de | Quem usa | O que é |
+Este projeto tem **um único projeto Firebase real**, no plano Spark (gratuito) —
+`senai-duvidas`. Não há orçamento nem plano para manter um segundo projeto só
+para testes, então produção e homologação **compartilham banco, Storage e
+Authentication**. O que separa os dois ambientes não é o projeto: é o canal do
+Firebase Hosting.
+
+| Ambiente | Sai de | Canal do Hosting | Quem usa |
 |---|---|---|---|
-| **Homologação** | `dev` | quem desenvolve e o professor que topa testar | banco e projeto Firebase **separados**; dá para apagar tudo sem consequência |
-| **Produção** | `main` | alunos e professores, em aula | o banco real; qualquer escrita aqui é dado de aluno |
+| **Homologação** | `dev` | canal de pré-visualização `homologacao`, temporário | quem desenvolve e o professor que topa testar |
+| **Produção** | `main` | canal `live` — a URL que a turma acessa | alunos e professores, em aula |
+
+**O dado é o mesmo dos dois lados.** Clicar no link de homologação lê e escreve
+no banco real. Enquanto a base for descartável — o caso hoje, com a turma que
+gerou os dados originais já formada —, isso não é um problema. Quando houver
+alunos de verdade matriculados, use o canal de homologação só para **olhar a
+tela renderizando**, não para exercitar fluxos que gravam dado (abrir chamado,
+mandar mensagem, entrar numa sala) — isso mistura teste com produção de verdade.
+
+Uma consequência direta: **as Security Rules só mudam por `main`.** Um canal de
+pré-visualização usa o Firestore e o Storage do projeto inteiro — não há como
+isolar rules por canal —, então publicar rules a partir de `dev` colocaria a
+turma sob uma regra que ainda não passou pela revisão. Uma feature de `dev` que
+dependa de uma rule nova só funciona de ponta a ponta depois que aquele PR
+chegar a `main`; até lá, o canal de homologação mostra a tela, mas a escrita que
+a rule nova autorizaria ainda vai ser negada. Teste esses fluxos contra o
+emulador (`npm run emulators`) — ele *não* toca no projeto real e não tem essa
+limitação.
 
 `main` é o que a turma vê. `dev` é integração. Nada chega em `main` a não ser por Pull
 Request de `dev`, com o CI verde e uma aprovação — a configuração exata está em
@@ -82,9 +105,12 @@ tendo a mesma `v1.0.0`.
 
 ### 2.4 Homologação
 
-`.github/workflows/homologacao.yml` dispara no push para `dev` e publica no projeto de
-homologação. Não cria tag e não publica release: homologação não é uma versão, é o estado
-atual de `dev`.
+`.github/workflows/homologacao.yml` dispara no push para `dev` e publica num **canal de
+pré-visualização** do Hosting (`hosting:channel:deploy`, não `deploy` puro), no mesmo
+projeto de produção — não existe um segundo projeto. O canal expira em 30 dias e é
+recriado a cada push; a URL fica visível no log da action. Não cria tag e não publica
+release: homologação não é uma versão, é o estado atual de `dev`. E não publica
+`firestore.rules` nem `storage.rules` — só o Hosting muda por esse caminho (§ 1).
 
 ### 2.5 O que falta configurar uma vez, à mão
 
@@ -93,8 +119,7 @@ que a automação possa chamar. Está registrado em [`BLOQUEIOS.md`](BLOQUEIOS.m
 
 | O que | Onde | Nome |
 |---|---|---|
-| Projeto Firebase de produção | console do Firebase | variável de repositório `FIREBASE_PROJETO_PRODUCAO` |
-| Projeto Firebase de homologação | console do Firebase | variável `FIREBASE_PROJETO_HOMOLOGACAO` |
+| O único projeto Firebase (`senai-duvidas`) | console do Firebase | variáveis de repositório `FIREBASE_PROJETO_PRODUCAO` **e** `FIREBASE_PROJETO_HOMOLOGACAO`, com **o mesmo valor** |
 | Conta de serviço com papel de deploy | IAM do projeto | segredo `FIREBASE_SERVICE_ACCOUNT` (JSON) |
 | Domínios autorizados do Auth | Authentication → Settings | ver [`DOMINIOS-AUTORIZADOS.md`](DOMINIOS-AUTORIZADOS.md) |
 

@@ -242,14 +242,14 @@ excluído sai da conta de todas as aberturas seguintes.
 ### O limite
 
 `.github/workflows/release.yml` publica em produção a partir de `main`, e
-`.github/workflows/homologacao.yml` publica homologação a partir de `dev`. Os dois
-funcionam e nenhum dos dois pode rodar até que três coisas existam, e nenhuma
-delas é criável por uma sessão de automação:
+`.github/workflows/homologacao.yml` publica um canal de pré-visualização a partir de
+`dev`, no **mesmo** projeto Firebase (`senai-duvidas`, plano Spark — não há orçamento
+para um segundo projeto). Os dois funcionam e nenhum dos dois pode rodar até que duas
+coisas existam, e nenhuma delas é criável por uma sessão de automação:
 
 | O que falta | Onde se cria | Nome esperado |
 |---|---|---|
-| Projeto Firebase de produção | console do Firebase | variável `FIREBASE_PROJETO_PRODUCAO` |
-| Projeto Firebase de homologação | console do Firebase | variável `FIREBASE_PROJETO_HOMOLOGACAO` |
+| O projeto Firebase, referenciado duas vezes | console do Firebase | variáveis `FIREBASE_PROJETO_PRODUCAO` **e** `FIREBASE_PROJETO_HOMOLOGACAO`, ambas com o id de `senai-duvidas` |
 | Conta de serviço com papel de deploy | IAM do projeto | segredo `FIREBASE_SERVICE_ACCOUNT` |
 
 Criar projeto no Firebase exige uma conta Google com faturamento associado e
@@ -274,14 +274,16 @@ visível: o workflow apontaria com confiança para um projeto que não existe.
 
 ### Proposta para fechar
 
-1. Criar os dois projetos no console do Firebase (produção e homologação).
-2. Em cada um: IAM → conta de serviço → papel *Firebase Hosting Admin* +
-   *Cloud Datastore Owner* (para publicar as rules) → gerar chave JSON.
-3. No GitHub: *Settings → Secrets and variables → Actions* → o segredo
-   `FIREBASE_SERVICE_ACCOUNT` com o JSON, e as duas variáveis com os ids.
-4. Fazer um push em `dev` e conferir que a homologação subiu, **antes** do
-   primeiro merge em `main`.
-5. Apagar esta entrada, com o link da primeira execução verde do deploy.
+1. No console do Firebase do projeto `senai-duvidas`: IAM → conta de serviço →
+   papel *Firebase Hosting Admin* + *Cloud Datastore Owner* (para publicar as
+   rules a partir de `main`) → gerar chave JSON.
+2. No GitHub: *Settings → Secrets and variables → Actions* → o segredo
+   `FIREBASE_SERVICE_ACCOUNT` com o JSON, e as **duas variáveis**
+   (`FIREBASE_PROJETO_PRODUCAO` e `FIREBASE_PROJETO_HOMOLOGACAO`) com o mesmo id,
+   `senai-duvidas`.
+3. Fazer um push em `dev` e conferir que o canal de pré-visualização subiu,
+   **antes** do primeiro merge em `main`.
+4. Apagar esta entrada, com o link da primeira execução verde do deploy.
 
 **Custo de não fazer agora:** a versão 1.0.0 é marcada e fica publicada no GitHub,
 e a instalação no laboratório continua sendo manual (`npm run build` e subida do

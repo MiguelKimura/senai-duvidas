@@ -1,24 +1,39 @@
 # Homologação do Projeto Dúvidas SENAI — AC-CI-08.
 #
-# Dispara em push para `dev`. É o ambiente onde o professor que topa testar vê a
-# versão de amanhã, contra um banco que pode ser apagado sem consequência.
+# Dispara em push para `dev`. É onde o professor que topa testar vê a versão de
+# amanhã antes dela chegar à turma.
 #
-# Três diferenças em relação a `release.yml`, e cada uma tem motivo:
+# **Uma decisão que muda o mecanismo, não o objetivo:** este projeto tem um único
+# projeto Firebase real, no plano Spark — não há um segundo projeto para separar
+# produção de homologação. A variável abaixo e a que `release.yml` usa para
+# produção apontam para **o mesmo** projeto (ver docs/RELEASE.md). O que separa
+# os dois ambientes não é o projeto: é o **canal do Hosting**.
 #
-# **Não cria tag e não publica release.** Homologação não é uma versão: é o estado
-# atual de `dev`, que muda várias vezes por dia. Marcar tag aqui encheria o
-# repositório de tags que não correspondem a nada instalado em lugar nenhum.
+# `firebase hosting:channel:deploy homologacao` publica num canal de
+# pré-visualização — uma URL própria, temporária, que não é a que a turma usa —
+# em vez do canal `live`. Um push em `dev` nunca sobrescreve o que está no ar.
+#
+# **Não publica `firestore.rules` nem `storage.rules`.** Um canal de
+# pré-visualização usa o Firestore e o Storage do projeto inteiro: não há como
+# isolar rules por canal, só o Hosting se separa assim. Publicar rules a partir
+# de `dev` colocaria produção sob uma regra que ainda não passou pela revisão de
+# `main`. As rules só mudam em produção pelo caminho de `release.yml`.
+#
+# **O canal de homologação compartilha o banco com produção.** Clicar no link de
+# homologação lê e escreve nos mesmos dados reais — é o preço de ter um projeto
+# só. Enquanto a base for descartável (turma que já se formou, ambiente de
+# piloto), tudo bem; quando houver alunos de verdade usando o sistema, use este
+# canal só para olhar a tela, não para testar fluxos que gravam dado.
+#
+# **Não cria tag e não publica release.** Homologação não é uma versão: é o
+# estado atual de `dev`, que muda várias vezes por dia. Marcar tag aqui encheria
+# o repositório de tags que não correspondem a nada instalado em lugar nenhum.
 #
 # **Não roda a suíte end-to-end.** Ela já rodou no PR que gerou este push — o
 # check `e2e` é obrigatório para mesclar em `dev` (ver docs/PROTECAO-BRANCHES.md).
 # O que roda aqui é o que protege contra o merge de dois PRs verdes que se
 # atrapalham: lint, unitários e build. Repetir os três minutos de navegador a cada
 # push em `dev` atrasaria o retorno sem responder nenhuma pergunta nova.
-#
-# **Publica no projeto de homologação.** A variável é
-# `FIREBASE_PROJETO_HOMOLOGACAO`, e o nome do projeto de produção não aparece em
-# nenhum lugar deste arquivo. Um erro de uma letra aqui publicaria homologação em
-# cima de uma aula.
 name: homologacao
 
 on:
@@ -26,7 +41,8 @@ on:
     branches: [dev]
 
 # Este workflow não escreve no repositório: não cria tag, não comenta, não move
-# branch. Ele só publica no Hosting, e a credencial disso é o segredo.
+# branch. Ele só publica um canal de pré-visualização do Hosting, e a credencial
+# disso é o segredo.
 permissions:
   contents: read
 
@@ -52,18 +68,14 @@ jobs:
       - name: Orçamento do bundle inicial
         run: npm run orcamento
 
-      # As rules vão junto do código que as pressupõe. Publicar o app novo contra
-      # as rules antigas é o cenário em que a tela existe e o servidor nega tudo o
-      # que ela tenta — e homologação existe justamente para esse par ser
-      # exercitado antes de `main`.
-      - name: Publicar em homologação
+      - name: Publicar no canal de pré-visualização de homologação
         if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: credencial.json
           FIREBASE_PROJETO: ${{ vars.FIREBASE_PROJETO_HOMOLOGACAO }}
         run: |
           printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > credencial.json
-          npx firebase deploy --only hosting,firestore:rules,storage \
+          npx firebase hosting:channel:deploy homologacao --expires 30d \
             --project "$FIREBASE_PROJETO" --non-interactive
           rm -f credencial.json
 
