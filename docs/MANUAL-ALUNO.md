@@ -42,11 +42,11 @@ barrou o login do Google — libere o site e tente de novo.
 
 ## 2. Entrar na sala com o PIN
 
-Depois de entrar, você cai em **Minhas salas**. Na primeira vez ela está vazia.
+Depois de entrar, você cai em **Minhas salas**. Na primeira vez, sem sala nenhuma, o campo
+do PIN já aparece na tela, em **Entre na sua sala** — a conta nunca entra numa sala
+sozinha. Quando você já tem sala e quer entrar em outra, use o botão **Entrar com PIN**.
 
 ![Tela Minhas salas, com o botão Entrar com PIN e o cartão de uma sala já cadastrada](imagens/aluno-minhas-salas.png)
-
-Clique em **Entrar com PIN**.
 
 ![Tela Entrar na sala, com o campo do PIN de seis dígitos](imagens/aluno-entrar-com-pin.png)
 
@@ -71,11 +71,14 @@ esperando em **Minhas salas** — é só clicar em **Abrir sala**.
 
 ![Fila da sala vista pelo aluno, com dois cards coloridos e o botão de nova dúvida no canto](imagens/aluno-fila-da-sala.png)
 
-Dentro da sala você vê **todas as dúvidas abertas da turma**, na ordem de chegada. Isso é
+Dentro da sala você vê **todas as dúvidas abertas da turma**, numa coluna só, da mais
+antiga (em cima) para a mais nova (embaixo). Isso é
 de propósito: metade das dúvidas de laboratório se repete, e ler o card de um colega
 costuma resolver a sua antes de o professor chegar.
 
-Cada card mostra quem abriu, o texto, o horário e o print, se houver. O horário é o do
+Cada card mostra quem abriu, logo abaixo a **data e o horário**, e depois o texto. Texto
+comprido aparece cortado, com um botão cinza **Ler mais**. Se houver print, aparece o
+**olho 👁️** no canto do card: clique nele para ver a imagem. O horário é o do
 **servidor**, não o do relógio daquela máquina — em laboratório os relógios costumam estar
 errados, e sem isso a fila sairia fora de ordem.
 
@@ -193,7 +196,8 @@ conversa inteira, e tudo o que você escreve fica visível para a turma toda.
 
 Às vezes o professor concede uma **premiação** a um aluno da sala. Ela aparece para você em
 tela cheia da primeira vez, vira uma **insígnia** ao lado do seu nome nos cards e no chat, e
-fica guardada em **Minhas conquistas**, no fim da tela da sala — inclusive depois de vencer.
+fica guardada na aba **Minhas conquistas**, ao lado da aba **Chamados** — inclusive depois
+de vencer.
 
 São quatro:
 
@@ -213,7 +217,7 @@ Quando vence, a insígnia sai do seu nome mas continua na vitrine — ninguém a
 fez.
 
 **A animação incomoda?** Você pode pular a qualquer momento (botão **Pular** ou tecla `Esc`)
-e pode desligá-la de vez em **Preferências**, no fim da tela da sala. O som nasce
+e pode desligá-la de vez em **Preferências**, na aba **Minhas conquistas**. O som nasce
 **desligado** e só toca se você ligar. Se o seu sistema estiver configurado para reduzir
 animações, ela já vira um card parado sozinha.
 

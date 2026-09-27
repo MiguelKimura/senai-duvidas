@@ -15,10 +15,18 @@ laboratório.
 
 ## 1. Criar a sala
 
-Você precisa estar cadastrado como professor. Isso não é uma caixa que se marca no
-cadastro: o seu e-mail precisa estar na lista de autorizados, mantida pela coordenação no
-console do Firebase. Se você criou a conta e caiu na tela de aluno, é isso que falta —
-peça o cadastro do seu e-mail e entre de novo.
+Você precisa ter acesso de professor. Há dois caminhos:
+
+- **E-mail institucional `@sp.senai.br`** (o caminho normal). No **Cadastro**, escolha
+  **Professor** e use o seu e-mail `@sp.senai.br`. O sistema manda um **link de
+  confirmação** para essa caixa de entrada — confira também o spam. Abra o link e, em
+  **Minhas salas**, clique em **Já confirmei**. Pronto: o botão **Criar sala** aparece.
+  Até abrir o link, a conta funciona como aluno, e um aviso em **Minhas salas** lembra o
+  que falta (com o botão **Reenviar e-mail**, se o link não chegou). Se você entrar com
+  uma conta Google do domínio `@sp.senai.br`, o Google já entrega o e-mail confirmado e
+  o acesso sai na hora.
+- **Outro e-mail**: ele precisa estar na lista de autorizados, mantida pela coordenação no
+  console do Firebase. Peça o cadastro do seu e-mail e entre de novo.
 
 Em **Minhas salas**, clique em **Criar sala**.
 
@@ -73,9 +81,13 @@ Gere um novo quando:
 
 ![Tela do professor, com o painel Turma no topo, a lista de chamados e o painel de premiações](imagens/professor-fila-da-sala.png)
 
-Abrindo a sala você vê três coisas, de cima para baixo:
+> Desde a versão 1.1.0 a sala abre em abas: **Chamados** (a fila, que abre sempre
+> primeiro), **Premiações** e **Turma**. As duas últimas só aparecem para o dono da sala.
+> A captura acima ainda mostra o layout antigo, com tudo empilhado.
 
-**O painel Turma** — quem está na sala. Cada nome tem **Remover**, que tira o aluno do
+Abrindo a sala você tem três abas:
+
+**A aba Turma** — quem está na sala. Cada nome tem **Remover**, que tira o aluno do
 vínculo e regera o PIN na mesma ação. O seu próprio nome não tem botão: sem dono, ninguém
 poderia arquivar a sala nem gerar um PIN novo.
 
@@ -256,8 +268,10 @@ recusada.
 Também não. Quem concede é o dono **daquela** sala.
 
 **Um aluno pode virar professor mexendo no navegador?**
-Não. O papel vem da lista de autorizados, conferida pelo servidor a cada escrita. Mudar o
-que está guardado no navegador não promove ninguém.
+Não. O papel vem do e-mail `@sp.senai.br` **confirmado** ou da lista de autorizados, e o
+servidor confere as duas coisas a cada escrita. Mudar o que está guardado no navegador não
+promove ninguém, e digitar um e-mail `@sp.senai.br` que não é seu não adianta: sem abrir o
+link que chega naquela caixa de entrada, a conta continua aluno.
 
 **O aluno pode esticar o perk mexendo no relógio do computador?**
 Não. A validade é conferida contra o horário do servidor, e não contra o relógio da
