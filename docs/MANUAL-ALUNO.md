@@ -114,9 +114,10 @@ Três formas, todas no mesmo lugar:
 
 Também dá para colar o **link de uma imagem** no campo de baixo, se ela já estiver na web.
 
-Aceita **PNG, JPG, GIF e WebP**, até **5 MB**. Imagem maior que 1600 pixels de lado é
-reduzida automaticamente antes de subir — a rede do laboratório agradece, e a leitura do
-erro não piora.
+Aceita **PNG, JPG, GIF e WebP**, até **5 MB**. A imagem é reduzida automaticamente antes de
+ser salva. Se mesmo reduzida ela for grande demais, o sistema pede que você recorte só a
+parte do erro. O print sai do sistema quando a dúvida é excluída ou quando o professor a
+marca como atendida.
 
 Se você escolher um arquivo que não é imagem — um `.exe` renomeado para `.png`, por
 exemplo — o sistema recusa. Ele confere o conteúdo do arquivo, não a extensão do nome.

@@ -46,14 +46,13 @@ cada aula jogaria fora o histórico da turma.
 
 Ao criar, o sistema mostra o PIN.
 
-![Tela Sala criada, com o PIN de seis dígitos em destaque, o botão Copiar PIN e o aviso de que ele aparece uma única vez](imagens/professor-sala-criada-com-pin.png)
+![Tela Sala criada, com o PIN de seis dígitos em destaque, o botão Copiar PIN e o aviso de onde ele fica guardado](imagens/professor-sala-criada-com-pin.png)
 
-**Anote agora.** O PIN aparece **uma única vez**. O sistema não guarda o número — só um
-resumo criptográfico dele —, então nem você, nem a coordenação, nem o suporte conseguem
-recuperá-lo depois. Fechou a aba, perdeu o número.
-
-Isso é deliberado, e é o que impede que um aluno da turma leia o PIN no banco e entre nas
-salas de outras turmas. Se perder, não é problema: gere um novo (§ 3).
+**O PIN fica à vista para você.** Desde a versão 1.1.0 ele aparece no canto inferior
+direito da tela da sala, a aula inteira, só para você, que é o dono. Os alunos não o veem
+em lugar nenhum. Para o aluno que chegou atrasado, é só olhar ali. Se ele vazar para fora
+da turma, gere um novo ali mesmo (§ 3). Salas criadas antes da 1.1.0 mostram "Ainda não
+guardado" até você gerar um PIN novo.
 
 Como distribuir: escreva no quadro, projete, ou use o **Copiar PIN** e cole no grupo da
 turma. O PIN é o que dá entrada na sala — trate-o como a chave da sala, não como um dado
@@ -65,7 +64,8 @@ de outra turma; o aluno só precisa esperar e usar o número certo.
 
 ## 3. Gerar um novo PIN
 
-Em **Minhas salas**, no cartão da sua sala, há o botão **Gerar novo PIN**.
+No canto da tela da sala, abaixo do PIN, ou em **Minhas salas**, no cartão da sua sala, há
+o botão **Gerar novo PIN**.
 
 O PIN anterior **para de funcionar na hora**. Quem já é membro da sala **continua dentro** —
 o PIN é a porta de entrada, não a permissão de ficar. Ninguém é expulso.
@@ -84,6 +84,9 @@ Gere um novo quando:
 > Desde a versão 1.1.0 a sala abre em abas: **Chamados** (a fila, que abre sempre
 > primeiro), **Premiações** e **Turma**. As duas últimas só aparecem para o dono da sala.
 > A captura acima ainda mostra o layout antigo, com tudo empilhado.
+
+No topo da sala ficam o botão **Minhas salas** e, se você tem mais de uma turma, o seletor
+**Trocar de sala**: escolha a turma e ela abre direto, sem voltar à lista.
 
 Abrindo a sala você tem três abas:
 
@@ -118,6 +121,15 @@ saber quanto tempo a turma esperou.
 Ao lado, **Excluir** — você pode excluir qualquer card da sua sala, o aluno só o dele.
 O sistema pede confirmação e oferece **5 segundos de Desfazer** no rodapé. Passados eles, o
 card e o print saem para sempre.
+
+Na confirmação há a caixa **Não perguntar mais**. Marcada, as próximas exclusões vão direto
+para os 5 segundos de Desfazer, sem a pergunta. A escolha vale para você, neste navegador.
+Para voltar a ser perguntado, use o link **Voltar a pedir confirmação ao excluir**, acima da
+fila.
+
+Marcar um chamado como **Atendido** também apaga o print que o aluno anexou do computador:
+resolvido, ele não tem mais serventia e ocupa o espaço gratuito do banco. O texto do card
+continua.
 
 Use para limpar duplicata e para tirar da fila o que foi aberto por engano. O aluno também
 exclui o próprio quando resolve sozinho — combine isso com a turma, é o que mantém a fila
