@@ -22,6 +22,13 @@
   margin-bottom: var(--espaco-1);
 }
 
+/* Com o olho do anexo à direita, um espaço do mesmo tamanho à esquerda mantém
+   o nome no centro do card, alinhado com o horário logo abaixo. */
+.card-header:has(.view-image-icon)::before {
+  content: '';
+  flex: 0 0 36px;
+}
+
 .user-name-wrapper {
   display: flex;
   justify-content: center;
