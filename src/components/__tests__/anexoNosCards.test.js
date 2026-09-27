@@ -72,43 +72,57 @@ beforeEach(() => {
   __definirUsuarioAtual(ANA);
 });
 
-describe('miniatura no card (AC-IMG-10)', () => {
-  it('o chamado antigo, com imagem em string, mostra a miniatura (AC-IMG-13)', () => {
-    __semearColecao('chamados', [CHAMADO_ANTIGO]);
+// v1.1.0: a miniatura da v0.6.0 saiu a pedido do cliente. O card mostra o
+// olho 👁️ da v0.1.0, e a imagem só aparece quando alguém clica nele.
+describe('o olho no card, sem prévia da imagem (AC-IMG-10)', () => {
+  /** Abre o visualizador do único anexo da tela e devolve a imagem dele. */
+  function abrirAnexo() {
+    userEvent.click(screen.getByTitle('Ver imagem'));
 
-    renderComProvedores(<TelaAluno />);
+    return within(screen.getByRole('dialog')).getByRole('img');
+  }
 
-    expect(screen.getByRole('img', { name: /print antigo/i })).toHaveAttribute(
-      'src',
-      'https://exemplo.br/antigo.png'
-    );
-  });
-
-  it('o chamado novo, com anexo em objeto, mostra a miniatura', () => {
+  it('o card com anexo mostra o olho, e não a imagem', () => {
     __semearColecao('chamados', [CHAMADO_NOVO]);
 
     renderComProvedores(<TelaAluno />);
 
-    expect(screen.getByRole('img', { name: /print novo/i })).toHaveAttribute(
-      'src',
-      CHAMADO_NOVO.anexo.url
-    );
+    expect(screen.getByTitle('Ver imagem')).toHaveTextContent('👁️');
+    expect(screen.queryByRole('img')).toBeNull();
   });
 
-  it('o card sem anexo não mostra miniatura nenhuma', () => {
+  it('o chamado antigo, com imagem em string, abre a URL dele (AC-IMG-13)', () => {
+    __semearColecao('chamados', [CHAMADO_ANTIGO]);
+
+    renderComProvedores(<TelaAluno />);
+
+    expect(abrirAnexo()).toHaveAttribute('src', 'https://exemplo.br/antigo.png');
+  });
+
+  it('o chamado novo, com anexo em objeto, abre a URL do objeto', () => {
+    __semearColecao('chamados', [CHAMADO_NOVO]);
+
+    renderComProvedores(<TelaAluno />);
+
+    expect(abrirAnexo()).toHaveAttribute('src', CHAMADO_NOVO.anexo.url);
+  });
+
+  it('o card sem anexo não mostra olho nenhum', () => {
     __semearColecao('chamados', [{ ...CHAMADO_ANTIGO, imagem: null }]);
 
     renderComProvedores(<TelaAluno />);
 
+    expect(screen.queryByTitle('Ver imagem')).toBeNull();
     expect(screen.queryByRole('img')).toBeNull();
   });
 
-  it('a tela do professor mostra as mesmas miniaturas', () => {
+  it('a tela do professor mostra os mesmos olhos', () => {
     __semearColecao('chamados', [CHAMADO_ANTIGO, CHAMADO_NOVO]);
 
     renderComProvedores(<TelaProfessor />);
 
-    expect(screen.getAllByRole('img')).toHaveLength(2);
+    expect(screen.getAllByTitle('Ver imagem')).toHaveLength(2);
+    expect(screen.queryByRole('img')).toBeNull();
   });
 });
 
@@ -159,21 +173,22 @@ describe('lightbox no lugar do window.open (AC-IMG-10)', () => {
 });
 
 describe('URL externa que saiu do ar (AC-IMG-12)', () => {
-  it('mostra um aviso no lugar do ícone quebrado do navegador', () => {
+  it('o visualizador avisa, no lugar do ícone quebrado do navegador', () => {
     __semearColecao('chamados', [{ ...CHAMADO_ANTIGO, imagem: 'https://fora-do-ar.br/x.png' }]);
     renderComProvedores(<TelaAluno />);
 
-    fireEvent.error(screen.getByRole('img', { name: /print antigo/i }));
+    userEvent.click(screen.getByTitle('Ver imagem'));
+    fireEvent.error(within(screen.getByRole('dialog')).getByRole('img'));
 
-    expect(screen.getByText(/imagem indisponível/i)).toBeInTheDocument();
-    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/não foi possível carregar a imagem/i);
   });
 
   it('o chamado continua legível mesmo com o anexo fora do ar', () => {
     __semearColecao('chamados', [{ ...CHAMADO_ANTIGO, imagem: 'https://fora-do-ar.br/x.png' }]);
     renderComProvedores(<TelaAluno />);
 
-    fireEvent.error(screen.getByRole('img', { name: /print antigo/i }));
+    userEvent.click(screen.getByTitle('Ver imagem'));
+    fireEvent.error(within(screen.getByRole('dialog')).getByRole('img'));
 
     expect(screen.getByText('print antigo')).toBeInTheDocument();
   });
@@ -291,26 +306,25 @@ describe('a escrita dupla do campo de anexo', () => {
 });
 
 describe('o card mistura os dois formatos na mesma fila', () => {
-  it('exibe miniatura para o antigo e para o novo, lado a lado', () => {
+  it('exibe o olho para o antigo e para o novo, lado a lado', () => {
     __semearColecao('chamados', [CHAMADO_ANTIGO, CHAMADO_NOVO]);
 
     renderComProvedores(<TelaAluno />);
 
     const cartoes = document.querySelectorAll('.problema-card');
-    expect(within(cartoes[0]).getByRole('img')).toBeInTheDocument();
-    expect(within(cartoes[1]).getByRole('img')).toBeInTheDocument();
+    expect(within(cartoes[0]).getByTitle('Ver imagem')).toBeInTheDocument();
+    expect(within(cartoes[1]).getByTitle('Ver imagem')).toBeInTheDocument();
   });
 
   it('quando os dois campos existem, manda o objeto — ele tem o caminho', () => {
-    // A escrita dupla mantém os dois em dia. Se um dia divergirem, o objeto é
-    // o formato completo: só ele sabe o caminho no Storage, que a exclusão usa.
     __semearColecao('chamados', [
       { ...CHAMADO_NOVO, imagem: 'https://desatualizada.br/velha.png' },
     ]);
 
     renderComProvedores(<TelaAluno />);
+    userEvent.click(screen.getByTitle('Ver imagem'));
 
-    expect(screen.getByRole('img', { name: /print novo/i })).toHaveAttribute(
+    expect(within(screen.getByRole('dialog')).getByRole('img')).toHaveAttribute(
       'src',
       CHAMADO_NOVO.anexo.url
     );

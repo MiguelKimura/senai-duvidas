@@ -36,8 +36,6 @@ const PASTA = path.join(__dirname, '..');
 const PONTOS_DE_CORTE = {
   480: 'o celular. Diálogo vira tela cheia; o card perde o teto de 400px',
   768: 'o limite do celular deitado. O chat deixa de flutuar e vira painel',
-  1024: 'a tela do laboratório do SENAI, e o alvo principal',
-  1440: 'o monitor grande, onde a coluna única deixa de fazer sentido',
 };
 
 /** A largura mínima que o projeto se compromete a atender, sem rolagem lateral. */
@@ -184,10 +182,21 @@ describe('o laboratório a 1024×768 (AC-ANIM-08)', () => {
     }
   );
 
-  it('a fila usa a largura do laboratório em vez de uma coluna estreita', () => {
-    const bloco = blocoDaMedia('FilaDeChamados.css', '(min-width: 1024px)');
+  // v1.1.0: a grade de duas ou três colunas saiu a pedido do cliente. A fila
+  // se lê de cima para baixo, do chamado mais antigo ao mais novo, em qualquer
+  // largura — numa grade o olho não sabe se a ordem corre por linha ou por
+  // coluna.
+  it('a fila é uma coluna só em toda largura, sem grade', () => {
+    const css = cssDe('FilaDeChamados.css');
 
-    expect(bloco).not.toBeNull();
-    expect(bloco).toMatch(/grid-template-columns/);
+    expect(css).not.toMatch(/grid-template-columns/);
+    expect(css).toMatch(/\.problemas-list\b[^{]*\{[^}]*flex-direction:\s*column/);
+  });
+
+  it('o card tem largura padrão, e não a largura do texto', () => {
+    const css = cssDe('CardDoChamado.css');
+
+    expect(css).toMatch(/\.problema-card\b[^{]*\{[^}]*width:\s*100%/);
+    expect(css).toMatch(/\.problema-card\b[^{]*\{[^}]*max-width:\s*\d+px/);
   });
 });
