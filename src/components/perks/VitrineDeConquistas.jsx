@@ -12,6 +12,7 @@
 import React from 'react';
 import { perksDoAluno, rotuloDoTipo, separarConquistas } from '../../services/perks';
 import { formatarDataHora } from '../../services/tempo';
+import { SIMBOLO_DO_TIPO } from './InsigniasDoAluno';
 import '../../styles/Perks.css';
 
 /** O que a vitrine diz a quem ainda não foi premiado. */
@@ -32,6 +33,9 @@ function Conquista({ perk, ativo }) {
   return (
     <li className={classes}>
       <strong>
+        <span className="perk-vitrine-simbolo" aria-hidden="true">
+          {SIMBOLO_DO_TIPO[perk.tipo] || '★'}
+        </span>{' '}
         {rotuloDoTipo(perk.tipo)} — nível {Number(perk.nivel) || 1}
       </strong>
 

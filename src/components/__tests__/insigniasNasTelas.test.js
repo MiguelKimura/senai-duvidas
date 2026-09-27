@@ -139,7 +139,7 @@ describe.each([
   });
 });
 
-describe('a insígnia ao lado do nome no chat (AC-PERK-05)', () => {
+describe('o chat sem insígnias (AC-PERK-05, revisto na v1.1.0)', () => {
   // O chat mostra só a conversa de HOJE, e "hoje" é a meia-noite de Brasília
   // medida contra o relógio do leitor (AC-TEMPO-07). Sem congelar esse
   // relógio, estas mensagens — datadas de 22/09/2026 — passaram a cair no
@@ -185,22 +185,17 @@ describe('a insígnia ao lado do nome no chat (AC-PERK-05)', () => {
     await waitFor(() => expect(screen.getByText('alguém conseguiu rodar?')).toBeVisible());
   }
 
-  it('põe a insígnia no cabeçalho da mensagem de quem tem perk', async () => {
+  // v1.1.0: a pedido do cliente, as premiações saíram do chat — com um selo
+  // em cada balão a conversa ficava poluída. Elas continuam no card da fila e
+  // na aba "Minhas conquistas".
+  it('não põe insígnia nas mensagens do chat, nem de quem tem perk', async () => {
     renderComProvedores(<TelaAluno salaId={SALA} />);
     await abrirOChat();
 
     const balao = screen.getByText('alguém conseguiu rodar?').closest('.mensagem');
 
-    expect(within(balao).getByText(/Colaborador/)).toBeInTheDocument();
-  });
-
-  it('não põe insígnia na mensagem de quem não tem perk', async () => {
-    renderComProvedores(<TelaAluno salaId={SALA} />);
-    await abrirOChat();
-
-    const balao = screen.getByText('ainda não').closest('.mensagem');
-
-    expect(balao.querySelector('.perk-insignia')).toBeNull();
+    expect(within(balao).queryByText(/Colaborador/)).toBeNull();
+    expect(document.querySelector('.mensagem .perk-insignia')).toBeNull();
   });
 
   it('não abre uma segunda consulta de perks para o chat (AC-PERF-03)', async () => {

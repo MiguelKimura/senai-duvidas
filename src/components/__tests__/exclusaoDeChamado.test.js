@@ -488,3 +488,82 @@ describe('compatibilidade do campo `atendido` (retroativa e futura)', () => {
     });
   });
 });
+
+describe('"Não perguntar mais" na exclusão do professor (v1.1.0)', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    __definirUsuarioAtual(CARLOS);
+  });
+
+  it('a confirmação do professor oferece a caixa "Não perguntar mais"', async () => {
+    renderComProvedores(<TelaProfessor salaId={SALA} ehDono />);
+
+    await pedirExclusao('o VS Code não abre');
+
+    expect(
+      within(screen.getByRole('dialog')).getByRole('checkbox', { name: 'Não perguntar mais' })
+    ).not.toBeChecked();
+  });
+
+  it('marcada, as próximas exclusões não perguntam, e o desfazer continua lá', async () => {
+    renderComProvedores(<TelaProfessor salaId={SALA} ehDono />);
+
+    await pedirExclusao('o VS Code não abre');
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('checkbox', { name: 'Não perguntar mais' })
+    );
+    await userEvent.click(confirmar());
+    deixarSair();
+
+    await pedirExclusao('o cabo de rede caiu');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Desfazer' }).length).toBeGreaterThan(0);
+  });
+
+  it('a escolha vale depois de recarregar a tela', async () => {
+    const { unmount } = renderComProvedores(<TelaProfessor salaId={SALA} ehDono />);
+    await pedirExclusao('o VS Code não abre');
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('checkbox', { name: 'Não perguntar mais' })
+    );
+    await userEvent.click(confirmar());
+    // A escolha fica gravada neste navegador, por professor.
+    await waitFor(() =>
+      expect(
+        window.localStorage.getItem(`senai-duvidas:naoConfirmarExclusao:${CARLOS.uid}`)
+      ).toBe('1')
+    );
+    unmount();
+
+    renderComProvedores(<TelaProfessor salaId={SALA} ehDono />);
+    // A tela lembra da escolha: o caminho de volta aparece sozinho.
+    await screen.findByRole('button', { name: /voltar a pedir confirmação/i });
+    await pedirExclusao('o cabo de rede caiu');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('dá para voltar a pedir confirmação', async () => {
+    window.localStorage.setItem(`senai-duvidas:naoConfirmarExclusao:${CARLOS.uid}`, '1');
+    renderComProvedores(<TelaProfessor salaId={SALA} ehDono />);
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: /voltar a pedir confirmação/i })
+    );
+    await pedirExclusao('o VS Code não abre');
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('o aluno não ganha a caixa: a confirmação dele continua sempre', async () => {
+    __definirUsuarioAtual(ANA);
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    await pedirExclusao('o VS Code não abre');
+
+    expect(
+      within(screen.getByRole('dialog')).queryByRole('checkbox', { name: 'Não perguntar mais' })
+    ).toBeNull();
+  });
+});

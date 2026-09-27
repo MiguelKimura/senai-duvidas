@@ -270,3 +270,16 @@ describe('firebase.js — ligação com o Emulator Suite (AC-TEST-06)', () => {
     expect(config.projectId).toBe('demo-senai-duvidas');
   });
 });
+
+describe('o envio de imagem não fica parado por minutos (v1.1.0)', () => {
+  it('limita as novas tentativas de upload do Storage a no máximo um minuto', () => {
+    const fonte = require('fs').readFileSync(
+      require('path').join(__dirname, '..', 'firebase.js'),
+      'utf8'
+    );
+    const achado = fonte.match(/storage\.maxUploadRetryTime\s*=\s*([\d_]+)\s*;/);
+
+    expect(achado).not.toBeNull();
+    expect(Number(achado[1].replace(/_/g, ''))).toBeLessThanOrEqual(60000);
+  });
+});

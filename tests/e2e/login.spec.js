@@ -19,11 +19,16 @@ test.beforeEach(async () => {
   await semearPerfis();
 });
 
-test('o aluno entra com e-mail e senha e cai na tela dele (AC-AUTH-02)', async ({ page }) => {
+test('o aluno entra com e-mail e senha e cai na lista de salas (AC-AUTH-02)', async ({
+  page,
+}) => {
   await entrar(page, ANA);
 
-  await expect(page).toHaveURL(/\/aluno$/);
-  await expect(page.getByRole('heading', { name: new RegExp(ANA.nome, 'i') })).toBeVisible();
+  // Desde a v1.1.0 todo login entra por /salas. A aluna sem sala vê ali o
+  // campo do PIN, e não entra em sala nenhuma sozinha.
+  await expect(page).toHaveURL(/\/salas$/);
+  await expect(page.getByRole('heading', { name: /minhas salas/i })).toBeVisible();
+  await expect(page.getByLabel('PIN da sala')).toBeVisible();
 });
 
 test('o professor entra na rota dele, decidida pelo Firestore (AC-AUTH-06)', async ({
@@ -32,11 +37,9 @@ test('o professor entra na rota dele, decidida pelo Firestore (AC-AUTH-06)', asy
   await entrar(page, CARLOS);
 
   // O papel vem de `usuarios/{uid}.tipo` e de `autorizados/{email}.Tipo`, nunca
-  // do navegador. A rota é a prova visível dessa decisão.
-  await expect(page).toHaveURL(/\/professor$/);
-
-  // E a ação que só o professor tem existe na lista de salas dele.
-  await page.goto('/salas');
+  // do navegador. Desde a v1.1.0 os dois papéis entram por /salas, e a prova
+  // visível da decisão é a ação que só o professor tem.
+  await expect(page).toHaveURL(/\/salas$/);
   await expect(page.getByRole('button', { name: /criar sala/i })).toBeVisible();
 });
 
@@ -76,7 +79,7 @@ test('sair encerra a sessão, e a rota protegida não reabre depois (AC-AUTH-08)
   page,
 }) => {
   await entrar(page, ANA);
-  await expect(page).toHaveURL(/\/aluno$/);
+  await expect(page).toHaveURL(/\/salas$/);
 
   await page.getByRole('button', { name: /sair/i }).click();
 
@@ -88,7 +91,7 @@ test('sair encerra a sessão, e a rota protegida não reabre depois (AC-AUTH-08)
   // zero, com o IndexedDB já limpo. (`goBack` não serve aqui porque as duas
   // navegações do app usam `replace` de propósito — não há entrada anterior no
   // histórico para voltar, e o teste estaria medindo o histórico, não a sessão.)
-  await page.goto('/aluno');
+  await page.goto('/salas');
 
   await expect(page.getByLabel(/senha/i)).toBeVisible();
   await expect(page.getByText(new RegExp(ANA.nome, 'i'))).toHaveCount(0);
@@ -127,6 +130,6 @@ test('o botão do Google leva a uma sessão de verdade (AC-AUTH-03)', async ({ p
   await popup.getByRole('button', { name: /sign in with google/i }).click();
 
   // Primeiro acesso por provedor social cria o perfil com `tipo: "aluno"`, e o
-  // app leva a pessoa para a rota de aluno.
-  await expect(page).toHaveURL(/\/aluno$/, { timeout: 20000 });
+  // app leva a pessoa para a lista de salas.
+  await expect(page).toHaveURL(/\/salas$/, { timeout: 20000 });
 });

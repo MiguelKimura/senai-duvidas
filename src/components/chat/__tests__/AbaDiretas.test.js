@@ -14,6 +14,7 @@ import userEvent from '@testing-library/user-event';
 import {
   __documentosDe,
   __ouvintesAtivos,
+  __recusarLeituraEm,
   __resetarFirestore,
   __semearColecao,
 } from 'firebase/firestore';
@@ -233,5 +234,26 @@ describe('AbaDiretas — sala arquivada (AC-SALA-10)', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Ana Souza' }));
 
     expect(await screen.findByPlaceholderText('Escreva uma mensagem')).toBeDisabled();
+  });
+});
+
+describe('AbaDiretas — a lista que não carrega (v1.1.0)', () => {
+  it('quando o servidor recusa a lista, avisa e sai do "carregando"', async () => {
+    __recusarLeituraEm(CONVERSAS);
+
+    renderComProvedores(<AbaDiretas salaId={SALA} pessoa={ANA} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/não foi possível carregar/i);
+    expect(screen.queryByText(/carregando as suas conversas/i)).not.toBeInTheDocument();
+  });
+
+  it('a conversa recém-aberta aparece na lista ao voltar', async () => {
+    renderComProvedores(<AbaDiretas salaId={SALA} pessoa={ANA} />);
+
+    await abrirNovaConversa();
+    await userEvent.click(await screen.findByRole('button', { name: 'Carlos Lima' }));
+    await userEvent.click(await screen.findByRole('button', { name: /voltar/i }));
+
+    expect(await screen.findByText('Carlos Lima')).toBeInTheDocument();
   });
 });

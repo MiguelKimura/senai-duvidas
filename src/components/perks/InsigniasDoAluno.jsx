@@ -19,7 +19,7 @@ import { rotuloDoTipo } from '../../services/perks';
 import '../../styles/Perks.css';
 
 /** O símbolo de cada tipo. Decoração: o rótulo em texto vai sempre junto. */
-const SIMBOLO_DO_TIPO = {
+export const SIMBOLO_DO_TIPO = {
   prioridade: '⚡',
   destaque: '★',
   colaborador: '🤝',

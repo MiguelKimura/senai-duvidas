@@ -10,8 +10,8 @@ import { useAuth } from '../contexts/AuthContext';
 
 /** Para onde cada papel é mandado quando entra na rota do outro. */
 const ROTA_INICIAL = {
-  aluno: '/aluno',
-  professor: '/professor',
+  aluno: '/salas',
+  professor: '/salas',
 };
 
 /**

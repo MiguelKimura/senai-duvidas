@@ -3,6 +3,7 @@ import Modal from './Modal';
 import CardDoChamado from './CardDoChamado';
 import ConfirmarAcao from './ConfirmarAcao';
 import FilaDeChamados from './FilaDeChamados';
+import AbasDaSala from './AbasDaSala';
 import { auth } from '../firebase';
 import { doc, limit, onSnapshot, query, setDoc } from 'firebase/firestore';
 import { camposDoAnexo } from '../services/anexos';
@@ -19,7 +20,6 @@ import {
   TITULO_DA_CONFIRMACAO,
   useExclusaoComDesfazer,
 } from '../hooks/useExclusaoComDesfazer';
-import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import VitrineDeConquistas from './perks/VitrineDeConquistas';
 import PreferenciasDePremiacao from './perks/PreferenciasDePremiacao';
 import PremiacaoDaSala from './perks/PremiacaoDaSala';
@@ -95,19 +95,6 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
     [fila, estaOculto]
   );
 
-  // A insígnia do chat sai do mesmo índice do card: uma consulta de perks por
-  // sala, e não uma por balão renderizado (AC-PERK-05, AC-PERF-03).
-  const insigniasDe = useCallback(
-    (mensagem) => (
-      <InsigniasDoAluno
-        perks={perksPorUid}
-        uid={mensagem.autorUid}
-        agoraServidor={agoraServidor}
-      />
-    ),
-    [perksPorUid, agoraServidor]
-  );
-
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
@@ -163,20 +150,23 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
       <CardDoChamado
         key={problema.id}
         chamado={problema}
+        salaId={salaId}
         indice={indice}
         saindo={estaSaindo(problema.id)}
         perksPorUid={perksPorUid}
         agoraServidor={agoraServidor}
         acoes={
           !somenteLeitura && problema.email === auth.currentUser?.email ? (
-            <button className="delete-button" onClick={() => pedirExclusao(problema)}>
-              Excluir
-            </button>
+            <div className="card-acoes">
+              <button className="delete-button" onClick={() => pedirExclusao(problema)}>
+                Excluir
+              </button>
+            </div>
           ) : null
         }
       />
     ),
-    [estaSaindo, perksPorUid, agoraServidor, somenteLeitura, pedirExclusao]
+    [estaSaindo, perksPorUid, agoraServidor, somenteLeitura, pedirExclusao, salaId]
   );
 
   const openModal = () => setIsModalOpen(true);
@@ -242,10 +232,54 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
     <div className="tela-aluno">
       <BotaoSair />
       <h1>Bem-vindo, {usuarioNome}!</h1>
-      <p>Aqui estão os problemas registrados.</p>
+      {/* A fila é a primeira aba e a que abre sempre. As conquistas ficam
+          numa aba própria: na tela inicial elas empurravam a fila para baixo
+          e faziam a tela de cada aluno ter uma forma diferente, conforme ele
+          tivesse conquista ou não (AC-PERK-06). */}
+      <AbasDaSala
+        rotulo="Seções da sala"
+        abas={[
+          {
+            id: 'chamados',
+            titulo: 'Chamados',
+            conteudo: (
+              <>
+                <p>Aqui estão os problemas registrados.</p>
+                <FilaDeChamados
+                  chamados={visiveis}
+                  carregando={carregando}
+                  erro={erroDaFila}
+                  tentarNovamente={tentarNovamente}
+                  renderizarCard={renderizarCard}
+                />
+              </>
+            ),
+          },
+          {
+            id: 'conquistas',
+            titulo: 'Minhas conquistas',
+            conteudo: (
+              <>
+                <VitrineDeConquistas
+                  perks={perks}
+                  uid={auth.currentUser?.uid}
+                  agoraServidor={agoraServidor}
+                />
+
+                {/* As preferências ficam ao lado da vitrine: é aqui que o aluno
+                    está quando decide que não quer mais a animação em tela
+                    cheia (AC-PERK-08). */}
+                <PreferenciasDePremiacao />
+              </>
+            ),
+          },
+        ]}
+      />
+
       {/* Sala arquivada não aceita chamado novo (AC-SALA-10). O botão some em
           vez de dar erro no clique: o aluno não tem o que fazer com um erro
-          que não é dele. Quem recusa de verdade continua sendo a rule. */}
+          que não é dele. Quem recusa de verdade continua sendo a rule. Ele
+          flutua no canto, fora das abas, como o botão do chat. */}
       {!somenteLeitura && (
         <button
           type="button"
@@ -256,28 +290,6 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
           +
         </button>
       )}
-      <FilaDeChamados
-        chamados={visiveis}
-        carregando={carregando}
-        erro={erroDaFila}
-        tentarNovamente={tentarNovamente}
-        renderizarCard={renderizarCard}
-      />
-
-      {/* A vitrine fica depois da fila, e não antes: o que o aluno vem fazer
-          aqui é abrir e acompanhar chamado. As conquistas dele são o que ele
-          encontra ao rolar, não o que empurra a fila para fora da tela
-          (AC-PERK-06). */}
-      <VitrineDeConquistas
-        perks={perks}
-        uid={auth.currentUser?.uid}
-        agoraServidor={agoraServidor}
-      />
-
-      {/* As preferências ficam ao lado da vitrine, e não numa tela de ajustes
-          separada: é aqui que o aluno está quando decide que não quer mais a
-          animação em tela cheia (AC-PERK-08). */}
-      <PreferenciasDePremiacao />
 
       {/* A premiação em tela cheia, quando existe uma que o aluno ainda não
           viu. Fica por último no JSX de propósito: ela é um diálogo modal, e
@@ -309,13 +321,10 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
 
       {/* O papel vai explícito: é ele que decide o selo do balão e quem pode
           usar o `!clear` (AC-CHAT-04, AC-CHAT-08). Quem abre esta tela é aluno
-          na sala — a decisão de qual tela abrir é de `Sala.jsx`, pelo vínculo. */}
-      <Chat
-        salaId={salaId}
-        papelNaSala={PAPEL_DE_ALUNO}
-        somenteLeitura={somenteLeitura}
-        insigniasDe={insigniasDe}
-      />
+          na sala — a decisão de qual tela abrir é de `Sala.jsx`, pelo vínculo.
+          Sem `insigniasDe` desde a v1.1.0: as premiações saíram do chat a
+          pedido do cliente, para a conversa não ficar poluída. */}
+      <Chat salaId={salaId} papelNaSala={PAPEL_DE_ALUNO} somenteLeitura={somenteLeitura} />
     </div>
   );
 }

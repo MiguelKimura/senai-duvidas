@@ -117,32 +117,46 @@ export function useExclusaoComDesfazer({ excluir }) {
   const pedirExclusao = useCallback((chamado) => setEmConfirmacao(chamado), []);
   const cancelar = useCallback(() => setEmConfirmacao(null), []);
 
-  const confirmar = useCallback(() => {
-    const chamado = emConfirmacao;
-    if (!chamado) return;
+  /**
+   * Tira o card da fila e abre a janela de desfazer.
+   *
+   * Separado de `confirmar` porque é também o caminho de quem marcou "Não
+   * perguntar mais" (v1.1.0): sem diálogo, mas com os mesmos cinco segundos de
+   * volta — é o desfazer que torna seguro pular a pergunta.
+   */
+  const iniciarExclusao = useCallback(
+    (chamado) => {
+      if (!chamado) return;
 
-    setEmConfirmacao(null);
-    pendentes.current.set(chamado.id, chamado);
+      setEmConfirmacao(null);
+      pendentes.current.set(chamado.id, chamado);
 
-    const esconder = () => setOcultos((atuais) => new Set(atuais).add(chamado.id));
+      const esconder = () => setOcultos((atuais) => new Set(atuais).add(chamado.id));
 
-    if (movimentoReduzido) {
-      // Sem animação não há o que esperar, e esperar mesmo assim faria o card
-      // ficar parado por um quinto de segundo sem explicação nenhuma.
-      esconder();
-    } else {
-      setSaindo((atuais) => new Set(atuais).add(chamado.id));
-      setTimeout(esconder, DURACAO_DA_SAIDA_MS);
-    }
+      if (movimentoReduzido) {
+        // Sem animação não há o que esperar, e esperar mesmo assim faria o card
+        // ficar parado por um quinto de segundo sem explicação nenhuma.
+        esconder();
+      } else {
+        setSaindo((atuais) => new Set(atuais).add(chamado.id));
+        setTimeout(esconder, DURACAO_DA_SAIDA_MS);
+      }
 
-    mostrar({
-      tipo: TIPO_SUCESSO,
-      texto: AVISO_DE_SUCESSO,
-      duracaoMs: PRAZO_DE_DESFAZER_MS,
-      acao: { rotulo: 'Desfazer', aoAcionar: () => desfazer(chamado.id) },
-      aoExpirar: () => confirmarNoBanco(chamado.id),
-    });
-  }, [emConfirmacao, movimentoReduzido, mostrar, desfazer, confirmarNoBanco]);
+      mostrar({
+        tipo: TIPO_SUCESSO,
+        texto: AVISO_DE_SUCESSO,
+        duracaoMs: PRAZO_DE_DESFAZER_MS,
+        acao: { rotulo: 'Desfazer', aoAcionar: () => desfazer(chamado.id) },
+        aoExpirar: () => confirmarNoBanco(chamado.id),
+      });
+    },
+    [movimentoReduzido, mostrar, desfazer, confirmarNoBanco]
+  );
+
+  const confirmar = useCallback(
+    () => iniciarExclusao(emConfirmacao),
+    [iniciarExclusao, emConfirmacao]
+  );
 
   useEffect(
     () => () => {
@@ -161,5 +175,13 @@ export function useExclusaoComDesfazer({ excluir }) {
   const estaSaindo = useCallback((id) => saindo.has(id), [saindo]);
   const estaOculto = useCallback((id) => ocultos.has(id), [ocultos]);
 
-  return { emConfirmacao, pedirExclusao, confirmar, cancelar, estaSaindo, estaOculto };
+  return {
+    emConfirmacao,
+    pedirExclusao,
+    confirmar,
+    cancelar,
+    estaSaindo,
+    estaOculto,
+    excluirSemPerguntar: iniciarExclusao,
+  };
 }

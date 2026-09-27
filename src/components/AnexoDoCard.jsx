@@ -17,7 +17,8 @@
 //      do navegador, que não explica nada a ninguém (AC-IMG-12).
 import React, { useState } from 'react';
 import Lightbox from './Lightbox';
-import { normalizarAnexo } from '../services/anexos';
+import { ORIGEM_DO_BANCO, normalizarAnexo } from '../services/anexos';
+import { lerImagemDoBanco } from '../services/imagensNoBanco';
 import '../styles/AnexoDoCard.css';
 
 /** O que o card diz quando a imagem do anexo não carrega (AC-IMG-12). */
@@ -40,13 +41,22 @@ export function anexoDoChamado(chamado) {
 }
 
 /**
- * A miniatura do anexo, que abre o visualizador ao ser clicada.
+ * O olho 👁️ do anexo, que abre o visualizador ao ser clicado.
  *
- * @param {{chamado: object}} props
+ * A miniatura que a v0.6.0 pôs aqui saiu a pedido do cliente: com print no
+ * card, a fila virava uma galeria, cada card ficava de uma altura e a turma
+ * via o print do colega sem ter pedido. O olho é o ícone que a turma já
+ * conhecia desde a v0.1.0 — e a imagem só é baixada quando alguém clica,
+ * o que também poupa a banda do laboratório.
+ *
+ * A imagem quebrada continua avisada: quem avisa agora é o `Lightbox`, que é
+ * onde ela tenta carregar (AC-IMG-12).
+ *
+ * @param {{chamado: object, salaId?: string|null}} props `salaId` é de onde
+ *   sai a imagem guardada no banco (v1.1.0).
  */
-export default function AnexoDoCard({ chamado }) {
+export default function AnexoDoCard({ chamado, salaId = null }) {
   const [aberto, setAberto] = useState(false);
-  const [quebrada, setQuebrada] = useState(false);
 
   const anexo = anexoDoChamado(chamado);
 
@@ -54,33 +64,31 @@ export default function AnexoDoCard({ chamado }) {
 
   const descricao = chamado.descricao || 'anexo do chamado';
 
-  if (quebrada) {
-    return <p className="anexo-indisponivel">{AVISO_INDISPONIVEL}</p>;
-  }
-
   return (
     <>
       {/* `title` continua sendo "Ver imagem": é como esta ação é conhecida
-          desde a v0.1.0, e é por ele que os testes de caracterização a
-          alcançam. O que mudou é que agora é um <button>, e não uma <div>
-          com onClick — quem navega por teclado alcança o anexo. */}
+          desde a v0.1.0. É um <button>, e não uma <div> com onClick — quem
+          navega por teclado alcança o anexo. */}
       <button
         type="button"
         className="view-image-icon"
         title="Ver imagem"
+        aria-label="Ver imagem anexada"
         onClick={() => setAberto(true)}
       >
-        <img
-          className="anexo-miniatura"
-          src={anexo.url}
-          alt={`Anexo do chamado: ${descricao}`}
-          onError={() => setQuebrada(true)}
-        />
+        <span aria-hidden="true">👁️</span>
       </button>
 
-      {aberto && (
-        <Lightbox url={anexo.url} descricao={descricao} onFechar={() => setAberto(false)} />
-      )}
+      {aberto &&
+        (anexo.origem === ORIGEM_DO_BANCO ? (
+          <Lightbox
+            carregar={() => lerImagemDoBanco(salaId, anexo.id)}
+            descricao={descricao}
+            onFechar={() => setAberto(false)}
+          />
+        ) : (
+          <Lightbox url={anexo.url} descricao={descricao} onFechar={() => setAberto(false)} />
+        ))}
     </>
   );
 }

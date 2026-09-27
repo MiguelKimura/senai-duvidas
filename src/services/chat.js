@@ -28,7 +28,6 @@ import {
   increment,
   limit,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -43,7 +42,7 @@ import {
   PAPEL_DE_PROFESSOR,
   colecaoDeChat,
 } from './salas';
-import { carimboServidor } from './tempo';
+import { carimboServidor, paraData } from './tempo';
 
 /** Quantas mensagens a conversa carrega de uma vez (AC-CHAT-06). */
 export const MENSAGENS_POR_PAGINA = 50;
@@ -349,15 +348,48 @@ export async function marcarConversaComoLida(salaId, conversaId, uid) {
  * @param {(conversas: Array<object>) => void} aoMudar
  * @returns {() => void} cancela a inscrição (AC-PERF-04).
  */
-export function observarConversas(salaId, uid, aoMudar) {
+export function observarConversas(salaId, uid, aoMudar, aoErro) {
+  // Sem `orderBy` no servidor (v1.1.0). `array-contains` somado a `orderBy`
+  // em outro campo exige um índice composto no Firestore de produção — o
+  // emulador não exige, e a aba ficava presa em "Carregando" só no projeto de
+  // verdade. O `orderBy` também descartava a conversa recém-criada, que ainda
+  // não tem `ultimaMensagem`. A ordem sai de `ordenarConversas`, no navegador:
+  // cada pessoa tem poucas conversas por sala.
   const consulta = query(
     colecaoDeConversas(salaId),
     where('participantes', 'array-contains', uid),
-    orderBy('ultimaMensagem.horario', 'desc'),
     limit(LIMITE_DE_CONVERSAS)
   );
 
-  return onSnapshot(consulta, (snapshot) => {
-    aoMudar(snapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() })));
-  });
+  return onSnapshot(
+    consulta,
+    (snapshot) => {
+      aoMudar(
+        ordenarConversas(
+          snapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }))
+        )
+      );
+    },
+    (erro) => {
+      if (aoErro) aoErro(erro);
+    }
+  );
+}
+
+/**
+ * Da conversa mais recente para a mais antiga (AC-DM-06).
+ *
+ * "Recente" é a última mensagem; a conversa que ainda não tem mensagem conta
+ * pela criação — e por isso a que acabou de ser aberta aparece no topo.
+ *
+ * @param {Array<object>} conversas
+ * @returns {Array<object>} lista nova.
+ */
+export function ordenarConversas(conversas) {
+  const instante = (conversa) =>
+    paraData(
+      (conversa.ultimaMensagem && conversa.ultimaMensagem.horario) || conversa.criadaEm
+    )?.getTime() ?? Number.POSITIVE_INFINITY;
+
+  return [...conversas].sort((a, b) => instante(b) - instante(a));
 }

@@ -77,3 +77,10 @@
   color: var(--cor-texto-titulo);
   text-align: center;
 }
+
+/* Enquanto a imagem guardada no banco é lida (v1.1.0). */
+.lightbox-carregando {
+  margin: var(--espaco-4);
+  color: var(--cor-texto-invertido);
+  text-align: center;
+}

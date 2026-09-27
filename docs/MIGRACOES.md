@@ -109,10 +109,15 @@ descrever; esta não para.
 
 ### Quando as coleções globais somem
 
-Na **1.0.0**, junto com o fallback de leitura, com as rotas `/aluno` e
-`/professor` e com o campo `nome` dos documentos. Até lá, o app lê a coleção
-global de quem não está em sala nenhuma, e é isso que mantém a tela útil para
-quem abrir o app no meio da migração.
+Estava previsto para a **1.0.0**, junto com o fallback de leitura, com as rotas
+`/aluno` e `/professor` e com o campo `nome` dos documentos.
+
+**v1.1.0:** as rotas `/aluno` e `/professor` saíram da navegação — elas
+redirecionam para `/salas`. Os dados das coleções globais eram de uma turma que
+já se formou, e a tela sem sala fazia a conta nova parecer entrar numa sala sem
+PIN. Os endereços continuam respondendo, para não quebrar favorito antigo. As
+coleções globais continuam no banco e nas rules (leitura só com sessão); quem
+quiser apagá-las faz isso no console do Firebase, sem mudança de código.
 
 ---
 

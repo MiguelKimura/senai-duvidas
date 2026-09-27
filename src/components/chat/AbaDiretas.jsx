@@ -18,6 +18,10 @@ import Conversa from './Conversa';
 import { abrirConversa, observarConversas } from '../../services/chat';
 import { PAPEL_DE_PROFESSOR, listarMembros } from '../../services/salas';
 
+/** O que a aba diz quando o servidor recusa a lista de conversas. */
+export const ERRO_AO_CARREGAR_CONVERSAS =
+  'Não foi possível carregar as suas conversas. Feche e abra o chat de novo.';
+
 /**
  * Com quem esta pessoa pode iniciar uma conversa nesta versão.
  *
@@ -57,10 +61,20 @@ export default function AbaDiretas({ salaId, pessoa, somenteLeitura = false }) {
   useEffect(() => {
     if (!salaId || !pessoa) return undefined;
 
-    return observarConversas(salaId, pessoa.uid, (recebidas) => {
-      setConversas(recebidas);
-      setCarregando(false);
-    });
+    return observarConversas(
+      salaId,
+      pessoa.uid,
+      (recebidas) => {
+        setConversas(recebidas);
+        setCarregando(false);
+      },
+      () => {
+        // Recusa do servidor não pode virar "carregando" eterno: a pessoa
+        // precisa saber que a lista não veio, e não ficar esperando.
+        setCarregando(false);
+        setErro(ERRO_AO_CARREGAR_CONVERSAS);
+      }
+    );
   }, [salaId, pessoa]);
 
   useEffect(() => {

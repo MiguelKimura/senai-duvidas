@@ -122,6 +122,8 @@ test('o painel da turma mostra os 40 alunos sem paginar (AC-PERF-05, AC-SALA-08)
 }) => {
   await entrar(page, CARLOS);
   await abrirSala(page, SALA.id);
+  // Desde a v1.1.0 o painel da turma mora numa aba própria.
+  await page.getByRole('tab', { name: 'Turma' }).click();
 
   const linhas = page.getByRole('region', { name: 'Turma da sala' }).getByRole('listitem');
 

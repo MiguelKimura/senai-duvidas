@@ -38,6 +38,7 @@ A lista precisa conter **exatamente** estes domínios, e nenhum outro:
 | `localhost` | Desenvolvimento. O Firebase o inclui por padrão e ele não representa risco: só resolve na própria máquina. |
 | `senai-duvidas.firebaseapp.com` | Domínio do Firebase Hosting, usado pelo handler do OAuth. |
 | `senai-duvidas.web.app` | O outro domínio que o Hosting publica por padrão. |
+| `<projeto>.vercel.app` | O domínio de **produção** no Vercel (v1.1.0), o endereço que as turmas usam. Só ele: os endereços de preview (`<projeto>-git-<branch>-<conta>.vercel.app` e `<projeto>-<hash>.vercel.app`) ficam **fora**, e é esperado que o login por Google e GitHub falhe neles. |
 | *(domínio próprio, quando existir)* | Acrescentar aqui **no mesmo dia** em que o domínio entrar no ar. |
 
 **Remover** qualquer domínio que não esteja na tabela — em especial domínios de

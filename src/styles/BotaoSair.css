@@ -8,6 +8,10 @@
   top: 16px;
   right: 16px;
   z-index: 900;
+  /* Largura própria: sem ela, qualquer regra global de `button` com 100% o
+     estica de uma borda à outra da tela. */
+  width: auto;
+  flex: none;
   padding: 8px 16px;
   border: 1px solid var(--cor-erro);
   border-radius: 6px;

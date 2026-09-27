@@ -76,9 +76,10 @@ export default function PainelDaTurma({ salaId, podeRemover = true }) {
               <button
                 type="button"
                 className="salas-acao salas-acao-discreta"
+                aria-label={`Remover ${membro.nome}`}
                 onClick={() => remover(membro.uid)}
               >
-                Remover {membro.nome}
+                Remover
               </button>
             )}
           </li>

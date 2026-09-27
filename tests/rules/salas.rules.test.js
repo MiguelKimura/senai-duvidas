@@ -244,6 +244,174 @@ describe('salas/{salaId} — quem lê e quem cria', () => {
   });
 });
 
+describe('professor pelo e-mail @sp.senai.br confirmado (v1.1.0)', () => {
+  const MARIA = 'uid-maria';
+
+  /** Contexto com o token completo: e-mail e `email_verified`. */
+  function comoToken(uid, token) {
+    return ambiente.authenticatedContext(uid, token).firestore();
+  }
+
+  function salaDe(uid) {
+    return {
+      nome: 'Elétrica 1',
+      curso: 'Elétrica — Turma A',
+      anoLetivo: 2026,
+      professorUid: uid,
+      professorNome: 'Maria',
+      ativa: true,
+      arquivadaEm: null,
+      criadaEm: serverTimestamp(),
+    };
+  }
+
+  it('e-mail @sp.senai.br confirmado cria sala sem estar em `autorizados`', async () => {
+    const db = comoToken(MARIA, { email: 'maria.silva@sp.senai.br', email_verified: true });
+
+    await assertSucceeds(setDoc(doc(db, 'salas/da-maria'), salaDe(MARIA)));
+  });
+
+  it('o mesmo e-mail SEM confirmação NÃO cria sala', async () => {
+    const db = comoToken(MARIA, { email: 'maria.silva@sp.senai.br', email_verified: false });
+
+    await assertFails(setDoc(doc(db, 'salas/da-maria'), salaDe(MARIA)));
+  });
+
+  it('subdomínio e domínio parecido NÃO valem, mesmo confirmados', async () => {
+    const sub = comoToken(MARIA, { email: 'maria@aluno.sp.senai.br', email_verified: true });
+    const parecido = comoToken(MARIA, { email: 'maria@naosp.senai.br', email_verified: true });
+
+    await assertFails(setDoc(doc(sub, 'salas/sub'), salaDe(MARIA)));
+    await assertFails(setDoc(doc(parecido, 'salas/parecido'), salaDe(MARIA)));
+  });
+
+  it('o e-mail confirmado grava o próprio perfil como professor', async () => {
+    const db = comoToken(MARIA, { email: 'maria.silva@sp.senai.br', email_verified: true });
+
+    await assertSucceeds(
+      setDoc(doc(db, `usuarios/${MARIA}`), {
+        uid: MARIA,
+        nome: 'Maria',
+        email: 'maria.silva@sp.senai.br',
+        tipo: 'professor',
+      })
+    );
+  });
+
+  it('sem confirmação, o perfil NÃO se declara professor', async () => {
+    const db = comoToken(MARIA, { email: 'maria.silva@sp.senai.br', email_verified: false });
+
+    await assertFails(
+      setDoc(doc(db, `usuarios/${MARIA}`), {
+        uid: MARIA,
+        nome: 'Maria',
+        email: 'maria.silva@sp.senai.br',
+        tipo: 'professor',
+      })
+    );
+  });
+});
+
+describe('salas/{salaId}/imagens — a imagem do chamado no banco (v1.1.0)', () => {
+  const IMAGEM = 'data:image/png;base64,' + 'A'.repeat(200);
+
+  beforeEach(async () => {
+    await semearSala(SALA_A);
+    await semearMembro(SALA_A, CARLOS, 'professor');
+    await semearMembro(SALA_A, ANA);
+  });
+
+  function imagemDe(uid, dados = IMAGEM) {
+    return { dados, tipo: 'image/png', autorUid: uid, largura: 800, altura: 600 };
+  }
+
+  it('o membro grava a própria imagem', async () => {
+    await assertSucceeds(
+      setDoc(doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/imagens/c1`), imagemDe(ANA))
+    );
+  });
+
+  it('ninguém grava imagem em nome de outra pessoa', async () => {
+    await assertFails(
+      setDoc(doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/imagens/c1`), imagemDe(CARLOS))
+    );
+  });
+
+  it('quem não é da sala não grava nem lê', async () => {
+    await assertFails(
+      setDoc(doc(como(BRUNO, BRUNO_EMAIL), `salas/${SALA_A}/imagens/c1`), imagemDe(BRUNO))
+    );
+    await semear(`salas/${SALA_A}/imagens/c2`, imagemDe(ANA));
+    await assertFails(getDoc(doc(como(BRUNO, BRUNO_EMAIL), `salas/${SALA_A}/imagens/c2`)));
+  });
+
+  it('o membro lê a imagem; ninguém varre a coleção', async () => {
+    await semear(`salas/${SALA_A}/imagens/c2`, imagemDe(ANA));
+
+    await assertSucceeds(getDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/imagens/c2`)));
+    await assertFails(getDocs(collection(como(ANA, ANA_EMAIL), `salas/${SALA_A}/imagens`)));
+  });
+
+  it('recusa o que não é imagem e o que passa do teto', async () => {
+    await assertFails(
+      setDoc(
+        doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/imagens/c1`),
+        imagemDe(ANA, ['javascript', 'alert(1)'].join(':'))
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/imagens/c1`),
+        imagemDe(ANA, 'data:image/png;base64,' + 'A'.repeat(1000000))
+      )
+    );
+  });
+
+  it('o autor e o dono da sala apagam; outro aluno não', async () => {
+    await semear(`salas/${SALA_A}/imagens/c2`, imagemDe(ANA));
+    await semearMembro(SALA_A, BRUNO);
+
+    await assertFails(deleteDoc(doc(como(BRUNO, BRUNO_EMAIL), `salas/${SALA_A}/imagens/c2`)));
+    await assertSucceeds(
+      deleteDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/imagens/c2`))
+    );
+  });
+});
+
+describe('salas/{salaId}/segredo — o PIN guardado para o dono (v1.1.0)', () => {
+  beforeEach(async () => {
+    await semearSala(SALA_A);
+    await semearMembro(SALA_A, CARLOS, 'professor');
+    await semearMembro(SALA_A, ANA);
+  });
+
+  function segredo(pin) {
+    return { hash: 'a'.repeat(64), sal: 'b'.repeat(16), pin, atualizadoEm: serverTimestamp() };
+  }
+
+  it('o dono guarda o PIN em claro junto do resumo', async () => {
+    await assertSucceeds(
+      setDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/segredo/pin`), segredo('123456'))
+    );
+  });
+
+  it('o PIN guardado tem de ter seis dígitos', async () => {
+    await assertFails(
+      setDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/segredo/pin`), segredo('12ab'))
+    );
+  });
+
+  it('o aluno continua sem ler o segredo — nem o PIN', async () => {
+    await semear(`salas/${SALA_A}/segredo/pin`, {
+      hash: 'a'.repeat(64),
+      sal: 'b'.repeat(16),
+      pin: '123456',
+    });
+
+    await assertFails(getDoc(doc(como(ANA, ANA_EMAIL), `salas/${SALA_A}/segredo/pin`)));
+  });
+});
+
 describe('salas/{salaId} — quem altera (AC-SALA-10)', () => {
   beforeEach(async () => {
     await semearSala(SALA_A);
@@ -295,7 +463,9 @@ describe('salas/{salaId}/segredo — o resumo do PIN (AC-SEC-05)', () => {
   });
 
   it('o professor dono lê o resumo', async () => {
-    await assertSucceeds(getDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/segredo/pin`)));
+    await assertSucceeds(
+      getDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/segredo/pin`))
+    );
   });
 
   it('o aluno da própria sala NÃO lê o resumo do PIN', async () => {
@@ -329,7 +499,9 @@ describe('salas/{salaId}/segredo — o resumo do PIN (AC-SEC-05)', () => {
   });
 
   it('ninguém apaga o resumo para deixar a sala sem PIN', async () => {
-    await assertFails(deleteDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/segredo/pin`)));
+    await assertFails(
+      deleteDoc(doc(como(CARLOS, CARLOS_EMAIL), `salas/${SALA_A}/segredo/pin`))
+    );
   });
 });
 
@@ -637,8 +809,10 @@ describe('chamados da sala — escopo por turma (AC-SALA-07, AC-SEC-02)', () => 
     });
 
     it.each([
-      ['uma URL de imagem, que pediria o IP da turma ao servidor do outro lado',
-        'url(https://rastreador.exemplo/pixel.png)'],
+      [
+        'uma URL de imagem, que pediria o IP da turma ao servidor do outro lado',
+        'url(https://rastreador.exemplo/pixel.png)',
+      ],
       ['uma expressão CSS inteira', 'red; background-image: url(//x)'],
       ['número no lugar de string', 0x00ff00],
       ['string longa demais para ser cor', 'a'.repeat(200)],
@@ -1078,9 +1252,7 @@ describe('tentativasPin — o limite de força bruta (AC-SALA-12)', () => {
   }
 
   it('a primeira tentativa da janela é registrada', async () => {
-    await assertSucceeds(
-      setDoc(doc(como(ANA), `tentativasPin/${ANA}`), tentativa(PIN_A, 1))
-    );
+    await assertSucceeds(setDoc(doc(como(ANA), `tentativasPin/${ANA}`), tentativa(PIN_A, 1)));
   });
 
   it('a primeira tentativa não começa valendo cinco', async () => {

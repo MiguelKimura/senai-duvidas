@@ -9,7 +9,7 @@
 // A contagem de tentativas (AC-SALA-12) é do servidor; aqui se prova que a
 // tela obedece à recusa e explica o bloqueio sem culpar o aluno.
 import React from 'react';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
@@ -228,5 +228,19 @@ describe('EntrarComPin — higiene', () => {
 
     await waitFor(() => expect(navegacoes.length).toBeGreaterThan(0));
     expect(navegacoes).toHaveLength(1);
+  });
+});
+
+describe('EntrarComPin — no centro da tela (v1.1.0)', () => {
+  it('o título, o formulário e o voltar ficam na coluna centralizada', () => {
+    renderComProvedores(<EntrarComPin />);
+
+    const coluna = screen.getByRole('heading', { name: 'Entrar na sala' }).parentElement;
+
+    expect(coluna).toHaveClass('salas-centralizada');
+    expect(within(coluna).getByLabelText('PIN da sala')).toBeInTheDocument();
+    expect(
+      within(coluna).getByRole('button', { name: 'Voltar para minhas salas' })
+    ).toBeInTheDocument();
   });
 });

@@ -11,7 +11,7 @@
 import React from 'react';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
+import { __definirUsuarioAtual, __resetarAuth, __verificacoesEnviadas } from 'firebase/auth';
 import {
   __confirmarCarimbos,
   __definirRelogioDoServidor,
@@ -129,10 +129,10 @@ describe('MinhasSalas — o aluno (AC-SALA-06)', () => {
     expect(screen.queryByRole('button', { name: /arquivar/i })).not.toBeInTheDocument();
   });
 
-  it('oferece entrar em outra sala por PIN', async () => {
+  it('oferece adicionar outra sala por PIN', async () => {
     await montar();
 
-    await userEvent.click(await screen.findByRole('button', { name: /entrar com pin/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Adicionar nova sala' }));
 
     expect(navegacoes).toContainEqual(['/salas/entrar', undefined]);
   });
@@ -255,5 +255,76 @@ describe('MinhasSalas — custo e vazamento (AC-PERF-03, AC-PERF-04)', () => {
     unmount();
 
     await waitFor(() => expect(__ouvintesAtivos()).toBe(0));
+  });
+});
+
+describe('primeiro acesso: o PIN direto na tela (v1.1.0)', () => {
+  it('o aluno sem sala nenhuma vê o campo do PIN, e não entra em sala sozinho', async () => {
+    __definirUsuarioAtual(ANA);
+
+    renderComProvedores(<MinhasSalas />, { rota: '/salas' });
+
+    expect(await screen.findByLabelText('PIN da sala')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Entre na sua sala' })).toBeInTheDocument();
+    expect(navegacoes).toEqual([]);
+  });
+
+  it('sem sala, o aluno vê só o PIN: sem o botão de adicionar sala ao lado', async () => {
+    __definirUsuarioAtual(ANA);
+
+    renderComProvedores(<MinhasSalas />, { rota: '/salas' });
+
+    await screen.findByLabelText('PIN da sala');
+    expect(screen.queryByRole('button', { name: 'Adicionar nova sala' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /entrar com pin/i })).toBeNull();
+  });
+
+  it('o professor sem sala é convidado a criar a primeira, e não a digitar PIN', async () => {
+    semearProfessorNoAuth();
+    __definirUsuarioAtual(CARLOS);
+
+    renderComProvedores(<MinhasSalas />, { rota: '/salas' });
+
+    expect(await screen.findByText(/crie a primeira/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText('PIN da sala')).toBeNull();
+  });
+});
+
+describe('o aviso de confirmação do e-mail de professor (v1.1.0)', () => {
+  const MARIA = {
+    uid: 'uid-maria',
+    email: 'maria.silva@sp.senai.br',
+    displayName: 'Maria Silva',
+    emailVerified: false,
+  };
+
+  it('aparece para o e-mail @sp.senai.br ainda não confirmado', async () => {
+    __definirUsuarioAtual(MARIA);
+
+    renderComProvedores(<MinhasSalas />, { rota: '/salas' });
+
+    expect(
+      await screen.findByRole('region', { name: 'Confirmação do e-mail de professor' })
+    ).toBeInTheDocument();
+  });
+
+  it('reenviar manda outro link de confirmação', async () => {
+    __definirUsuarioAtual(MARIA);
+    renderComProvedores(<MinhasSalas />, { rota: '/salas' });
+
+    userEvent.click(await screen.findByRole('button', { name: 'Reenviar e-mail' }));
+
+    await waitFor(() => expect(__verificacoesEnviadas()).toEqual([MARIA.email]));
+    expect(await screen.findByText(/novo link/i)).toBeInTheDocument();
+  });
+
+  it('não aparece para quem já confirmou nem para e-mail de fora do domínio', async () => {
+    __definirUsuarioAtual(ANA);
+    renderComProvedores(<MinhasSalas />, { rota: '/salas' });
+
+    await screen.findByLabelText('PIN da sala');
+    expect(
+      screen.queryByRole('region', { name: 'Confirmação do e-mail de professor' })
+    ).toBeNull();
   });
 });

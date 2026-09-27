@@ -98,6 +98,13 @@
   font-weight: bold;
 }
 
+/* O `button:hover` global (vermelho) tem especificidade maior que
+   `.chat-aba`, e pintava a aba de vermelho com o texto também vermelho: a aba
+   sob o mouse ficava ilegível. Dois seletores de classe ganham dele. */
+.chat-abas .chat-aba:hover {
+  background-color: var(--cor-fundo-caixa);
+}
+
 .chat-aviso {
   margin: 10px;
   font-size: 0.8em;
@@ -206,6 +213,8 @@
   color: var(--cor-primaria-hover);
 }
 
+/* Cor própria: sem ela, o item herdava o branco do `button` global e o nome
+   de quem está do outro lado sumia no fundo branco da lista. */
 .conversa-item {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -215,13 +224,20 @@
   background: none;
   border: none;
   border-bottom: 1px solid var(--cor-fundo-chat);
+  border-radius: 0;
+  color: var(--cor-texto-forte);
   text-align: left;
   cursor: pointer;
+}
+
+.conversas .conversa-item:hover {
+  background-color: var(--cor-fundo-caixa);
 }
 
 .conversa-nome {
   font-weight: bold;
   font-size: 0.9em;
+  color: var(--cor-texto-titulo);
 }
 
 .conversa-previa {

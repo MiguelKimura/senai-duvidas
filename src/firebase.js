@@ -97,6 +97,12 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
+// O SDK tenta de novo por até 10 minutos quando o servidor de imagens não
+// responde, com a barra de progresso parada o tempo todo. Trinta segundos
+// cobrem a rede ruim do laboratório; passado isso, o aluno recebe a mensagem
+// e pode colar o link da imagem em vez de esperar (v1.1.0).
+storage.maxUploadRetryTime = 30000;
+
 // O Firebase Emulator Suite (AC-TEST-06).
 //
 // A suíte end-to-end roda contra o emulador, nunca contra o projeto da escola

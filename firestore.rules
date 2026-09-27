@@ -53,11 +53,32 @@ service cloud.firestore {
         : '';
     }
 
-    /// Está em `autorizados/{email}` com `Tipo: "professor"`.
+    /// É professor no SENAI: e-mail institucional confirmado, ou incluído à
+    /// mão em `autorizados`.
     ///
     /// É o papel **global** no SENAI: diz quem pode criar sala. Não diz nada
     /// sobre a sala de outro professor — isso é `ehDonoDaSala` (AC-SEC-02).
     function ehProfessor() {
+      return ehProfessorPorDominio() || ehProfessorAutorizado();
+    }
+
+    /// E-mail @sp.senai.br **confirmado** (v1.1.0).
+    ///
+    /// `email_verified` vem do token, assinado pelo Firebase: só fica `true`
+    /// depois que a pessoa abre o link enviado para aquela caixa de entrada.
+    /// Sem ele, qualquer um digitaria `fulano@sp.senai.br` no cadastro. O `@`
+    /// na expressão impede subdomínios (`@aluno.sp.senai.br`) e domínios que
+    /// só terminam parecido (`@naosp.senai.br`). Mesma regra de
+    /// `src/utils/professorPorDominio.js`.
+    function ehProfessorPorDominio() {
+      return ehAutenticado()
+        && request.auth.token.get('email_verified', false) == true
+        && emailDoToken().matches('^[^@]+@sp[.]senai[.]br$');
+    }
+
+    /// Está em `autorizados/{email}` com `Tipo: "professor"` — a porta manual,
+    /// para quem não tem e-mail institucional.
+    function ehProfessorAutorizado() {
       return ehAutenticado()
         && exists(/databases/$(database)/documents/autorizados/$(emailDoToken()))
         && get(/databases/$(database)/documents/autorizados/$(emailDoToken()))
@@ -292,6 +313,11 @@ service cloud.firestore {
           && request.resource.data.hash.size() == 64
           && request.resource.data.sal is string
           && request.resource.data.sal.size() >= 16
+          // O PIN em claro, para o dono vê-lo de novo (v1.1.0). Opcional: a
+          // sala criada antes guardou só o resumo.
+          && (!('pin' in request.resource.data)
+              || (request.resource.data.pin is string
+                  && request.resource.data.pin.matches('^[0-9]{6}$')))
           && request.resource.data.atualizadoEm == request.time;
         allow delete: if false;
       }
@@ -317,6 +343,30 @@ service cloud.firestore {
 
         // O professor remove o aluno (AC-SALA-09); o aluno pode sair sozinho.
         allow delete: if ehDono(uid) || ehDonoDaSala(salaId);
+      }
+
+      // A imagem do computador, guardada no banco (v1.1.0). Fora do documento
+      // do chamado para que a fila não baixe todos os prints a cada reemissão:
+      // ela é lida pelo id, só quando alguém clica no olho do card.
+      //
+      // O conteúdo é uma data URL de imagem com teto de tamanho — o documento
+      // aceita 1 MiB. O `matches` confere só o começo, que é o que decide o
+      // que o navegador faz com o valor num `src`.
+      match /imagens/{chamadoId} {
+        allow get: if ehMembroDaSala(salaId);
+        allow list: if false;
+
+        allow create: if ehMembroDaSala(salaId)
+          && salaEstaAtiva(salaId)
+          && request.resource.data.autorUid == request.auth.uid
+          && request.resource.data.dados is string
+          && request.resource.data.dados.size() <= 900000
+          && request.resource.data.dados.matches('^data:image/(png|jpeg|webp|gif);base64,.*');
+
+        allow update: if false;
+
+        allow delete: if ehMembroDaSala(salaId)
+          && (resource.data.autorUid == request.auth.uid || ehDonoDaSala(salaId));
       }
 
       // A fila da turma. Era `chamados`, global, com `allow read, delete: if

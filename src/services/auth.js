@@ -9,6 +9,8 @@ import {
   GithubAuthProvider,
   GoogleAuthProvider,
   onAuthStateChanged,
+  reload,
+  sendEmailVerification,
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -114,6 +116,38 @@ export function sair() {
  */
 export function observarAutenticacao(aoMudar) {
   return onAuthStateChanged(auth, aoMudar);
+}
+
+/**
+ * Manda o e-mail de confirmação do Firebase para o usuário atual.
+ *
+ * É o que libera o papel de professor para o e-mail @sp.senai.br: quem clica
+ * no link prova que é dono da caixa de entrada (ver utils/professorPorDominio).
+ *
+ * @param {object} usuario usuário do Firebase Auth.
+ * @returns {Promise<void>}
+ */
+export function enviarConfirmacaoDeEmail(usuario) {
+  return sendEmailVerification(usuario);
+}
+
+/**
+ * Relê o usuário no Firebase e força um token novo.
+ *
+ * As duas coisas são necessárias depois de clicar no link de confirmação:
+ * `reload` atualiza o `emailVerified` que a tela lê, e o token novo carrega o
+ * `email_verified` que a Security Rule lê. Só com o primeiro, a tela diria
+ * "professor" e o banco continuaria recusando a criação de sala.
+ *
+ * @param {object} usuario usuário do Firebase Auth.
+ * @returns {Promise<void>}
+ */
+export async function recarregarUsuario(usuario) {
+  await reload(usuario);
+
+  if (typeof usuario.getIdToken === 'function') {
+    await usuario.getIdToken(true);
+  }
 }
 
 /** Zera a memória da persistência. Só os testes precisam disto. */

@@ -15,10 +15,18 @@ laboratório.
 
 ## 1. Criar a sala
 
-Você precisa estar cadastrado como professor. Isso não é uma caixa que se marca no
-cadastro: o seu e-mail precisa estar na lista de autorizados, mantida pela coordenação no
-console do Firebase. Se você criou a conta e caiu na tela de aluno, é isso que falta —
-peça o cadastro do seu e-mail e entre de novo.
+Você precisa ter acesso de professor. Há dois caminhos:
+
+- **E-mail institucional `@sp.senai.br`** (o caminho normal). No **Cadastro**, escolha
+  **Professor** e use o seu e-mail `@sp.senai.br`. O sistema manda um **link de
+  confirmação** para essa caixa de entrada — confira também o spam. Abra o link e, em
+  **Minhas salas**, clique em **Já confirmei**. Pronto: o botão **Criar sala** aparece.
+  Até abrir o link, a conta funciona como aluno, e um aviso em **Minhas salas** lembra o
+  que falta (com o botão **Reenviar e-mail**, se o link não chegou). Se você entrar com
+  uma conta Google do domínio `@sp.senai.br`, o Google já entrega o e-mail confirmado e
+  o acesso sai na hora.
+- **Outro e-mail**: ele precisa estar na lista de autorizados, mantida pela coordenação no
+  console do Firebase. Peça o cadastro do seu e-mail e entre de novo.
 
 Em **Minhas salas**, clique em **Criar sala**.
 
@@ -38,14 +46,13 @@ cada aula jogaria fora o histórico da turma.
 
 Ao criar, o sistema mostra o PIN.
 
-![Tela Sala criada, com o PIN de seis dígitos em destaque, o botão Copiar PIN e o aviso de que ele aparece uma única vez](imagens/professor-sala-criada-com-pin.png)
+![Tela Sala criada, com o PIN de seis dígitos em destaque, o botão Copiar PIN e o aviso de onde ele fica guardado](imagens/professor-sala-criada-com-pin.png)
 
-**Anote agora.** O PIN aparece **uma única vez**. O sistema não guarda o número — só um
-resumo criptográfico dele —, então nem você, nem a coordenação, nem o suporte conseguem
-recuperá-lo depois. Fechou a aba, perdeu o número.
-
-Isso é deliberado, e é o que impede que um aluno da turma leia o PIN no banco e entre nas
-salas de outras turmas. Se perder, não é problema: gere um novo (§ 3).
+**O PIN fica à vista para você.** Desde a versão 1.1.0 ele aparece no canto inferior
+direito da tela da sala, a aula inteira, só para você, que é o dono. Os alunos não o veem
+em lugar nenhum. Para o aluno que chegou atrasado, é só olhar ali. Se ele vazar para fora
+da turma, gere um novo ali mesmo (§ 3). Salas criadas antes da 1.1.0 mostram "Ainda não
+guardado" até você gerar um PIN novo.
 
 Como distribuir: escreva no quadro, projete, ou use o **Copiar PIN** e cole no grupo da
 turma. O PIN é o que dá entrada na sala — trate-o como a chave da sala, não como um dado
@@ -57,7 +64,8 @@ de outra turma; o aluno só precisa esperar e usar o número certo.
 
 ## 3. Gerar um novo PIN
 
-Em **Minhas salas**, no cartão da sua sala, há o botão **Gerar novo PIN**.
+No canto da tela da sala, abaixo do PIN, ou em **Minhas salas**, no cartão da sua sala, há
+o botão **Gerar novo PIN**.
 
 O PIN anterior **para de funcionar na hora**. Quem já é membro da sala **continua dentro** —
 o PIN é a porta de entrada, não a permissão de ficar. Ninguém é expulso.
@@ -73,9 +81,16 @@ Gere um novo quando:
 
 ![Tela do professor, com o painel Turma no topo, a lista de chamados e o painel de premiações](imagens/professor-fila-da-sala.png)
 
-Abrindo a sala você vê três coisas, de cima para baixo:
+> Desde a versão 1.1.0 a sala abre em abas: **Chamados** (a fila, que abre sempre
+> primeiro), **Premiações** e **Turma**. As duas últimas só aparecem para o dono da sala.
+> A captura acima ainda mostra o layout antigo, com tudo empilhado.
 
-**O painel Turma** — quem está na sala. Cada nome tem **Remover**, que tira o aluno do
+No topo da sala ficam o botão **Minhas salas** e, se você tem mais de uma turma, o seletor
+**Trocar de sala**: escolha a turma e ela abre direto, sem voltar à lista.
+
+Abrindo a sala você tem três abas:
+
+**A aba Turma** — quem está na sala. Cada nome tem **Remover**, que tira o aluno do
 vínculo e regera o PIN na mesma ação. O seu próprio nome não tem botão: sem dono, ninguém
 poderia arquivar a sala nem gerar um PIN novo.
 
@@ -106,6 +121,15 @@ saber quanto tempo a turma esperou.
 Ao lado, **Excluir** — você pode excluir qualquer card da sua sala, o aluno só o dele.
 O sistema pede confirmação e oferece **5 segundos de Desfazer** no rodapé. Passados eles, o
 card e o print saem para sempre.
+
+Na confirmação há a caixa **Não perguntar mais**. Marcada, as próximas exclusões vão direto
+para os 5 segundos de Desfazer, sem a pergunta. A escolha vale para você, neste navegador.
+Para voltar a ser perguntado, use o link **Voltar a pedir confirmação ao excluir**, acima da
+fila.
+
+Marcar um chamado como **Atendido** também apaga o print que o aluno anexou do computador:
+resolvido, ele não tem mais serventia e ocupa o espaço gratuito do banco. O texto do card
+continua.
 
 Use para limpar duplicata e para tirar da fila o que foi aberto por engano. O aluno também
 exclui o próprio quando resolve sozinho — combine isso com a turma, é o que mantém a fila
@@ -256,8 +280,10 @@ recusada.
 Também não. Quem concede é o dono **daquela** sala.
 
 **Um aluno pode virar professor mexendo no navegador?**
-Não. O papel vem da lista de autorizados, conferida pelo servidor a cada escrita. Mudar o
-que está guardado no navegador não promove ninguém.
+Não. O papel vem do e-mail `@sp.senai.br` **confirmado** ou da lista de autorizados, e o
+servidor confere as duas coisas a cada escrita. Mudar o que está guardado no navegador não
+promove ninguém, e digitar um e-mail `@sp.senai.br` que não é seu não adianta: sem abrir o
+link que chega naquela caixa de entrada, a conta continua aluno.
 
 **O aluno pode esticar o perk mexendo no relógio do computador?**
 Não. A validade é conferida contra o horário do servidor, e não contra o relógio da

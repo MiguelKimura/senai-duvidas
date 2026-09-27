@@ -301,6 +301,11 @@ async function definirPin(salaId) {
   await setDoc(referenciaDoSegredo(salaId), {
     hash: await hashDePin(pin, sal),
     sal,
+    // O PIN em claro, ao lado do resumo (v1.1.0). O professor precisa vê-lo de
+    // novo — na aula seguinte, para o aluno que faltou —, e só o dono da sala
+    // lê este documento: a rule de `segredo` é a mesma de sempre. O resumo
+    // continua sendo o que a rule confere na entrada do aluno.
+    pin,
     atualizadoEm: carimboServidor(),
   });
 
@@ -659,6 +664,27 @@ export async function carregarDetalhesDaSala(salaId, { comContagens = false } = 
   ]);
 
   return { ...sala, totalMembros, chamadosAbertos };
+}
+
+/**
+ * O PIN guardado da sala, para o dono vê-lo de novo (v1.1.0).
+ *
+ * `null` para a sala criada antes da v1.1.0, que só guardou o resumo — a tela
+ * oferece gerar um novo — e para quem não é o dono, que a rule recusa.
+ *
+ * @param {string} salaId
+ * @returns {Promise<string|null>}
+ */
+export async function lerPinGuardado(salaId) {
+  try {
+    const documento = await getDoc(referenciaDoSegredo(salaId));
+    const pin = documento.exists() ? documento.data().pin : null;
+
+    return typeof pin === 'string' ? pin : null;
+  } catch (erro) {
+    if (ehRecusaDoServidor(erro)) return null;
+    throw erro;
+  }
 }
 
 /**

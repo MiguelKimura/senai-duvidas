@@ -14,8 +14,13 @@
 //      "Usuário não encontrado no banco de dados". Agora `garantirPerfil` cria
 //      o documento — é o que destrava o primeiro login social.
 //
-// O que **não** mudou e continua fixado: o papel sai do Firestore, e é ele que
-// decide entre `/aluno` e `/professor`.
+// O que **não** mudou e continua fixado: o papel sai do Firestore.
+//
+// v1.1.0: os dois papéis entram pela lista de salas (`/salas`). Até ali o
+// papel decidia entre `/aluno` e `/professor`, as telas sem sala que liam a
+// fila global — e a conta nova de aluno parecia cair numa sala sem PIN. O que
+// o papel decide agora é o que a lista oferece ("Criar sala" só para
+// professor), e isso está coberto em MinhasSalas.test.js e rotasDeSala.test.js.
 import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -87,7 +92,7 @@ describe('Login — formulário', () => {
 });
 
 describe('Login — credencial válida (AC-AUTH-02)', () => {
-  it('redireciona o aluno para /aluno conforme usuarios/{uid}.tipo', async () => {
+  it('redireciona o aluno para /salas conforme usuarios/{uid}.tipo', async () => {
     const aluno = fabricaUsuario({ uid: 'uid-aluno', tipo: 'aluno' });
     __registrarCredencial('ana@senai.br', 'senha123', { uid: 'uid-aluno' });
     __semearColecao('usuarios', [{ id: 'uid-aluno', ...aluno }]);
@@ -99,10 +104,10 @@ describe('Login — credencial válida (AC-AUTH-02)', () => {
     // `{ replace: true }` entrou na task 01: sem ele, o "voltar" do navegador
     // devolve a pessoa à tela de login já autenticada, que redireciona de
     // volta — um vaivém que o AC-AUTH-08 não admite.
-    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/aluno', { replace: true }));
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas', { replace: true }));
   });
 
-  it('redireciona o professor para /professor conforme usuarios/{uid}.tipo', async () => {
+  it('redireciona o professor para /salas conforme usuarios/{uid}.tipo', async () => {
     const professor = fabricaUsuario({
       uid: 'uid-prof',
       tipo: 'professor',
@@ -118,9 +123,7 @@ describe('Login — credencial válida (AC-AUTH-02)', () => {
 
     preencherEEnviar({ email: 'carlos@senai.br', senha: 'senha123' });
 
-    await waitFor(() =>
-      expect(mockNavegar).toHaveBeenCalledWith('/professor', { replace: true })
-    );
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas', { replace: true }));
   });
 
   it('o papel que decide a rota vem do Firestore, não do localStorage', async () => {
@@ -138,8 +141,9 @@ describe('Login — credencial válida (AC-AUTH-02)', () => {
 
     preencherEEnviar({ email: 'ana@senai.br', senha: 'senha123' });
 
-    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/aluno', { replace: true }));
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas', { replace: true }));
     expect(mockNavegar).not.toHaveBeenCalledWith('/professor', expect.anything());
+    expect(mockNavegar).not.toHaveBeenCalledWith('/salas/nova', expect.anything());
   });
 });
 
@@ -180,7 +184,7 @@ describe('Login — credencial inválida (AC-AUTH-02, AC-AUTH-05)', () => {
 });
 
 describe('Login — usuário autenticado sem documento no Firestore', () => {
-  it('cria o perfil e segue para /aluno, em vez de travar a pessoa na tela', async () => {
+  it('cria o perfil e segue para /salas, em vez de travar a pessoa na tela', async () => {
     // Era: `expect(avisos).toHaveBeenCalledWith('Usuário não encontrado no
     // banco de dados.')` e nenhuma navegação. Aquele beco sem saída é
     // exatamente o que impedia o primeiro login social de funcionar: o
@@ -191,7 +195,7 @@ describe('Login — usuário autenticado sem documento no Firestore', () => {
 
     preencherEEnviar({ email: 'fantasma@senai.br', senha: 'senha123' });
 
-    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/aluno', { replace: true }));
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas', { replace: true }));
     expect(avisos).not.toHaveBeenCalled();
   });
 });
@@ -205,7 +209,7 @@ describe('Login — sessão observada pelo provider, não pelo componente', () =
 
     __definirUsuarioAtual({ uid: 'uid-aluno', email: 'ana@senai.br' });
 
-    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/aluno', { replace: true }));
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas', { replace: true }));
   });
 
   it('não observa o auth por conta própria — o listener é um só', () => {
@@ -248,14 +252,14 @@ describe('Login — entrar com Google (AC-AUTH-03)', () => {
     expect(screen.getByRole('button', { name: /entrar com google/i })).toBeInTheDocument();
   });
 
-  it('autentica e leva para /aluno no primeiro acesso', async () => {
+  it('autentica e leva para /salas no primeiro acesso', async () => {
     __definirUsuarioDoPopup(ANA_DO_GOOGLE);
     renderComProvedores(<Login />);
     await aguardarFormulario();
 
     await userEvent.click(screen.getByRole('button', { name: /entrar com google/i }));
 
-    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/aluno', { replace: true }));
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas', { replace: true }));
   });
 
   it('a janela fechada vira mensagem no formulário, sem alert', async () => {
@@ -278,7 +282,7 @@ describe('Login — entrar com GitHub (AC-AUTH-04)', () => {
     expect(screen.getByRole('button', { name: /entrar com github/i })).toBeInTheDocument();
   });
 
-  it('autentica e leva para /aluno no primeiro acesso', async () => {
+  it('autentica e leva para /salas no primeiro acesso', async () => {
     __definirUsuarioDoPopup({
       uid: 'uid-bruno',
       email: 'bruno@senai.br',
@@ -290,7 +294,7 @@ describe('Login — entrar com GitHub (AC-AUTH-04)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /entrar com github/i }));
 
-    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/aluno', { replace: true }));
+    await waitFor(() => expect(mockNavegar).toHaveBeenCalledWith('/salas', { replace: true }));
   });
 });
 

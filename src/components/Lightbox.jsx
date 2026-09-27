@@ -15,7 +15,8 @@
 // `hooks/useDialogoModal.js` na v0.10.0: a versão tem três diálogos, e a
 // segunda cópia de um foco preso é onde o comportamento começa a divergir.
 // O comportamento não mudou — os testes deste componente são a prova.
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useDialogoModal } from '../hooks/useDialogoModal';
 import '../styles/Lightbox.css';
 
@@ -23,14 +24,40 @@ import '../styles/Lightbox.css';
 export const AVISO_DE_FALHA =
   'Não foi possível carregar a imagem. O endereço pode ter saído do ar.';
 
+/** O que o visualizador diz enquanto lê a imagem guardada no banco. */
+export const TEXTO_CARREGANDO = 'Carregando a imagem...';
+
 /**
  * Mostra o anexo em tamanho grande, sem sair da página.
  *
- * @param {{url: string, descricao?: string, onFechar: () => void}} props
+ * @param {{url?: string|null, carregar?: () => Promise<string|null>,
+ *   descricao?: string, onFechar: () => void}} props `carregar` é para a
+ *   imagem guardada no banco, que só é lida quando o visualizador abre.
  */
-export default function Lightbox({ url, descricao = '', onFechar }) {
+export default function Lightbox({ url = null, carregar = null, descricao = '', onFechar }) {
   const dialogo = useRef(null);
   const [falhou, setFalhou] = useState(false);
+  const [endereco, setEndereco] = useState(url);
+
+  useEffect(() => {
+    if (!carregar) return undefined;
+
+    let vivo = true;
+
+    carregar()
+      .then((lido) => {
+        if (!vivo) return;
+        if (lido) setEndereco(lido);
+        else setFalhou(true);
+      })
+      .catch(() => {
+        if (vivo) setFalhou(true);
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [carregar]);
 
   const rotulo = descricao ? `Imagem do chamado: ${descricao}` : 'Imagem do chamado';
 
@@ -45,7 +72,10 @@ export default function Lightbox({ url, descricao = '', onFechar }) {
     if (evento.target === evento.currentTarget) onFechar();
   };
 
-  return (
+  // Portal para o <body>: dentro do card, o `transform` da animação de
+  // entrada prende o `position: fixed` ao card, e o visualizador abria
+  // espremido nele em vez de cobrir a tela (v1.1.0).
+  return createPortal(
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className="lightbox"
@@ -67,14 +97,23 @@ export default function Lightbox({ url, descricao = '', onFechar }) {
           </p>
         ) : null}
 
-        <img
-          className="lightbox-imagem"
-          src={url}
-          alt={rotulo}
-          hidden={falhou}
-          onError={() => setFalhou(true)}
-        />
+        {!falhou && !endereco ? (
+          <p className="lightbox-carregando" role="status">
+            {TEXTO_CARREGANDO}
+          </p>
+        ) : null}
+
+        {endereco ? (
+          <img
+            className="lightbox-imagem"
+            src={endereco}
+            alt={rotulo}
+            hidden={falhou}
+            onError={() => setFalhou(true)}
+          />
+        ) : null}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

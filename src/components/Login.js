@@ -15,10 +15,17 @@ import { useAuth } from '../contexts/AuthContext';
 //     resolução do papel é do `perfilUsuario`, e é a mesma para todo caminho
 //     de login.
 
-/** Para onde cada papel entra depois de autenticar. */
+/**
+ * Para onde cada papel entra depois de autenticar.
+ *
+ * Os dois vão para a lista de salas desde a v1.1.0. Até ali o aluno caía em
+ * `/aluno`, a tela sem sala que lia a fila global da escola inteira — para
+ * quem tinha acabado de criar a conta, parecia ter entrado numa sala sem
+ * digitar PIN nenhum.
+ */
 const ROTA_INICIAL = {
-  aluno: '/aluno',
-  professor: '/professor',
+  aluno: '/salas',
+  professor: '/salas',
 };
 
 function Login() {

@@ -25,7 +25,7 @@
 // que importa o sanitizador. É ela que pega a porta nova de amanhã, e não esta
 // lista, que só conhece as de hoje.
 import React from 'react';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import { __resetarFirestore, __semearColecao } from 'firebase/firestore';
 import TextoMarkdown from '../components/TextoMarkdown';
@@ -328,7 +328,10 @@ describe('AC-SEC-04 — a carga hostil em cada ponto de entrada', () => {
       />
     );
 
-    expect(screen.getByAltText(/Anexo do chamado/)).toHaveAttribute(
+    // Desde a v1.1.0 o card mostra o olho, e a imagem abre no visualizador.
+    fireEvent.click(screen.getByTitle('Ver imagem'));
+
+    expect(screen.getByAltText(/Imagem do chamado/)).toHaveAttribute(
       'src',
       'https://exemplo.test/print.png'
     );

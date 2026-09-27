@@ -45,3 +45,25 @@ export function estiloDoCard(chamado) {
     color: entrada ? entrada.texto : undefined,
   };
 }
+
+/** Acima de quantos caracteres a descrição entra recolhida no card. */
+export const LIMITE_DO_RESUMO = 200;
+
+/** Acima de quantas linhas a descrição entra recolhida no card. */
+export const LINHAS_DO_RESUMO = 4;
+
+/**
+ * A descrição é longa o bastante para entrar recolhida, com "Ler mais".
+ *
+ * Os dois critérios, e não só o de caracteres: um bloco de código de seis
+ * linhas curtas tem menos de 200 caracteres e ocupa o dobro da altura de um
+ * card comum. É a altura que precisa ser padrão, e é ela que as linhas medem.
+ *
+ * @param {string|null|undefined} texto
+ * @returns {boolean}
+ */
+export function descricaoEhLonga(texto) {
+  if (typeof texto !== 'string') return false;
+
+  return texto.length > LIMITE_DO_RESUMO || texto.split('\n').length > LINHAS_DO_RESUMO;
+}

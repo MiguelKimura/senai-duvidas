@@ -57,27 +57,29 @@ test('o professor cria a sala, vê o PIN uma vez e o copia (AC-SALA-01, AC-SALA-
 
   const pin = await pinNaTela(page);
 
-  // O aviso de que o número aparece uma vez só é parte do critério: o banco
-  // guarda o resumo, e nem o suporte recupera o PIN depois (AC-SEC-05).
-  await expect(page.getByText(/o PIN aparece uma única vez/i)).toBeVisible();
+  // v1.1.0: o PIN fica guardado para o dono, e o aviso diz onde encontrá-lo.
+  await expect(page.getByText(/fica guardado e aparece no canto da tela da sala/i)).toBeVisible();
 
   await page.getByRole('button', { name: /copiar pin/i }).click();
   await expect(page.getByText(/^copiado!$/i)).toBeVisible();
 
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(pin);
 
-  // O banco guarda o resumo, e não o número. Esta é a asserção que falharia se
-  // alguém decidisse "guardar o PIN para o professor consultar depois", e ela
-  // olha para o documento com o token de administrador do emulador — quem lê
-  // aqui vê mais do que qualquer cliente veria (AC-SEC-05).
+  // O segredo da sala, lido com o token de administrador do emulador — quem
+  // lê aqui vê mais do que qualquer cliente veria (AC-SEC-05).
   const [salaId] = await idsDe('salas');
 
   expect(salaId).toBeTruthy();
 
   const segredo = await ler(`salas/${salaId}/segredo/pin`);
 
-  expect(Object.keys(segredo).sort()).toEqual(['atualizadoEm', 'hash', 'sal']);
-  expect(JSON.stringify(segredo)).not.toContain(pin);
+  // v1.1.0: o PIN em claro passa a morar aqui, ao lado do resumo, para o
+  // professor vê-lo de novo. Só o dono lê este documento — a rule é
+  // conferida em tests/rules/salas.rules.test.js —, e o documento da sala,
+  // que toda a turma lê, continua sem ele.
+  expect(Object.keys(segredo).sort()).toEqual(['atualizadoEm', 'hash', 'pin', 'sal']);
+  expect(segredo.pin.stringValue).toBe(pin);
+  expect(JSON.stringify(await ler(`salas/${salaId}`))).not.toContain(pin);
 
   // E a sala nasce na lista dele, com o vínculo de professor já gravado.
   await page.goto('/salas');

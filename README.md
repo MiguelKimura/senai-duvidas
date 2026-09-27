@@ -13,7 +13,7 @@ compartilhadas, relógios de sistema frequentemente errados, rede instável. Tod
 deste repositório assume esse cenário — e assume que uma falha em produção interrompe uma turma
 inteira.
 
-**Versão atual:** 1.0.0 · [CHANGELOG](CHANGELOG.md) · [Histórico e decisões](docs/HISTORICO.md)
+**Versão atual:** 1.1.0 · [CHANGELOG](CHANGELOG.md) · [Histórico e decisões](docs/HISTORICO.md)
 
 ---
 

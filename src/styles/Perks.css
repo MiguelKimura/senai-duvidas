@@ -164,44 +164,108 @@
 
 /* ---- A vitrine "Minhas conquistas" (AC-PERK-06) ----------------------- */
 
+/* Cada conquista é um cartão, com o selo do tipo em destaque e os detalhes
+   embaixo, alinhados à esquerda. Até a v1.1.0 era uma lista de linhas de
+   texto soltas, com parte dela centralizada pelo `p` global. */
+/* Larga o bastante para três cartões por linha, e no centro da aba. */
 .perk-vitrine {
+  width: 100%;
+  max-width: 880px;
+  box-sizing: border-box;
+  text-align: left;
   background: var(--cor-superficie);
   border-radius: var(--raio-2);
   box-shadow: var(--sombra-caixa);
-  padding: var(--espaco-3);
-  margin: var(--espaco-3) 0;
+  padding: var(--espaco-3) var(--espaco-4);
+  margin: var(--espaco-3) auto;
 }
 
 .perk-vitrine h3 {
-  margin: 0 0 var(--espaco-2);
+  margin: 0 0 var(--espaco-3);
   color: var(--cor-texto-titulo);
+  font-size: 1.2rem;
+}
+
+.perk-vitrine-coluna {
+  margin: var(--espaco-3) 0 var(--espaco-2);
+  color: var(--cor-texto-rotulo);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .perk-vitrine-lista {
   list-style: none;
-  margin: 0 0 var(--espaco-3);
+  margin: 0;
   padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--espaco-2);
+}
+
+.perk-vitrine-item {
   display: flex;
   flex-direction: column;
-  gap: var(--espaco-1);
+  gap: var(--espaco-minimo);
+  padding: var(--espaco-2) var(--espaco-3);
+  border: 1px solid var(--cor-borda);
+  border-left: 4px solid var(--cor-primaria);
+  border-radius: var(--raio-2);
+  background: var(--cor-fundo-caixa);
+  text-align: left;
+}
+
+.perk-vitrine-item strong {
+  color: var(--cor-texto-titulo);
+  font-size: 1rem;
+}
+
+.perk-vitrine-item p {
+  margin: 0;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--cor-texto-rotulo);
+}
+
+.perk-vitrine-item .perk-vitrine-justificativa {
+  color: var(--cor-texto-forte);
+  font-style: italic;
+}
+
+.perk-vitrine-item .perk-vitrine-validade {
+  align-self: flex-start;
+  margin-top: var(--espaco-1);
+  padding: 2px 8px;
+  border-radius: var(--raio-4);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  font-size: 0.75rem;
 }
 
 .perk-vitrine-item--expirado {
   opacity: 0.65;
+  border-left-color: var(--cor-borda-forte);
 }
 
 .perk-vitrine-vazio {
   color: var(--cor-texto-discreto);
   margin: 0;
+  text-align: left;
 }
 
 /* ---- O painel de concessao do professor (AC-PERK-01) ------------------ */
 
 .perk-painel {
+  /* Teto de largura: esticado na tela inteira, cada campo virava uma faixa
+     de 1500px com o rótulo numa ponta e o valor na outra. */
+  width: 100%;
+  max-width: 640px;
+  box-sizing: border-box;
+  text-align: left;
   background: var(--cor-fundo-caixa);
   border-radius: var(--raio-2);
   padding: var(--espaco-3);
-  margin-top: var(--espaco-2);
+  margin: var(--espaco-2) auto 0;
   display: flex;
   flex-direction: column;
   gap: var(--espaco-2);
@@ -237,10 +301,14 @@
 /* ---- As preferencias de premiacao (AC-PERK-08) ------------------------ */
 
 .perk-preferencias {
+  width: 100%;
+  max-width: 880px;
+  box-sizing: border-box;
+  text-align: left;
   border: 1px solid var(--cor-borda);
   border-radius: var(--raio-2);
   padding: var(--espaco-2) var(--espaco-3);
-  margin: var(--espaco-2) 0 var(--espaco-3);
+  margin: var(--espaco-2) auto var(--espaco-3);
   display: flex;
   flex-direction: column;
   gap: var(--espaco-1);
@@ -272,10 +340,42 @@
   gap: var(--espaco-2);
 }
 
-.perk-painel-caixa {
+/* Dois seletores de classe: `.perk-painel label` empilhava a caixa em cima do
+   texto, e com o `p` centralizado da base ela ficava solta no meio. */
+.perk-painel .perk-painel-caixa {
   flex-direction: row;
   align-items: center;
   gap: var(--espaco-1);
+}
+
+.perk-painel h3 {
+  margin: 0 0 var(--espaco-1);
+  color: var(--cor-texto-titulo);
+}
+
+.perk-painel select {
+  padding: 8px 10px;
+  border: 1px solid var(--cor-borda-campo);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-superficie);
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--cor-texto-forte);
+}
+
+.perk-painel textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--cor-borda-campo);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-superficie);
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--cor-texto-forte);
+}
+
+.perk-painel textarea {
+  height: 90px;
+  resize: none;
 }
 
 .perk-painel-lista {

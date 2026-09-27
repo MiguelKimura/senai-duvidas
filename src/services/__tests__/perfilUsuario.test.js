@@ -189,13 +189,34 @@ describe('resolução do papel — as duas fontes precisam concordar (AC-AUTH-06
     await expect(garantirPerfil(ANA_DO_GOOGLE)).resolves.toMatchObject({ papel: 'aluno' });
   });
 
-  it('é aluno quando só autorizados diz professor e o documento ainda diz aluno', async () => {
+  // v1.1.0: `autorizados` é a autoridade, e a Security Rule já aceita o
+  // `tipo: "professor"` de quem está lá. A conta que ficou `aluno` — pela
+  // corrida entre o cadastro e o primeiro login, ou porque o e-mail entrou na
+  // lista depois — sobe para professor na próxima resolução do papel.
+  it('promove a professor a conta aluno cujo e-mail está em autorizados', async () => {
     __semearColecao('usuarios', [
       { id: 'uid-carlos', uid: 'uid-carlos', email: 'carlos@senai.br', tipo: 'aluno' },
     ]);
     __semearColecao('autorizados', [{ id: 'carlos@senai.br', Tipo: 'professor' }]);
 
+    await expect(garantirPerfil(CARLOS)).resolves.toMatchObject({
+      papel: 'professor',
+      rebaixado: false,
+    });
+    expect(await usuariosGravados()).toEqual([
+      expect.objectContaining({ id: 'uid-carlos', tipo: 'professor' }),
+    ]);
+  });
+
+  it('não promove a conta aluno que não está em autorizados', async () => {
+    __semearColecao('usuarios', [
+      { id: 'uid-carlos', uid: 'uid-carlos', email: 'carlos@senai.br', tipo: 'aluno' },
+    ]);
+
     await expect(garantirPerfil(CARLOS)).resolves.toMatchObject({ papel: 'aluno' });
+    expect(await usuariosGravados()).toEqual([
+      expect.objectContaining({ id: 'uid-carlos', tipo: 'aluno' }),
+    ]);
   });
 
   it('é aluno quando autorizados traz um Tipo diferente de professor', async () => {
@@ -419,5 +440,53 @@ describe('preferencias — campo aditivo com padrão seguro (AC-PERK-08)', () =>
       email: 'ana@senai.br',
       tipo: 'aluno',
     });
+  });
+});
+
+describe('professor pelo e-mail @sp.senai.br confirmado (v1.1.0)', () => {
+  const MARIA = {
+    uid: 'uid-maria',
+    email: 'maria.silva@sp.senai.br',
+    displayName: 'Maria Silva',
+    emailVerified: true,
+    providerData: [{ providerId: 'password' }],
+  };
+
+  it('a conta nova com e-mail confirmado já nasce professor', async () => {
+    const resultado = await garantirPerfil(MARIA);
+
+    expect(resultado.papel).toBe('professor');
+    expect(await usuariosGravados()).toEqual([
+      expect.objectContaining({ id: 'uid-maria', tipo: 'professor' }),
+    ]);
+  });
+
+  it('sem confirmação, a mesma conta é aluno', async () => {
+    const resultado = await garantirPerfil({ ...MARIA, emailVerified: false });
+
+    expect(resultado.papel).toBe('aluno');
+    expect(await usuariosGravados()).toEqual([
+      expect.objectContaining({ id: 'uid-maria', tipo: 'aluno' }),
+    ]);
+  });
+
+  it('a conta que nasceu aluno sobe para professor depois de confirmar', async () => {
+    __semearColecao('usuarios', [
+      { id: 'uid-maria', uid: 'uid-maria', email: MARIA.email, nome: 'Maria', tipo: 'aluno' },
+    ]);
+
+    const resultado = await garantirPerfil(MARIA);
+
+    expect(resultado.papel).toBe('professor');
+    expect(resultado.rebaixado).toBe(false);
+    expect(await usuariosGravados()).toEqual([
+      expect.objectContaining({ id: 'uid-maria', tipo: 'professor', nome: 'Maria' }),
+    ]);
+  });
+
+  it('não vale para subdomínio, mesmo confirmado', async () => {
+    const resultado = await garantirPerfil({ ...MARIA, email: 'maria@aluno.sp.senai.br' });
+
+    expect(resultado.papel).toBe('aluno');
   });
 });

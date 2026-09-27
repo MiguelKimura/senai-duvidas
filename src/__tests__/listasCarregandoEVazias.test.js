@@ -134,7 +134,9 @@ describe('a lista de salas (AC-ANIM-04, AC-CHAMADO-10)', () => {
 
     renderComProvedores(<MinhasSalas />, { rota: '/salas' });
 
-    expect(await screen.findByText(/peça o pin ao professor/i)).toBeInTheDocument();
+    // Desde a v1.1.0 a próxima ação já vem pronta: o campo do PIN na tela.
+    expect(await screen.findByText(/digite o pin/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('PIN da sala')).toBeInTheDocument();
   });
 });
 

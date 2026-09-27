@@ -27,7 +27,7 @@
 // projeto é `src/styles/__tests__/contraste.test.js`, que lê os tokens e roda
 // a conta da WCAG par a par.
 import React from 'react';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
@@ -401,6 +401,7 @@ describe('a vitrine de perks (AC-ANIM-10)', () => {
     semearPerk();
 
     const { container } = renderComProvedores(<TelaAluno salaId={SALA} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Minhas conquistas' }));
     await screen.findByRole('region', { name: 'Minhas conquistas' });
 
     expect(await violacoesGraves(container)).toEqual([]);
@@ -415,6 +416,7 @@ describe('a vitrine de perks (AC-ANIM-10)', () => {
     // `ehDono` porque só o dono da sala concede — é o que a rule cobra do
     // outro lado (AC-PERK-07), e sem ele o painel não chega a ser renderizado.
     const { container } = renderComProvedores(<TelaProfessor salaId={SALA} ehDono />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Premiações' }));
     await screen.findByRole('region', { name: 'Conceder premiações' });
 
     expect(await violacoesGraves(container)).toEqual([]);
