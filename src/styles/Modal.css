@@ -11,8 +11,29 @@
   z-index: 1000;
 }
 
+.modal h2 {
+  /* Respiro entre o título e a caixa de descrição: colados, o título parecia
+     o rótulo de outro campo. */
+  margin: 0 0 var(--espaco-3);
+}
+
+/* A caixa de descrição do novo chamado tem tamanho fixo: não cresce nem para
+   o lado nem para baixo. O texto que não couber rola dentro dela, e o
+   diálogo continua do mesmo tamanho enquanto o aluno escreve. */
+.modal textarea {
+  height: 160px;
+  resize: none;
+  overflow-y: auto;
+}
+
 .modal {
-  background: white;
+  /* Nunca mais alto que a tela: com as opções avançadas abertas e um print
+     colado por link, o diálogo passava da janela e o "Concluir" sumia. Quem
+     rola é o diálogo, e não a página por trás dele. */
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: var(--cor-superficie);
   padding: 20px;
   border-radius: 8px;
   max-width: 400px;
@@ -24,19 +45,45 @@ textarea {
   width: 100%;
   height: 100px;
   margin-bottom: 15px;
+  /* A caixa não cresce para o lado em nenhum lugar do app: arrastar o canto
+     para a direita empurrava o conteúdo para fora do diálogo. */
+  resize: vertical;
   padding: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--cor-borda-campo);
   border-radius: 8px;
   font-family: sans-serif;
   font-size: 14px;
   box-sizing: border-box;
-  transition: all 0.3s ease;
 }
 
 textarea:focus {
-  border-color: #ff0000;
+  border-color: var(--cor-primaria);
   box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
   outline: none;
+}
+
+/* A recusa da descrição e o contador — AC-CHAMADO-01.
+   Os dois vivem dentro de `.modal`, cujo fundo é `--cor-superficie`: os pares
+   `--cor-erro`/`--cor-superficie` e `--cor-texto-discreto`/`--cor-superficie`
+   já estão na tabela de contraste, e nenhum par novo nasce aqui. */
+.modal-erro {
+  margin: calc(-1 * var(--espaco-2)) 0 var(--espaco-2);
+  color: var(--cor-erro);
+  font-size: 14px;
+}
+
+.modal-contador {
+  margin: calc(-1 * var(--espaco-2)) 0 var(--espaco-2);
+  text-align: right;
+  color: var(--cor-texto-discreto);
+  font-size: 12px;
+}
+
+/* Passou do teto: o número vira o mesmo vermelho da recusa, porque é
+   exatamente disso que ele está avisando. */
+.modal-contador--estourado {
+  color: var(--cor-erro);
+  font-weight: bold;
 }
 
 /* Contêiner para alinhar botões corretamente */
@@ -46,12 +93,26 @@ textarea:focus {
   margin-top: 15px;
 }
 
+/* Presos no fim do diálogo enquanto ele rola (v1.1.0): com a imagem anexada
+   e as opções avançadas abertas, o conteúdo passa da altura da tela, e o
+   aluno precisa alcançar o "Concluir" sem rolar até o fim. O `bottom`
+   negativo cola a faixa na borda de baixo, por cima do preenchimento. */
+.modal .buttons-container {
+  position: sticky;
+  bottom: -20px;
+  z-index: 1;
+  margin: 15px -20px -20px;
+  padding: 12px 20px;
+  background: var(--cor-superficie);
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.06);
+}
+
 /* Aplicado a todos os botões para uniformidade */
 button {
   padding: 12px;
   border: none;
-  background-color: #ff0000;
-  color: white;
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
   border-radius: 8px;
   cursor: pointer;
   flex: 1; /* Garante que ambos os botões tenham o mesmo tamanho */
@@ -59,17 +120,17 @@ button {
 }
 
 button:hover {
-  background-color: #8f0000;
+  background-color: var(--cor-primaria-hover);
 }
 
 /* Botão de fechar com cor diferenciada */
 .close-button {
-  background-color: #ccc;
-  color: black;
+  background-color: var(--cor-borda);
+  color: var(--cor-texto-forte);
 }
 
 .close-button:hover {
-  background-color: #999;
+  background-color: var(--cor-borda-forte);
 }
 
 /* Estilo para entrada de URL */
@@ -77,26 +138,25 @@ button:hover {
   margin-bottom: 15px;
 }
 
-.image-url-container input[type="text"] {
+.image-url-container input[type='text'] {
   width: 100%;
   padding: 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--cor-borda-campo);
   border-radius: 8px;
   font-size: 14px;
   outline: none;
   box-sizing: border-box;
-  transition: all 0.3s ease;
 }
 
-.image-url-container input[type="text"]:focus {
-  border-color: #ff0000;
+.image-url-container input[type='text']:focus {
+  border-color: var(--cor-primaria);
   box-shadow: 0 0 5px rgba(255, 0, 0, 0.3);
 }
 
 .image-url-container p {
   margin-top: 8px;
   font-size: 12px;
-  color: #888;
+  color: var(--cor-texto-discreto);
 }
 
 .image-preview {
@@ -106,21 +166,43 @@ button:hover {
 
 .image-preview img {
   max-width: 100%;
-  max-height: 200px;
+  max-height: 140px;
   object-fit: contain;
   border-radius: 8px;
   margin-top: 10px;
 }
 
+/* Botão vermelho de texto branco, como os outros botões do diálogo. Era um
+   texto cinza sobre o vermelho do `button` global, e não se lia. */
 .delete-image-btn {
+  flex: none;
+  padding: 8px 16px;
+  margin-top: 10px;
+  border: none;
+  border-radius: var(--raio-1);
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
   font-size: 14px;
   cursor: pointer;
-  text-decoration: none;
-  margin-top: 10px;
-  color: #6b6b6b;
 }
 
 .delete-image-btn:hover {
-  text-decoration: underline;
-  color: #b30000;
+  background-color: var(--cor-primaria-hover);
+}
+
+/* Abaixo de 480px o diálogo ocupa a tela inteira, pela mesma razão da
+   confirmação: uma caixa de 400px centrada numa tela de 360 é uma caixa
+   colada nas bordas, e este diálogo tem um <textarea>, um seletor de arquivo
+   e um painel de opções dentro (AC-ANIM-08). */
+@media (max-width: 480px) {
+  .modal-overlay {
+    align-items: stretch;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: none;
+    border-radius: 0;
+    overflow-y: auto;
+  }
 }

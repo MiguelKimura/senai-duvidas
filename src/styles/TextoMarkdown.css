@@ -1,0 +1,62 @@
+/*
+ * O texto do card — AC-COR-07.
+ *
+ * O objetivo aqui não é estilizar markdown: é fazer com que um card com lista
+ * e bloco de código continue tendo a altura de um card. A fila do professor
+ * tem quarenta deles, e um único chamado com cinco itens não pode empurrar o
+ * resto para fora da tela.
+ */
+
+.texto-markdown {
+  /* Palavra sem espaço — caminho de arquivo, URL colada — não pode esticar o
+   * card para fora da coluna. */
+  overflow-wrap: anywhere;
+}
+
+/* O primeiro e o último parágrafo não somam margem à do próprio card: o texto
+ * precisa começar onde começava antes desta versão. */
+.texto-markdown > p:first-child {
+  margin-top: 0;
+}
+
+.texto-markdown > p:last-child {
+  margin-bottom: 0;
+}
+
+.texto-markdown ul,
+.texto-markdown ol {
+  margin: var(--espaco-minimo) 0;
+  /* Recuo suficiente para o marcador aparecer, e não mais: o card tem 400px. */
+  padding-left: var(--espaco-4);
+}
+
+.texto-markdown code {
+  font-family: ui-monospace, 'Courier New', monospace;
+  font-size: 0.9em;
+  /* Fundo translúcido, e não uma cor fixa: o card pode ser qualquer uma das
+   * nove cores da paleta, e um cinza fixo brigaria com todas elas. */
+  background-color: rgba(0, 0, 0, 0.08);
+  border-radius: var(--raio-1);
+  padding: 0 var(--espaco-minimo);
+}
+
+.texto-markdown pre {
+  margin: var(--espaco-1) 0;
+  padding: var(--espaco-1);
+  background-color: rgba(0, 0, 0, 0.08);
+  border-radius: var(--raio-1);
+  /* Linha de log não quebra bem: rolar na horizontal preserva o que está
+   * escrito, enquebrar no meio do caminho de um arquivo não. */
+  overflow-x: auto;
+}
+
+.texto-markdown pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.texto-markdown blockquote {
+  margin: var(--espaco-1) 0;
+  padding-left: var(--espaco-2);
+  border-left: 3px solid rgba(0, 0, 0, 0.2);
+}

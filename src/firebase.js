@@ -1,124 +1,152 @@
-import { initializeApp } from "firebase/app";
-import { 
-  getAuth, 
-  setPersistence, 
-  browserLocalPersistence, 
-  GoogleAuthProvider, 
-  GithubAuthProvider, 
-  signInWithPopup, 
-  onAuthStateChanged 
-} from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"; // Importando o Firebase Storage
+import { initializeApp } from 'firebase/app';
+import { connectAuthEmulator, getAuth } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import { connectStorageEmulator, getStorage } from 'firebase/storage';
 
-// Configuração do Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyA2fYSQknvMEeqlxMEwMjq49IrnazOGqkQ",
-  authDomain: "senai-duvidas.firebaseapp.com",
-  projectId: "senai-duvidas",
-  storageBucket: "senai-duvidas.appspot.com",
-  messagingSenderId: "212239446381",
-  appId: "1:212239446381:web:a16be214f6f54014a2ea64"
+// Configuração do Firebase (AC-AUTH-10).
+//
+// A fonte da verdade são as variáveis `REACT_APP_FIREBASE_*` do `.env` — veja
+// `.env.example`. Os valores abaixo são o fallback: continuam aqui porque
+// removê-los quebraria todo deploy que ainda não tem `.env`, inclusive o que
+// está em produção. São as chaves públicas do cliente Firebase, que o bundle
+// expõe de qualquer forma; o que protege os dados são as Security Rules.
+//
+// Cada variável é lida de forma estática, e não por `process.env[nome]`, para
+// não depender de como o empacotador substitui `process.env` no build.
+const CONFIG_DE_FALLBACK = {
+  apiKey: 'AIzaSyA2fYSQknvMEeqlxMEwMjq49IrnazOGqkQ',
+  authDomain: 'senai-duvidas.firebaseapp.com',
+  projectId: 'senai-duvidas',
+  storageBucket: 'senai-duvidas.appspot.com',
+  messagingSenderId: '212239446381',
+  appId: '1:212239446381:web:a16be214f6f54014a2ea64',
 };
 
-// Inicializa o Firebase
+const VALORES_DO_AMBIENTE = {
+  apiKey: ['REACT_APP_FIREBASE_API_KEY', process.env.REACT_APP_FIREBASE_API_KEY],
+  authDomain: ['REACT_APP_FIREBASE_AUTH_DOMAIN', process.env.REACT_APP_FIREBASE_AUTH_DOMAIN],
+  projectId: ['REACT_APP_FIREBASE_PROJECT_ID', process.env.REACT_APP_FIREBASE_PROJECT_ID],
+  storageBucket: [
+    'REACT_APP_FIREBASE_STORAGE_BUCKET',
+    process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  ],
+  messagingSenderId: [
+    'REACT_APP_FIREBASE_MESSAGING_SENDER_ID',
+    process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  ],
+  appId: ['REACT_APP_FIREBASE_APP_ID', process.env.REACT_APP_FIREBASE_APP_ID],
+};
+
+/**
+ * Monta a config preferindo o ambiente e caindo no fallback campo a campo.
+ * Avisa uma única vez quais variáveis faltaram, para que a pendência de
+ * configuração apareça no console em vez de passar despercebida.
+ */
+const montarConfiguracao = () => {
+  const faltantes = [];
+
+  const config = Object.entries(VALORES_DO_AMBIENTE).reduce((acumulado, [campo, par]) => {
+    const [nomeDaVariavel, valor] = par;
+
+    if (valor) {
+      acumulado[campo] = valor;
+    } else {
+      acumulado[campo] = CONFIG_DE_FALLBACK[campo];
+      faltantes.push(nomeDaVariavel);
+    }
+
+    return acumulado;
+  }, {});
+
+  if (faltantes.length > 0) {
+    console.warn(
+      '[firebase] Configuração incompleta: usando os valores embutidos no código para ' +
+        `${faltantes.join(', ')}. Defina essas variáveis no .env (veja .env.example).`
+    );
+  }
+
+  return config;
+};
+
+const firebaseConfig = montarConfiguracao();
+
+// Inicializa o Firebase.
+//
+// Este módulo faz exatamente uma coisa: montar e expor o SDK. Até a v0.2.0 ele
+// também abria um `onAuthStateChanged` solto no nível do módulo — um listener
+// que ninguém cancelava e que registrava o objeto do usuário no console, dado
+// pessoal em log. E também chamava `setPersistence` por conta própria, sem
+// ninguém esperar a promessa: o primeiro login podia acontecer antes de a
+// persistência valer. As duas coisas foram para `services/auth.js` e para o
+// `AuthProvider`, onde há ciclo de vida para cuidar delas.
 const app = initializeApp(firebaseConfig);
 
-// Inicializa o Auth, Firestore e Storage
+// Inicializa o Auth, Firestore e Storage.
+//
+// A task 04 tirou daqui a última regra de negócio que restava: `uploadImage`,
+// que gravava em `imagens/{nome}`. O caminho era global — sem sala e sem uid —
+// e dois alunos que enviassem `print.png` se sobrescreviam. Ela era órfã:
+// ninguém a chamava, e a interface nunca ofereceu upload de arquivo.
+//
+// Quem sobe anexo agora é `services/anexos.js`, que confere o conteúdo por
+// magic bytes, comprime no cliente e grava em
+// `salas/{salaId}/chamados/{chamadoId}/{nome-sorteado}` — o caminho que a
+// Storage Rule consegue fechar por sala. Este módulo voltou a fazer uma coisa
+// só: montar e expor o SDK.
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app); // Inicializando o Storage
+const storage = getStorage(app);
 
-// Inicializa os provedores de autenticação e adiciona escopos
-const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope("email");
-googleProvider.addScope("profile");
+// O SDK tenta de novo por até 10 minutos quando o servidor de imagens não
+// responde, com a barra de progresso parada o tempo todo. Trinta segundos
+// cobrem a rede ruim do laboratório; passado isso, o aluno recebe a mensagem
+// e pode colar o link da imagem em vez de esperar (v1.1.0).
+storage.maxUploadRetryTime = 30000;
 
-const githubProvider = new GithubAuthProvider();
-githubProvider.addScope("read:user");
+// O Firebase Emulator Suite (AC-TEST-06).
+//
+// A suíte end-to-end roda contra o emulador, nunca contra o projeto da escola
+// — é a mesma exigência que `tests/rules/projetoDeTeste.js` faz nos testes de
+// rules, e pela mesma razão: os testes apagam coleções inteiras, e há turma em
+// aula do outro lado.
+//
+// A chave é `REACT_APP_EMULADORES`, lida em tempo de build. O `.env` de
+// produção não a define, o build de produção não embute nada disto e o caminho
+// fica exatamente como estava. `src/__tests__/firebaseConfig.test.js` prova as
+// duas metades: que sem a variável nenhuma ligação acontece, e que com ela as
+// três acontecem uma vez só.
+//
+// As portas são configuráveis porque este projeto é tocado por um orquestrador
+// que roda várias branches em paralelo, cada uma na própria worktree. A porta
+// do emulador é a única coisa que elas de fato compartilham, e duas sessões
+// disputando a 8080 derrubam as duas.
+const HOST_DO_EMULADOR = process.env.REACT_APP_EMULADOR_HOST || '127.0.0.1';
 
-// Função para tratar erros de autenticação
-const handleAuthError = (error) => {
-  switch (error.code) {
-    case "auth/popup-closed-by-user":
-      return "A janela de login foi fechada antes da autenticação.";
-    case "auth/network-request-failed":
-      return "Falha na rede. Verifique sua conexão com a internet.";
-    case "auth/account-exists-with-different-credential":
-      return "Este e-mail já está vinculado a outra conta.";
-    case "auth/unauthorized-domain":
-      return "O domínio deste site não está autorizado para login. Verifique as configurações no Firebase.";
-    case "auth/cancelled-popup-request":
-      return "Outra solicitação de login já está em andamento.";
-    case "auth/popup-blocked":
-      return "O pop-up de login foi bloqueado. Verifique as configurações do navegador.";
-    case "auth/internal-error":
-      return "Erro interno do Firebase. Tente novamente mais tarde.";
-    default:
-      return `Erro desconhecido: ${error.message}`;
-  }
-};
+const portaDoEmulador = (variavel, padrao) => Number(variavel || padrao);
 
-// Função para login com Google
-const signInWithGoogle = async () => {
-  try {
-    await setPersistence(auth, browserLocalPersistence); // Garante a persistência
-    const result = await signInWithPopup(auth, googleProvider);
-    console.log("Usuário logado com Google:", result.user);
-    return result.user;
-  } catch (error) {
-    console.error("Erro ao fazer login com Google:", error);
-    alert(handleAuthError(error));
-    throw error;
-  }
-};
+if (process.env.REACT_APP_EMULADORES) {
+  connectAuthEmulator(
+    auth,
+    `http://${HOST_DO_EMULADOR}:${portaDoEmulador(
+      process.env.REACT_APP_EMULADOR_PORTA_AUTH,
+      9099
+    )}`,
+    // Sem o banner amarelo por cima da tela: ele cobre o canto inferior da
+    // interface e o Playwright passa a clicar nele em vez de no que pediu.
+    { disableWarnings: true }
+  );
 
-// Função para login com GitHub
-const signInWithGithub = async () => {
-  try {
-    await setPersistence(auth, browserLocalPersistence); // Garante a persistência
-    const result = await signInWithPopup(auth, githubProvider);
-    console.log("Usuário logado com GitHub:", result.user);
-    return result.user;
-  } catch (error) {
-    console.error("Erro ao fazer login com GitHub:", error);
-    alert(handleAuthError(error));
-    throw error;
-  }
-};
+  connectFirestoreEmulator(
+    db,
+    HOST_DO_EMULADOR,
+    portaDoEmulador(process.env.REACT_APP_EMULADOR_PORTA_FIRESTORE, 8080)
+  );
 
-// Função para fazer upload de imagens para o Firebase Storage
-const uploadImage = async (imageFile) => {
-  const imageRef = ref(storage, `imagens/${imageFile.name}`); // Defina o caminho da imagem
-  try {
-    // Envia a imagem para o Firebase Storage
-    await uploadBytes(imageRef, imageFile);
-    // Obtém a URL pública da imagem após o upload
-    const imageUrl = await getDownloadURL(imageRef);
-    return imageUrl; // Retorna a URL pública
-  } catch (error) {
-    console.error("Erro ao fazer upload da imagem:", error);
-    throw error;
-  }
-};
+  connectStorageEmulator(
+    storage,
+    HOST_DO_EMULADOR,
+    portaDoEmulador(process.env.REACT_APP_EMULADOR_PORTA_STORAGE, 9199)
+  );
+}
 
-// Listener para detectar mudanças na autenticação
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log("Usuário autenticado:", user);
-    // Você pode verificar aqui a persistência do usuário
-  } else {
-    console.log("Nenhum usuário autenticado");
-  }
-});
-
-// Definir a persistência do usuário na inicialização para garantir que o login seja mantido
-setPersistence(auth, browserLocalPersistence)
-  .then(() => {
-    console.log("Persistência do usuário configurada para 'local'");
-  })
-  .catch((error) => {
-    console.error("Erro ao configurar persistência:", error);
-  });
-
-export { app, auth, db, storage, signInWithGoogle, signInWithGithub, uploadImage };
+export { app, auth, db, storage };

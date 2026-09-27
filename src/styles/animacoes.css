@@ -1,0 +1,225 @@
+/*
+ * A camada de animação do projeto — AC-ANIM-01, AC-ANIM-02, AC-ANIM-03,
+ * AC-ANIM-05, AC-ANIM-06.
+ *
+ * Duas coisas moram aqui, e só elas:
+ *
+ *   1. **a supressão global.** Um `@media (prefers-reduced-motion: reduce)`
+ *      com seletor universal, carregado uma vez em `index.css`. Até a v0.9.0
+ *      eram três blocos — `Chat.css`, `Lightbox.css`, `PainelAvancado.css` e
+ *      `Perks.css` —, cada um cobrindo a própria folha e nenhum cobrindo a
+ *      seguinte. A regra é de acessibilidade, não de estética: movimento
+ *      involuntário dispara enjoo e crise vestibular em parte das pessoas, e
+ *      uma folha esquecida é uma pessoa passando mal na aula;
+ *
+ *   2. **os quadros e as classes compartilhados** — a entrada escalonada dos
+ *      cards, a saída deles, o fade-slide de modal e de rota, o esqueleto de
+ *      carregamento e os estados de botão. São os mesmos em toda tela, e
+ *      declará-los por componente foi exatamente o que produziu a divergência
+ *      que esta task veio fechar.
+ *
+ * Toda animação daqui move só `transform` e `opacity`: as duas propriedades
+ * que o navegador resolve na composição, sem recalcular layout. Animar
+ * `height` ou `top` numa fila de 200 cards recalcula a página a cada quadro,
+ * e é a diferença entre a lista rolar e a lista travar (AC-ANIM-06).
+ */
+
+/* ======================================================================
+ * 1. Supressão global (AC-ANIM-05)
+ * ====================================================================== */
+
+/* `!important` é deliberado e é o único do arquivo: a preferência da pessoa
+   vence qualquer especificidade que um componente venha a inventar depois.
+   Sem ele, uma regra mais específica escrita na task seguinte reintroduziria
+   o movimento sem ninguém notar.
+
+   `0s` e não `0.01ms`: nada neste projeto espera por `animationend` — o que
+   precisa saber se a animação está desligada usa `useMovimentoReduzido`, que
+   lê a mesma consulta de mídia em JavaScript. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ======================================================================
+ * 2. Quadros compartilhados
+ * ====================================================================== */
+
+/* A entrada de um item de lista: sobe seis pixels e aparece. Seis, e não
+   vinte — o card precisa parecer que assentou, não que voou. */
+@keyframes entra-item {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A saída: o inverso, encolhendo um fio. É o que dá ao aluno a confirmação
+   visual de que o chamado dele saiu da fila (AC-ANIM-02). */
+@keyframes sai-item {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+/* Modal e rota: fade com um slide curto de baixo para cima (AC-ANIM-01). */
+@keyframes entra-sobreposicao {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes entra-caixa {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* O esqueleto de carregamento: um brilho que atravessa a barra cinza. Anima
+   `transform`, e não `background-position`, justamente por causa do reflow —
+   um esqueleto de dez linhas repintando o layout dez vezes por quadro é pior
+   do que não ter esqueleto nenhum (AC-ANIM-04, AC-ANIM-06). */
+@keyframes esqueleto-brilha {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* ======================================================================
+ * 3. Classes compartilhadas
+ * ====================================================================== */
+
+/* A entrada escalonada da lista (AC-ANIM-02).
+ *
+ * O atraso vem de `--indice-na-lista`, que o componente escreve inline. O
+ * teto de seis degraus é o ponto: sem ele, o card 200 esperaria 200 × 40ms —
+ * quase oito segundos de tela quase vazia. O escalonamento serve para o olho
+ * seguir a entrada dos primeiros; do sétimo em diante ele já não distingue. */
+.entra-na-lista {
+  animation: entra-item var(--dur-media) var(--ease-entrada) both;
+  animation-delay: calc(min(var(--indice-na-lista, 0), 6) * var(--dur-degrau));
+}
+
+.sai-da-lista {
+  animation: sai-item var(--dur-media) var(--ease-saida) both;
+  /* `pointer-events: none` enquanto sai: o card já não existe para quem o
+     excluiu, e clicar de novo no botão que sumindo ainda está sob o cursor
+     dispararia a ação duas vezes. */
+  pointer-events: none;
+}
+
+.entra-sobreposicao {
+  animation: entra-sobreposicao var(--dur-lenta) var(--ease-entrada) both;
+}
+
+.entra-caixa {
+  animation: entra-caixa var(--dur-lenta) var(--ease-entrada) both;
+}
+
+/* ======================================================================
+ * 4. Estados de botão (AC-ANIM-03)
+ * ====================================================================== */
+
+/* Os quatro estados que todo botão do projeto passa a ter. A folha de cada
+ * componente continua decidindo a cor; o que se unifica aqui é o
+ * comportamento — e principalmente o foco visível.
+ *
+ * `:focus-visible` e não `:focus`: quem clica com o mouse não quer ver o
+ * anel, quem chega por Tab precisa dele. `outline: none` sem substituto —
+ * que é o que `Modal.css`, `Login.css` e `Cadastro.css` faziam até aqui —
+ * torna o formulário inavegável por teclado (AC-ANIM-10). */
+button,
+[role='button'],
+a,
+input,
+select,
+textarea,
+summary {
+  transition:
+    background-color var(--dur-rapida) var(--ease-padrao),
+    border-color var(--dur-rapida) var(--ease-padrao),
+    box-shadow var(--dur-rapida) var(--ease-padrao),
+    transform var(--dur-rapida) var(--ease-padrao);
+}
+
+:focus-visible {
+  /* O anel sobrepõe o vizinho em vez de empurrá-lo: `outline` não ocupa
+     espaço no fluxo, que é exatamente por que ele é a propriedade certa. */
+  outline: 3px solid var(--cor-foco);
+  outline-offset: 2px;
+}
+
+button:active:not(:disabled),
+[role='button']:active:not([aria-disabled='true']) {
+  transform: scale(0.97);
+}
+
+button:disabled,
+[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ======================================================================
+ * 5. Esqueleto de carregamento (AC-ANIM-04)
+ * ====================================================================== */
+
+.esqueleto {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--cor-borda-campo);
+  border-radius: var(--raio-1);
+  /* A altura padrão é a de uma linha de texto; quem precisa de outra a
+     sobrescreve. Sem altura nenhuma o esqueleto teria zero pixel e não
+     comunicaria nada. */
+  min-height: var(--espaco-3);
+}
+
+.esqueleto::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: esqueleto-brilha var(--dur-brilho) var(--ease-padrao) infinite;
+}
+
+/* O esqueleto some do leitor de tela: ele não é conteúdo, é a ausência de
+   conteúdo. Quem anuncia a espera é o `role="status"` do contêiner. */
+.esqueleto-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+}
