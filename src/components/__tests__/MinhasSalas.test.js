@@ -129,10 +129,10 @@ describe('MinhasSalas — o aluno (AC-SALA-06)', () => {
     expect(screen.queryByRole('button', { name: /arquivar/i })).not.toBeInTheDocument();
   });
 
-  it('oferece entrar em outra sala por PIN', async () => {
+  it('oferece adicionar outra sala por PIN', async () => {
     await montar();
 
-    await userEvent.click(await screen.findByRole('button', { name: /entrar com pin/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Adicionar nova sala' }));
 
     expect(navegacoes).toContainEqual(['/salas/entrar', undefined]);
   });
@@ -267,6 +267,16 @@ describe('primeiro acesso: o PIN direto na tela (v1.1.0)', () => {
     expect(await screen.findByLabelText('PIN da sala')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Entre na sua sala' })).toBeInTheDocument();
     expect(navegacoes).toEqual([]);
+  });
+
+  it('sem sala, o aluno vê só o PIN: sem o botão de adicionar sala ao lado', async () => {
+    __definirUsuarioAtual(ANA);
+
+    renderComProvedores(<MinhasSalas />, { rota: '/salas' });
+
+    await screen.findByLabelText('PIN da sala');
+    expect(screen.queryByRole('button', { name: 'Adicionar nova sala' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /entrar com pin/i })).toBeNull();
   });
 
   it('o professor sem sala é convidado a criar a primeira, e não a digitar PIN', async () => {
