@@ -44,6 +44,8 @@ function montar(rota = '/aluno') {
       <AuthProvider>
         <Routes>
           <Route path="/" element={<h1>Login</h1>} />
+          {/* Para onde a v1.1.0 manda quem tenta a rota do outro papel. */}
+          <Route path="/salas" element={<h1>Minhas salas</h1>} />
           <Route
             path="/aluno"
             element={
@@ -129,22 +131,23 @@ describe('papel resolvido', () => {
     expect(await screen.findByText('Tela do professor')).toBeInTheDocument();
   });
 
-  it('manda o aluno de volta para /aluno quando ele tenta /professor', async () => {
+  it('manda o aluno para a lista de salas quando ele tenta a rota do professor', async () => {
     __definirUsuarioAtual(ANA);
 
     montar('/professor');
 
-    expect(await screen.findByText('Tela do aluno')).toBeInTheDocument();
+    expect(await screen.findByText('Minhas salas')).toBeInTheDocument();
     expect(screen.queryByText('Tela do professor')).not.toBeInTheDocument();
   });
 
-  it('manda o professor de volta para /professor quando ele tenta /aluno', async () => {
+  it('manda o professor para a lista de salas quando ele tenta a rota do aluno', async () => {
     semearProfessor();
     __definirUsuarioAtual(CARLOS);
 
     montar('/aluno');
 
-    expect(await screen.findByText('Tela do professor')).toBeInTheDocument();
+    expect(await screen.findByText('Minhas salas')).toBeInTheDocument();
+    expect(screen.queryByText('Tela do aluno')).not.toBeInTheDocument();
   });
 
   it('localStorage dizendo professor não abre a tela do professor', async () => {
@@ -155,7 +158,7 @@ describe('papel resolvido', () => {
 
     montar('/professor');
 
-    expect(await screen.findByText('Tela do aluno')).toBeInTheDocument();
+    expect(await screen.findByText('Minhas salas')).toBeInTheDocument();
     expect(screen.queryByText('Tela do professor')).not.toBeInTheDocument();
   });
 });

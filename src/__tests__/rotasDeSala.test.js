@@ -142,8 +142,10 @@ describe('Rotas de sala — quem cria (AC-SALA-01)', () => {
 
     await montarApp();
 
+    // Desde a v1.1.0 o aluno é mandado para a lista de salas, e não para a
+    // tela sem sala da v0.4.0.
+    expect(await screen.findByRole('heading', { name: /minhas salas/i })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /nova sala/i })).not.toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
   });
 });
 
@@ -160,43 +162,41 @@ describe('Rotas de sala — sem sessão nenhuma', () => {
   );
 });
 
-describe('Rotas antigas continuam abrindo (compatibilidade retroativa)', () => {
-  it('/aluno ainda abre a tela do aluno, lendo a coleção global', async () => {
-    __semearColecao('chamados', [
-      {
-        id: 'legado',
-        nome: 'Ana Souza',
-        email: ANA.email,
-        descricao: 'Chamado da coleção global.',
-        horario: '2026-03-09T13:00:00.000Z',
-        horarioIso: '2026-03-09T13:00:00.000Z',
-      },
-    ]);
+// v1.1.0: as telas sem sala saíram. Os endereços antigos continuam
+// respondendo — um favorito de 2025 não pode virar página em branco —, mas
+// levam à lista de salas. Os dados das coleções globais eram de uma turma que
+// já se formou, e a tela sem sala fazia a conta nova "entrar numa sala" sem
+// PIN nenhum.
+describe('Rotas antigas levam à lista de salas (compatibilidade retroativa)', () => {
+  const LEGADO = {
+    id: 'legado',
+    nome: 'Ana Souza',
+    email: ANA.email,
+    descricao: 'Chamado da coleção global.',
+    horario: '2026-03-09T13:00:00.000Z',
+    horarioIso: '2026-03-09T13:00:00.000Z',
+  };
+
+  it('/aluno leva à lista de salas, e não à fila global', async () => {
+    __semearColecao('chamados', [LEGADO]);
     __definirUsuarioAtual(ANA);
     irPara('/aluno');
 
     await montarApp();
 
-    expect(await screen.findByText('Chamado da coleção global.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /minhas salas/i })).toBeInTheDocument();
+    expect(screen.queryByText('Chamado da coleção global.')).not.toBeInTheDocument();
   });
 
-  it('/professor ainda abre a fila global para o professor', async () => {
+  it('/professor leva à lista de salas, e não à fila global', async () => {
     semearProfessor();
-    __semearColecao('chamados', [
-      {
-        id: 'legado',
-        nome: 'Ana Souza',
-        email: ANA.email,
-        descricao: 'Chamado da coleção global.',
-        horario: '2026-03-09T13:00:00.000Z',
-        horarioIso: '2026-03-09T13:00:00.000Z',
-      },
-    ]);
+    __semearColecao('chamados', [LEGADO]);
     __definirUsuarioAtual(CARLOS);
     irPara('/professor');
 
     await montarApp();
 
-    expect(await screen.findByText('Chamado da coleção global.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /minhas salas/i })).toBeInTheDocument();
+    expect(screen.queryByText('Chamado da coleção global.')).not.toBeInTheDocument();
   });
 });

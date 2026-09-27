@@ -122,7 +122,7 @@ describe('App — o papel NÃO vem mais do localStorage (AC-AUTH-06, AC-SEC-03)'
 
     await montarApp();
 
-    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /minhas salas/i })).toBeInTheDocument();
   });
 
   it('NINGUÉM vira professor escrevendo no localStorage — o ataque da v0.1.0', async () => {
@@ -134,11 +134,12 @@ describe('App — o papel NÃO vem mais do localStorage (AC-AUTH-06, AC-SEC-03)'
 
     await montarApp();
 
-    // Ana é aluna. A tela do professor não abre; ela é mandada para a dela.
-    expect(
-      screen.queryByRole('heading', { name: 'Chamados dos Alunos' })
-    ).not.toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
+    // Ana é aluna: entra na lista de salas, e sem o botão de professor.
+    // Desde a v1.1.0 todo mundo entra pela lista de salas; o que o papel de
+    // professor muda nela é o botão "Criar sala".
+    await screen.findByRole('heading', { name: /minhas salas/i });
+    expect(screen.queryByRole('button', { name: 'Criar sala' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /minhas salas/i })).toBeInTheDocument();
   });
 
   it('nem escrevendo a sessão inteira em usuarioLogado', async () => {
@@ -151,9 +152,10 @@ describe('App — o papel NÃO vem mais do localStorage (AC-AUTH-06, AC-SEC-03)'
 
     await montarApp();
 
-    expect(
-      screen.queryByRole('heading', { name: 'Chamados dos Alunos' })
-    ).not.toBeInTheDocument();
+    // Desde a v1.1.0 todo mundo entra pela lista de salas; o que o papel de
+    // professor muda nela é o botão "Criar sala".
+    await screen.findByRole('heading', { name: /minhas salas/i });
+    expect(screen.queryByRole('button', { name: 'Criar sala' })).not.toBeInTheDocument();
   });
 
   it('nem escrevendo tipo professor direto em usuarios/{uid} pelo cliente', async () => {
@@ -174,9 +176,10 @@ describe('App — o papel NÃO vem mais do localStorage (AC-AUTH-06, AC-SEC-03)'
 
     await montarApp();
 
-    expect(
-      screen.queryByRole('heading', { name: 'Chamados dos Alunos' })
-    ).not.toBeInTheDocument();
+    // Desde a v1.1.0 todo mundo entra pela lista de salas; o que o papel de
+    // professor muda nela é o botão "Criar sala".
+    await screen.findByRole('heading', { name: /minhas salas/i });
+    expect(screen.queryByRole('button', { name: 'Criar sala' })).not.toBeInTheDocument();
   });
 
   it('limpa resquícios da sessão antiga quando não há usuário autenticado', async () => {
@@ -190,28 +193,26 @@ describe('App — o papel NÃO vem mais do localStorage (AC-AUTH-06, AC-SEC-03)'
 });
 
 describe('App — proteção de rota por papel (AC-AUTH-09)', () => {
-  it('/aluno abre a tela do aluno para quem é aluno', async () => {
+  it('/aluno leva o aluno à lista de salas', async () => {
     __definirUsuarioAtual(ANA);
     irPara('/aluno');
 
     await montarApp();
 
-    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /minhas salas/i })).toBeInTheDocument();
   });
 
-  it('/professor abre a tela do professor para quem é professor nas duas fontes', async () => {
+  it('/professor leva o professor das duas fontes à lista de salas, com Criar sala', async () => {
     semearProfessorDeVerdade();
     __definirUsuarioAtual(CARLOS);
     irPara('/professor');
 
     await montarApp();
 
-    expect(
-      await screen.findByRole('heading', { name: 'Chamados dos Alunos' })
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Criar sala' })).toBeInTheDocument();
   });
 
-  it('/aluno manda o professor para a tela dele, em vez de cair no login', async () => {
+  it('/aluno leva o professor à lista de salas, em vez de cair no login', async () => {
     // Era: caía no Login. Cair no login para quem está autenticado é
     // exatamente a piscada que o AC-AUTH-09 proíbe.
     semearProfessorDeVerdade();
@@ -220,19 +221,17 @@ describe('App — proteção de rota por papel (AC-AUTH-09)', () => {
 
     await montarApp();
 
-    expect(
-      await screen.findByRole('heading', { name: 'Chamados dos Alunos' })
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Criar sala' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /^login$/i })).not.toBeInTheDocument();
   });
 
-  it('/professor manda o aluno para a tela dele, em vez de cair no login', async () => {
+  it('/professor leva o aluno à lista de salas, em vez de cair no login', async () => {
     __definirUsuarioAtual(ANA);
     irPara('/professor');
 
     await montarApp();
 
-    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /minhas salas/i })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /^login$/i })).not.toBeInTheDocument();
   });
 
@@ -288,7 +287,7 @@ describe('App — login social agora existe na interface (AC-AUTH-03, AC-AUTH-04
     await montarApp();
     screen.getByRole('button', { name: /google/i }).click();
 
-    expect(await screen.findByRole('heading', { name: /bem-vindo/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /minhas salas/i })).toBeInTheDocument();
   });
 });
 
@@ -297,7 +296,7 @@ describe('App — sair de ponta a ponta (AC-AUTH-08, AC-SESSAO-05)', () => {
     __definirUsuarioAtual(ANA);
     irPara('/aluno');
     await montarApp();
-    await screen.findByRole('heading', { name: /bem-vindo/i });
+    await screen.findByRole('heading', { name: /minhas salas/i });
 
     screen.getByRole('button', { name: 'Sair' }).click();
 
@@ -309,7 +308,7 @@ describe('App — sair de ponta a ponta (AC-AUTH-08, AC-SESSAO-05)', () => {
     __definirUsuarioAtual(ANA);
     irPara('/aluno');
     await montarApp();
-    await screen.findByRole('heading', { name: /bem-vindo/i });
+    await screen.findByRole('heading', { name: /minhas salas/i });
 
     screen.getByRole('button', { name: 'Sair' }).click();
     await screen.findByRole('heading', { name: /login/i });

@@ -36,17 +36,12 @@ const APP = path.join(__dirname, '..', 'App.js');
  * `Footer`, `RotaProtegida`, `AuthProvider` e `ProvedorDeToasts` **não** estão na
  * lista, e é de propósito: os quatro aparecem em toda rota. Dividi-los custaria
  * uma ida à rede para carregar o que vai ser usado de qualquer forma.
+ *
+ * `TelaAluno` e `TelaProfessor` deixaram de ser destino de rota na v1.1.0,
+ * quando `/aluno` e `/professor` passaram a redirecionar para `/salas`. As
+ * duas continuam num pedaço separado — o de `Sala`, a única tela que as abre.
  */
-const TELAS_DE_ROTA = [
-  'Login',
-  'Cadastro',
-  'TelaAluno',
-  'TelaProfessor',
-  'MinhasSalas',
-  'EntrarComPin',
-  'CriarSala',
-  'Sala',
-];
+const TELAS_DE_ROTA = ['Login', 'Cadastro', 'MinhasSalas', 'EntrarComPin', 'CriarSala', 'Sala'];
 
 /** Aponta a URL do navegador antes de montar o App, que tem o Router dentro. */
 function irPara(caminho) {
