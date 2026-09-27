@@ -1,10 +1,13 @@
 // O card de tamanho padrão da v1.1.0: data antes do texto, descrição longa
 // recolhida com "Ler mais", e o olho no lugar da miniatura.
 import React from 'react';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
+import { __resetarFirestore, __semearColecao } from 'firebase/firestore';
 import CardDoChamado from '../CardDoChamado';
 import { renderComProvedores, fabricaChamado } from '../../test-utils';
 import { LIMITE_DO_RESUMO, descricaoEhLonga } from '../../utils/cardDoChamado';
+
+beforeEach(() => __resetarFirestore());
 
 function renderizarCard(sobrescritas = {}) {
   return renderComProvedores(
@@ -74,5 +77,45 @@ describe('o card de um chamado (v1.1.0)', () => {
 
     expect(screen.getByTitle('Ver imagem')).toBeInTheDocument();
     expect(screen.queryByRole('img')).toBeNull();
+  });
+});
+
+describe('o olho do anexo abre um pop-up no centro da tela (v1.1.0)', () => {
+  it('o visualizador sai do card e vai direto para o <body>', () => {
+    renderComProvedores(
+      <CardDoChamado
+        chamado={fabricaChamado({ imagem: 'https://exemplo.br/print.png' })}
+        indice={0}
+      />
+    );
+
+    fireEvent.click(screen.getByTitle('Ver imagem'));
+
+    // Dentro do card, o `transform` da animação de entrada prendia o
+    // `position: fixed` ao card, e o "pop-up" abria espremido nele.
+    expect(screen.getByRole('dialog').parentElement).toBe(document.body);
+  });
+
+  it('a imagem guardada no banco só é lida no clique, e aparece no visualizador', async () => {
+    __semearColecao('salas/sala-3b/imagens', [
+      { id: 'c9', dados: 'data:image/png;base64,QUJD' },
+    ]);
+
+    renderComProvedores(
+      <CardDoChamado
+        salaId="sala-3b"
+        chamado={fabricaChamado({ id: 'c9', anexo: { origem: 'banco', id: 'c9' } })}
+        indice={0}
+      />
+    );
+
+    expect(screen.queryByRole('img')).toBeNull();
+
+    fireEvent.click(screen.getByTitle('Ver imagem'));
+
+    expect(await within(screen.getByRole('dialog')).findByRole('img')).toHaveAttribute(
+      'src',
+      'data:image/png;base64,QUJD'
+    );
   });
 });

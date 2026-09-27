@@ -86,3 +86,13 @@ describe('o painel de premiações e a turma (revisão da v1.1.0)', () => {
     expect(bloco('Salas.css', '.painel-da-turma h2')).toMatch(/margin:/);
   });
 });
+
+describe('o diálogo de novo chamado com tudo aberto (revisão da v1.1.0)', () => {
+  it('os botões Concluir e Fechar ficam presos no fim do diálogo enquanto ele rola', () => {
+    const regras = bloco('Modal.css', '.modal .buttons-container');
+
+    expect(regras).toMatch(/position:\s*sticky/);
+    expect(regras).toMatch(/bottom:/);
+    expect(regras).toMatch(/background/);
+  });
+});

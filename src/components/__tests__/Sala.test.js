@@ -22,9 +22,11 @@ import Sala from '../Sala';
 import { ROTULO_DO_NOVO_CHAMADO } from '../TelaAluno';
 import { renderComProvedores } from '../../test-utils';
 
+const mockNavegar = jest.fn();
+
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-  useNavigate: () => jest.fn(),
+  useNavigate: () => mockNavegar,
   useParams: () => ({ salaId: 'sala-mecanica' }),
 }));
 
@@ -96,6 +98,7 @@ function semearSala({ ativa = true, comAna = true } = {}) {
 }
 
 beforeEach(() => {
+  mockNavegar.mockClear();
   __resetarAuth();
   __resetarFirestore();
   __definirRelogioDoServidor(HORARIO_DO_SERVIDOR);
@@ -275,5 +278,123 @@ describe('Sala — higiene de listeners (AC-PERF-04)', () => {
     unmount();
 
     await waitFor(() => expect(__ouvintesAtivos()).toBe(0));
+  });
+});
+
+describe('trocar de sala sem voltar à lista (v1.1.0)', () => {
+  /** O Carlos com duas salas: a de mecânica e a de elétrica. */
+  function semearDuasSalasDoCarlos() {
+    semearProfessoresNoAuth();
+    semearSala();
+    __semearColecao('salas', [
+      {
+        id: 'sala-mecanica',
+        nome: 'Mecânica 2º ano',
+        curso: 'Mecânica — Turma B',
+        anoLetivo: 2026,
+        professorUid: CARLOS.uid,
+        professorNome: 'Carlos Lima',
+        ativa: true,
+        arquivadaEm: null,
+      },
+      {
+        id: 'sala-eletrica',
+        nome: 'Elétrica 1º ano',
+        curso: 'Elétrica — Turma A',
+        anoLetivo: 2026,
+        professorUid: CARLOS.uid,
+        professorNome: 'Carlos Lima',
+        ativa: true,
+        arquivadaEm: null,
+      },
+    ]);
+    __semearColecao('salas/sala-eletrica/membros', [
+      { id: CARLOS.uid, nome: 'Carlos Lima', email: CARLOS.email, papel: 'professor' },
+    ]);
+    __semearColecao(`usuarios/${CARLOS.uid}/salas`, [
+      { id: 'sala-mecanica', salaId: 'sala-mecanica', papel: 'professor' },
+      { id: 'sala-eletrica', salaId: 'sala-eletrica', papel: 'professor' },
+    ]);
+  }
+
+  it('o seletor lista as salas da pessoa, com a atual escolhida', async () => {
+    semearDuasSalasDoCarlos();
+    __definirUsuarioAtual(CARLOS);
+
+    renderComProvedores(<Sala />);
+
+    const seletor = await screen.findByRole('combobox', { name: 'Trocar de sala' });
+
+    await waitFor(() =>
+      expect(
+        within(seletor).getByRole('option', { name: /Elétrica 1º ano/ })
+      ).toBeInTheDocument()
+    );
+    expect(seletor).toHaveValue('sala-mecanica');
+  });
+
+  it('escolher outra sala abre essa sala', async () => {
+    semearDuasSalasDoCarlos();
+    __definirUsuarioAtual(CARLOS);
+    renderComProvedores(<Sala />);
+
+    const seletor = await screen.findByRole('combobox', { name: 'Trocar de sala' });
+    await within(seletor).findByRole('option', { name: /Elétrica 1º ano/ });
+
+    fireEvent.change(seletor, { target: { value: 'sala-eletrica' } });
+
+    expect(mockNavegar).toHaveBeenCalledWith('/sala/sala-eletrica');
+  });
+
+  it('há sempre um caminho de volta para "Minhas salas"', async () => {
+    semearSala();
+    __definirUsuarioAtual(ANA);
+    renderComProvedores(<Sala />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Minhas salas' }));
+
+    expect(mockNavegar).toHaveBeenCalledWith('/salas');
+  });
+});
+
+describe('o PIN sempre à vista para o dono da sala (v1.1.0)', () => {
+  it('mostra o PIN guardado da sala', async () => {
+    semearProfessoresNoAuth();
+    semearSala();
+    __semearColecao('salas/sala-mecanica/segredo', [
+      { id: 'pin', hash: 'x'.repeat(64), sal: 'y'.repeat(16), pin: '123456' },
+    ]);
+    __definirUsuarioAtual(CARLOS);
+
+    renderComProvedores(<Sala />);
+
+    const selo = await screen.findByRole('region', { name: 'PIN da sala' });
+    expect(await within(selo).findByText('123456')).toBeInTheDocument();
+  });
+
+  it('sala criada antes da v1.1.0, sem PIN guardado, oferece gerar um novo', async () => {
+    semearProfessoresNoAuth();
+    semearSala();
+    __semearColecao('salas/sala-mecanica/segredo', [
+      { id: 'pin', hash: 'x'.repeat(64), sal: 'y'.repeat(16) },
+    ]);
+    __definirUsuarioAtual(CARLOS);
+    renderComProvedores(<Sala />);
+
+    const selo = await screen.findByRole('region', { name: 'PIN da sala' });
+    await userEvent.click(within(selo).getByRole('button', { name: 'Gerar novo PIN' }));
+
+    await waitFor(() => expect(within(selo).getByText(/^\d{6}$/)).toBeInTheDocument());
+    // O PIN novo fica guardado, para aparecer de novo na próxima vez.
+    expect(__documentosDe('salas/sala-mecanica/segredo')[0].pin).toMatch(/^\d{6}$/);
+  });
+
+  it('o aluno não vê o PIN', async () => {
+    semearSala();
+    __definirUsuarioAtual(ANA);
+    renderComProvedores(<Sala />);
+
+    await screen.findByRole('heading', { name: /bem-vindo/i });
+    expect(screen.queryByRole('region', { name: 'PIN da sala' })).toBeNull();
   });
 });

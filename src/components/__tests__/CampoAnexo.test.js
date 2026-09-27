@@ -12,16 +12,11 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
-  __arquivosEnviados,
-  __avancarUploads,
-  __concluirUploads,
-  __derrubarUploads,
-  __resetarStorage,
-  __restaurarRede,
-  __segurarUploads,
-  __semearArquivos,
-  __uploadsPendentes,
-} from 'firebase/storage';
+  __documentosDe,
+  __recusarEscritaEm,
+  __resetarFirestore,
+  __semearColecao,
+} from 'firebase/firestore';
 import CampoAnexo from '../CampoAnexo';
 import { comDimensoes, instalarCanvasFalso, restaurarCanvas } from '../../test-utils';
 
@@ -53,15 +48,13 @@ function montar(props = {}) {
 }
 
 /**
- * Espera a tarefa de upload existir de verdade.
+ * As imagens gravadas no banco (v1.1.0), pelo id do chamado.
  *
- * A barra aparece **antes** do upload começar — o campo mostra 0% assim que o
- * arquivo é escolhido, enquanto valida e comprime. Mandar o Storage falhar
- * nesse intervalo não faria nada, e o teste passaria ou não conforme o
- * agendamento do dia.
+ * Desde a v1.1.0 a imagem do computador vai para
+ * `salas/{salaId}/imagens/{chamadoId}`, e não mais para o Storage.
  */
-async function aguardarEnvioComecar() {
-  await waitFor(() => expect(__uploadsPendentes().length).toBeGreaterThan(0));
+function imagensGravadas() {
+  return __documentosDe('salas/sala-3b/imagens').map((documento) => documento.id);
 }
 
 /**
@@ -92,7 +85,7 @@ function transferencia(arquivos) {
 }
 
 beforeEach(() => {
-  __resetarStorage();
+  __resetarFirestore();
   instalarCanvasFalso();
 });
 
@@ -148,10 +141,10 @@ describe('CampoAnexo — anexo pelo seletor de arquivo (AC-IMG-02)', () => {
 
     await waitFor(() =>
       expect(aoMudar).toHaveBeenLastCalledWith(
-        expect.objectContaining({ origem: 'upload', largura: 800, altura: 600 })
+        expect.objectContaining({ origem: 'banco', largura: 800, altura: 600 })
       )
     );
-    expect(__arquivosEnviados()).toHaveLength(1);
+    expect(imagensGravadas()).toEqual(['chamado-1']);
   });
 
   it('só aceita os quatro formatos no diálogo do sistema', () => {
@@ -174,8 +167,8 @@ describe('CampoAnexo — anexo pelo seletor de arquivo (AC-IMG-02)', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/não é uma imagem/i)
     );
-    expect(__arquivosEnviados()).toEqual([]);
-    expect(aoMudar).not.toHaveBeenCalledWith(expect.objectContaining({ origem: 'upload' }));
+    expect(imagensGravadas()).toEqual([]);
+    expect(aoMudar).not.toHaveBeenCalledWith(expect.objectContaining({ origem: 'banco' }));
   });
 });
 
@@ -186,7 +179,7 @@ describe('CampoAnexo — arrastar e soltar (AC-IMG-03)', () => {
     fireEvent.drop(zonaDeSoltar(), { dataTransfer: transferencia([print()]) });
 
     await waitFor(() =>
-      expect(aoMudar).toHaveBeenLastCalledWith(expect.objectContaining({ origem: 'upload' }))
+      expect(aoMudar).toHaveBeenLastCalledWith(expect.objectContaining({ origem: 'banco' }))
     );
   });
 
@@ -200,7 +193,7 @@ describe('CampoAnexo — arrastar e soltar (AC-IMG-03)', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(/não é uma imagem/i)
     );
-    expect(__arquivosEnviados()).toEqual([]);
+    expect(imagensGravadas()).toEqual([]);
   });
 
   it('avisa visualmente que o campo aceita o arquivo arrastado', () => {
@@ -234,23 +227,18 @@ describe('CampoAnexo — colar (AC-IMG-04)', () => {
     });
 
     await waitFor(() =>
-      expect(aoMudar).toHaveBeenLastCalledWith(expect.objectContaining({ origem: 'upload' }))
+      expect(aoMudar).toHaveBeenLastCalledWith(expect.objectContaining({ origem: 'banco' }))
     );
   });
 });
 
 describe('CampoAnexo — progresso e cancelamento (AC-IMG-08)', () => {
-  beforeEach(() => __segurarUploads());
-
-  it('mostra a barra de progresso enquanto sobe', async () => {
+  it('mostra a barra de progresso enquanto envia', async () => {
     montar();
 
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print());
 
-    const barra = await screen.findByRole('progressbar');
-    await aguardarEnvioComecar();
-    __avancarUploads(0.5);
-    await waitFor(() => expect(barra).toHaveAttribute('value', '50'));
+    expect(await screen.findByRole('progressbar')).toBeInTheDocument();
   });
 
   it('oferece cancelar enquanto o envio está em andamento', async () => {
@@ -265,11 +253,12 @@ describe('CampoAnexo — progresso e cancelamento (AC-IMG-08)', () => {
     const { aoMudar } = montar();
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print());
 
-    userEvent.click(await screen.findByRole('button', { name: /cancelar/i }));
+    userEvent.click(screen.getByRole('button', { name: /cancelar/i }));
 
     await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
-    expect(__arquivosEnviados()).toEqual([]);
-    expect(aoMudar).not.toHaveBeenCalledWith(expect.objectContaining({ origem: 'upload' }));
+    await deixarOUploadAcontecer();
+    expect(imagensGravadas()).toEqual([]);
+    expect(aoMudar).not.toHaveBeenCalledWith(expect.objectContaining({ origem: 'banco' }));
     // O campo continua de pé: o aluno tenta de novo sem perder o formulário.
     expect(screen.getByLabelText(/imagem do computador/i)).toBeInTheDocument();
   });
@@ -278,7 +267,7 @@ describe('CampoAnexo — progresso e cancelamento (AC-IMG-08)', () => {
     montar();
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print());
 
-    userEvent.click(await screen.findByRole('button', { name: /cancelar/i }));
+    userEvent.click(screen.getByRole('button', { name: /cancelar/i }));
 
     await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
     expect(screen.queryByRole('alert')).toBeNull();
@@ -287,40 +276,33 @@ describe('CampoAnexo — progresso e cancelamento (AC-IMG-08)', () => {
   it('depois de cancelar, dá para escolher outra imagem', async () => {
     const { aoMudar } = montar();
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print('primeira.png'));
-    userEvent.click(await screen.findByRole('button', { name: /cancelar/i }));
+    userEvent.click(screen.getByRole('button', { name: /cancelar/i }));
     await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
 
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print('segunda.png'));
-    await aguardarEnvioComecar();
-    __concluirUploads();
 
     await waitFor(() =>
-      expect(aoMudar).toHaveBeenLastCalledWith(expect.objectContaining({ origem: 'upload' }))
+      expect(aoMudar).toHaveBeenLastCalledWith(expect.objectContaining({ origem: 'banco' }))
     );
   });
 });
 
 describe('CampoAnexo — a falha de envio (AC-IMG-09)', () => {
   it('mostra um erro que diz o que fazer', async () => {
-    // A rede cai antes de o arquivo sequer chegar ao Storage. Derrubar tudo de
-    // uma vez, em vez de esperar a tarefa existir, tira a corrida do teste: a
-    // barra aparece assim que o arquivo é escolhido, mas o upload só começa
-    // depois de ler os magic bytes e comprimir a imagem.
-    __derrubarUploads('storage/retry-limit-exceeded');
+    __recusarEscritaEm('salas/sala-3b/imagens/chamado-1');
     montar();
 
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print());
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/tente de novo/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/sala|tente de novo/i);
   });
 
   it('a falha some quando o aluno escolhe outra imagem', async () => {
-    __derrubarUploads('storage/retry-limit-exceeded');
+    __recusarEscritaEm('salas/sala-3b/imagens/chamado-1');
     montar();
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print('primeira.png'));
     await screen.findByRole('alert');
 
-    __restaurarRede();
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print('segunda.png'));
 
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
@@ -330,42 +312,39 @@ describe('CampoAnexo — a falha de envio (AC-IMG-09)', () => {
 describe('CampoAnexo — a pré-visualização', () => {
   it('mostra a miniatura do anexo já enviado', () => {
     montar({
-      anexo: { url: 'https://fake.storage/a.png', origem: 'upload', caminho: 'a.png' },
+      anexo: { url: 'data:image/png;base64,QUJD', origem: 'banco', id: 'chamado-1' },
     });
 
     expect(screen.getByRole('img', { name: /pré-visualização/i })).toHaveAttribute(
       'src',
-      'https://fake.storage/a.png'
+      'data:image/png;base64,QUJD'
     );
   });
 
-  it('remover tira o anexo do formulário e o arquivo do Storage', async () => {
-    __semearArquivos(['salas/sala-3b/chamados/chamado-1/a.png']);
+  it('remover tira o anexo do formulário e a imagem do banco', async () => {
+    __semearColecao('salas/sala-3b/imagens', [
+      { id: 'chamado-1', dados: 'data:image/png;base64,QUJD' },
+    ]);
     const { aoMudar } = montar({
-      anexo: {
-        url: 'https://fake.storage/salas/sala-3b/chamados/chamado-1/a.png',
-        caminho: 'salas/sala-3b/chamados/chamado-1/a.png',
-        origem: 'upload',
-      },
+      anexo: { url: 'data:image/png;base64,QUJD', origem: 'banco', id: 'chamado-1' },
     });
 
     userEvent.click(screen.getByRole('button', { name: /remover/i }));
 
     expect(aoMudar).toHaveBeenLastCalledWith(null);
-    await waitFor(() => expect(__arquivosEnviados()).toEqual([]));
+    await waitFor(() => expect(imagensGravadas()).toEqual([]));
   });
 
-  it('remover um anexo por URL não tenta apagar nada do Storage', async () => {
-    __semearArquivos(['salas/sala-3b/chamados/chamado-1/de-outra-pessoa.png']);
+  it('remover um anexo por URL não apaga nada do banco', async () => {
+    __semearColecao('salas/sala-3b/imagens', [
+      { id: 'chamado-1', dados: 'data:image/png;base64,QUJD' },
+    ]);
     montar({ anexo: { url: 'https://exemplo.br/erro.png', origem: 'url' } });
 
     userEvent.click(screen.getByRole('button', { name: /remover/i }));
 
-    await waitFor(() =>
-      expect(__arquivosEnviados()).toEqual([
-        'salas/sala-3b/chamados/chamado-1/de-outra-pessoa.png',
-      ])
-    );
+    await deixarOUploadAcontecer();
+    expect(imagensGravadas()).toEqual(['chamado-1']);
   });
 
   it('a URL externa que não carrega vira aviso, não ícone quebrado (AC-IMG-12)', () => {
@@ -391,7 +370,7 @@ describe('CampoAnexo — sala arquivada', () => {
     fireEvent.drop(zonaDeSoltar(), { dataTransfer: transferencia([print()]) });
     await deixarOUploadAcontecer();
 
-    expect(__arquivosEnviados()).toEqual([]);
+    expect(imagensGravadas()).toEqual([]);
   });
 });
 
@@ -434,7 +413,7 @@ describe('CampoAnexo — fora de uma sala (fallback da v0.4.0)', () => {
     fireEvent.drop(zonaDeSoltar(), { dataTransfer: transferencia([print()]) });
     await deixarOUploadAcontecer();
 
-    expect(__arquivosEnviados()).toEqual([]);
+    expect(imagensGravadas()).toEqual([]);
   });
 
   it('colar uma imagem não sobe nada fora de uma sala', async () => {
@@ -449,6 +428,6 @@ describe('CampoAnexo — fora de uma sala (fallback da v0.4.0)', () => {
     });
     await deixarOUploadAcontecer();
 
-    expect(__arquivosEnviados()).toEqual([]);
+    expect(imagensGravadas()).toEqual([]);
   });
 });
