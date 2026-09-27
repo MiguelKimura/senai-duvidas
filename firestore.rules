@@ -53,11 +53,32 @@ service cloud.firestore {
         : '';
     }
 
-    /// Está em `autorizados/{email}` com `Tipo: "professor"`.
+    /// É professor no SENAI: e-mail institucional confirmado, ou incluído à
+    /// mão em `autorizados`.
     ///
     /// É o papel **global** no SENAI: diz quem pode criar sala. Não diz nada
     /// sobre a sala de outro professor — isso é `ehDonoDaSala` (AC-SEC-02).
     function ehProfessor() {
+      return ehProfessorPorDominio() || ehProfessorAutorizado();
+    }
+
+    /// E-mail @sp.senai.br **confirmado** (v1.1.0).
+    ///
+    /// `email_verified` vem do token, assinado pelo Firebase: só fica `true`
+    /// depois que a pessoa abre o link enviado para aquela caixa de entrada.
+    /// Sem ele, qualquer um digitaria `fulano@sp.senai.br` no cadastro. O `@`
+    /// na expressão impede subdomínios (`@aluno.sp.senai.br`) e domínios que
+    /// só terminam parecido (`@naosp.senai.br`). Mesma regra de
+    /// `src/utils/professorPorDominio.js`.
+    function ehProfessorPorDominio() {
+      return ehAutenticado()
+        && request.auth.token.get('email_verified', false) == true
+        && emailDoToken().matches('^[^@]+@sp[.]senai[.]br$');
+    }
+
+    /// Está em `autorizados/{email}` com `Tipo: "professor"` — a porta manual,
+    /// para quem não tem e-mail institucional.
+    function ehProfessorAutorizado() {
       return ehAutenticado()
         && exists(/databases/$(database)/documents/autorizados/$(emailDoToken()))
         && get(/databases/$(database)/documents/autorizados/$(emailDoToken()))

@@ -20,7 +20,15 @@ import '../styles/Salas.css';
 const ERRO_INESPERADO =
   'Não foi possível entrar na sala agora. Tente de novo em alguns instantes.';
 
-export default function EntrarComPin() {
+/**
+ * O formulário do PIN, sozinho.
+ *
+ * Separado da tela porque aparece em dois lugares: aqui, para quem já tem
+ * sala e quer entrar em outra, e em `MinhasSalas`, para o aluno que acabou de
+ * criar a conta e ainda não está em sala nenhuma — que precisa ver o campo do
+ * PIN logo de cara, e não um botão que leva até ele.
+ */
+export function FormularioDePin() {
   const { usuario, perfil } = useAuth();
   const navegar = useNavigate();
 
@@ -59,33 +67,49 @@ export default function EntrarComPin() {
   );
 
   return (
+    <form className="salas-formulario" onSubmit={enviar} noValidate>
+      <label htmlFor="pin-da-sala">PIN da sala</label>
+      <input
+        id="pin-da-sala"
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        value={pin}
+        onChange={(evento) => setPin(evento.target.value)}
+        placeholder="000000"
+      />
+
+      {erro && (
+        <p className="salas-erro" role="alert">
+          {erro}
+        </p>
+      )}
+
+      <button type="submit" className="salas-acao">
+        Entrar na sala
+      </button>
+    </form>
+  );
+}
+
+export default function EntrarComPin() {
+  const navegar = useNavigate();
+
+  return (
     <div className="tela-salas">
       <BotaoSair />
       <h1>Entrar na sala</h1>
       <p>Digite o PIN de {TAMANHO_DO_PIN} dígitos que o professor passou para a turma.</p>
 
-      <form className="salas-formulario" onSubmit={enviar} noValidate>
-        <label htmlFor="pin-da-sala">PIN da sala</label>
-        <input
-          id="pin-da-sala"
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          value={pin}
-          onChange={(evento) => setPin(evento.target.value)}
-          placeholder="000000"
-        />
+      <FormularioDePin />
 
-        {erro && (
-          <p className="salas-erro" role="alert">
-            {erro}
-          </p>
-        )}
-
-        <button type="submit" className="salas-acao">
-          Entrar na sala
-        </button>
-      </form>
+      <button
+        type="button"
+        className="salas-acao salas-acao-discreta"
+        onClick={() => navegar('/salas')}
+      >
+        Voltar para minhas salas
+      </button>
     </div>
   );
 }

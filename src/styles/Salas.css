@@ -209,3 +209,29 @@
   height: var(--espaco-3);
   margin-bottom: var(--espaco-1);
 }
+
+/* O aviso de confirmação do e-mail de professor e o primeiro acesso do aluno. */
+.aviso-verificacao,
+.salas-primeiro-acesso {
+  max-width: 420px;
+  margin: 0 0 var(--espaco-4);
+  padding: var(--espaco-3);
+  border-radius: var(--raio-2);
+  background-color: var(--cor-superficie);
+  border-left: 4px solid var(--cor-primaria);
+}
+
+.aviso-verificacao p,
+.salas-primeiro-acesso p {
+  margin: 0 0 var(--espaco-2);
+}
+
+.salas-primeiro-acesso h2 {
+  margin: 0 0 var(--espaco-2);
+  font-size: 1.2rem;
+}
+
+.aviso-verificacao-acoes {
+  display: flex;
+  gap: var(--espaco-2);
+}

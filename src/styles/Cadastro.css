@@ -99,3 +99,9 @@ select:hover,
 select:focus {
   border-color: var(--cor-primaria-hover);
 }
+
+.cadastro-dica {
+  margin: var(--espaco-1) 0 0;
+  font-size: 13px;
+  color: var(--cor-texto-discreto);
+}

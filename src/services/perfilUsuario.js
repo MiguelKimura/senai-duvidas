@@ -5,6 +5,7 @@
 // e este módulo é o único caminho até ele.
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { ehProfessorPorDominio } from '../utils/professorPorDominio';
 
 /** @typedef {'aluno'|'professor'} Papel */
 
@@ -66,7 +67,7 @@ async function resolverPapelDoPerfil(perfil, usuario) {
 
   const email = perfil.email || usuario.email;
 
-  if (await estaAutorizadoComoProfessor(email)) {
+  if (ehProfessorPorDominio(usuario) || (await estaAutorizadoComoProfessor(email))) {
     return { papel: PAPEL_PROFESSOR, rebaixado: false };
   }
 
@@ -87,8 +88,16 @@ async function resolverPapelDoPerfil(perfil, usuario) {
 /**
  * Lê `usuarios/{uid}` e, se não existir, cria com `tipo: "aluno"`.
  *
- * Um usuário recém-criado nunca nasce professor: a promoção só acontece pela
- * coleção `autorizados`, mantida à mão no console do Firebase.
+ * Duas portas levam ao papel de professor, e as duas são conferidas também
+ * pela Security Rule:
+ *
+ *   * e-mail @sp.senai.br **confirmado** (utils/professorPorDominio.js) — a
+ *     conta nova já nasce professor, e a antiga sobe na próxima entrada;
+ *   * e-mail na coleção `autorizados`, mantida à mão no console do Firebase,
+ *     **e** `tipo: "professor"` no documento — para quem não tem e-mail
+ *     institucional. As duas fontes precisam concordar, como desde a v0.3.0.
+ *
+ * Fora dessas duas, ninguém nasce professor, marque o que marcar no cadastro.
  *
  * @param {{uid: string, email?: string, displayName?: string, providerData?: Array<{providerId: string}>}} usuario
  *   usuário do Firebase Auth.
@@ -103,10 +112,23 @@ export async function garantirPerfil(usuario) {
   }
 
   const referencia = doc(db, 'usuarios', usuario.uid);
+  const porDominio = ehProfessorPorDominio(usuario);
+
   const documento = await getDoc(referencia);
 
   if (documento.exists()) {
-    const perfilExistente = documento.data();
+    let perfilExistente = documento.data();
+
+    // E-mail @sp.senai.br que acabou de ser confirmado: o documento nasceu
+    // aluno (a conta existia antes da confirmação) e sobe para professor
+    // aqui. A rule aceita a escrita porque lê o mesmo `email_verified` do
+    // token (`ehProfessorPorDominio()`). Não custa leitura nenhuma: a
+    // condição sai toda do usuário do Auth.
+    if (porDominio && perfilExistente.tipo !== PAPEL_PROFESSOR) {
+      await setDoc(referencia, { tipo: PAPEL_PROFESSOR }, { merge: true });
+      perfilExistente = { ...perfilExistente, tipo: PAPEL_PROFESSOR };
+    }
+
     const { papel, rebaixado } = await resolverPapelDoPerfil(perfilExistente, usuario);
 
     return { perfil: perfilExistente, papel, criado: false, rebaixado };
@@ -116,7 +138,7 @@ export async function garantirPerfil(usuario) {
     uid: usuario.uid,
     nome: nomeDoUsuario(usuario),
     email: usuario.email || null,
-    tipo: PAPEL_ALUNO,
+    tipo: porDominio ? PAPEL_PROFESSOR : PAPEL_ALUNO,
     // Campos aditivos (compatibilidade futura): um leitor que os ignore
     // continua enxergando uid, nome, email e tipo exatamente como antes.
     criadoEm: serverTimestamp(),
@@ -125,7 +147,12 @@ export async function garantirPerfil(usuario) {
 
   await setDoc(referencia, perfil);
 
-  return { perfil, papel: PAPEL_ALUNO, criado: true, rebaixado: false };
+  return {
+    perfil,
+    papel: porDominio ? PAPEL_PROFESSOR : PAPEL_ALUNO,
+    criado: true,
+    rebaixado: false,
+  };
 }
 
 /**
