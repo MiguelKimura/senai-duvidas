@@ -63,6 +63,29 @@ salas/{salaId}/conversas/{conversaId}   <- v0.8.0. conversaId = "uidA_uidB",
   └── mensagens/{mensagemId}
         autorUid, autorNome, texto, horario, lidaEm | null
 
+salas/{salaId}/perks/{perkId}           <- v0.9.0. As premiações do professor
+  alunoUid, alunoNome
+  tipo: "prioridade" | "destaque" | "colaborador" | "resolvedor"
+  nivel: 1..3
+  justificativa: string (≤ 280) | null
+  anunciarParaSala: boolean     <- controla o que a TELA exibe, não o que a
+                                   rule libera: a justificativa é legível por
+                                   qualquer membro da sala (ver MANUAL-PROFESSOR)
+  concedidoPor, concedidoPorNome, concedidoEm (request.time)
+  expiraEm: Timestamp | null, revogadoEm: Timestamp | null
+  visualizadoEm: Timestamp | null   <- o recibo da animação; só vai de null
+                                       para um instante, nunca de volta
+  ── só o dono da sala cria. `update` é restrito a UMA de duas formas:
+     o dono revogando (`revogadoEm`) ou o premiado dando o recibo
+     (`visualizadoEm`). Nenhuma outra escrita passa.
+
+salas/{salaId}/auditoriaPerks/{eventoId}   <- v0.9.0. O log (AC-PERK-10)
+  acao: "conceder" | "revogar" | "expirar"
+  perkId, alunoUid, atorUid, em (request.time), detalhes
+  ── legível SÓ pelo dono da sala. `update` e `delete` negados para todos,
+     inclusive para quem escreveu: log que o autor reescreve depois não é log,
+     e o autor aqui é justamente quem a auditoria existe para registrar.
+
 usuarios/{uid}/salas/{salaId}       <- espelho, só para montar a lista
   salaId, papel, entrouEm
 
@@ -454,7 +477,148 @@ anuncia a espera é o `role="status"` ao lado.
 
 - **Layout real.** Os testes de responsividade leem o texto do CSS. Eles
   provam que a regra existe e está no ponto de corte certo; não provam que um
-  pixel caiu onde deveria. Isso é escopo do `test:e2e` (Playwright) na v1.0.0.
+  pixel caiu onde deveria. Isso passou a ser coberto na v1.0.0 por
+  `tests/e2e/layout.spec.js`, que mede em 1024×768 e em 360×640 num navegador
+  de verdade — o que fechou o bloqueio B-002.
 - **Leitor de tela de verdade.** Nada aqui substitui abrir o NVDA e percorrer
   um fluxo. O que os testes garantem é que a marcação não regrediu.
 - **Contraste de imagem.** O print que o aluno anexa é o print que ele tirou.
+
+---
+
+> **Sobre a numeração.** As seções 10 e 11 nasceram na v1.0.0 (AC-DOC-05) e
+> foram **acrescentadas ao fim** em vez de inseridas no meio: outros documentos
+> citam este por número (`§ 4`, `§ 5`, `§ 8`), e renumerar quebraria todos eles
+> em silêncio. Ler na ordem 3 → 10 → 11 é o caminho dos fluxos.
+
+## 10. O fluxo de autenticação e a resolução de papel
+
+Esta é a primeira coisa que acontece com qualquer pessoa, e é a que decide todo
+o resto: para qual tela ela vai e o que ela pode escrever.
+
+```
+  Navegador                      Firebase Auth                 Firestore
+      │                                │                            │
+      │ setPersistence(LOCAL)          │                            │
+      ├───────────────────────────────►│  ANTES de qualquer login   │
+      │                                │  (AC-SESSAO-01). Feito uma │
+      │                                │  vez, em services/auth.js  │
+      │                                │                            │
+      │ e-mail+senha │ Google │ GitHub │                            │
+      ├───────────────────────────────►│                            │
+      │      ◄──── usuário + token ────┤                            │
+      │                                │                            │
+      │ garantirPerfil(usuario)        │                            │
+      ├──── get usuarios/{uid} ─────────────────────────────────────►
+      │                                                             │
+      │   ┌─ não existe ────────────────────────────────────────┐   │
+      │   │  get autorizados/{email}                            ├──►│
+      │   │      ◄── Tipo == "professor" ?                      │◄──┤
+      │   │  create usuarios/{uid} {nome,email,tipo,criadoEm}   ├──►│
+      │   │  a rule confere de novo: só vira professor quem     │   │
+      │   │  `autorizados` confirma (AC-AUTH-07, AC-SEC-03)     │   │
+      │   └─────────────────────────────────────────────────────┘   │
+      │                                                             │
+      │   ┌─ já existe ─────────────────────────────────────────┐   │
+      │   │  diz professor, mas o e-mail saiu de `autorizados`? │   │
+      │   │     → entra REBAIXADO para aluno, e o log registra. │   │
+      │   │       Travar a entrada no meio da aula seria pior.  │   │
+      │   └─────────────────────────────────────────────────────┘   │
+      │                                                             │
+      │ papel resolvido                                             │
+      ├──► professor → /salas (Minhas salas, com "Criar sala")      │
+      └──► aluno     → /salas (Minhas salas, com "Entrar com PIN")  │
+```
+
+Quatro pontos que o desenho fixa:
+
+1. **O papel nunca sai do `localStorage`.** Até a v0.2.0 ele saía de
+   `localStorage.getItem('tipoUsuario')` — um valor que o próprio navegador
+   escreve, e que qualquer aluno com o DevTools aberto trocava para "professor".
+   Hoje o único caminho até o papel é `services/perfilUsuario.js`, que o lê do
+   Firestore. Ver
+   [`adr/0003-fonte-unica-de-verdade-para-papel-do-usuario.md`](adr/0003-fonte-unica-de-verdade-para-papel-do-usuario.md).
+2. **A checagem do cliente é conforto; a da rule é autorização.**
+   `utils/permissoes.js` existe para *não oferecer* o cadastro de professor a
+   quem não pode. Contornada, a rule de `usuarios/{uid}` recusa a escrita do
+   mesmo jeito.
+3. **A persistência é configurada antes do login, e uma vez só.** Depois disso a
+   sessão vive no IndexedDB e sobrevive a recarregar a página e a desligar a
+   máquina (AC-SESSAO-02). Ela só termina em **Sair** — que é por que o botão
+   existe em toda tela autenticada, numa sala de máquinas compartilhadas.
+4. **`autorizados` é de leitura pública e escrita fechada para todos.** A
+   leitura pública é um limite conhecido, registrado como B-006 em
+   [`BLOQUEIOS.md`](BLOQUEIOS.md) e explicado em [`SEGURANCA.md`](SEGURANCA.md)
+   § 2.3: o fluxo de cadastro consulta a lista antes de existir sessão.
+
+## 11. O ciclo de vida do chamado
+
+Do clique no `+` até o card sair da fila. É o fluxo que o sistema inteiro existe
+para servir.
+
+```
+   Aluno                    Storage                Firestore            Professor
+     │                         │                       │                    │
+     │ clica no "+"            │                       │                    │
+     │ reservarChamado(salaId) │                       │                    │
+     ├─── id sorteado ANTES do upload ────────────────►│  (o documento      │
+     │    para o anexo já nascer na pasta definitiva   │   ainda não existe:│
+     │                         │                       │   é só o id)       │
+     │                         │                       │                    │
+     │ escolhe / arrasta / cola a imagem               │                    │
+     ├── magic bytes e tamanho, no cliente             │                    │
+     ├── put salas/{s}/chamados/{c}/{16 bytes}.png ───►│                    │
+     │      rule: membro, ≤ 5 MB, contentType aceito   │                    │
+     │   ◄──── URL de download ─┤                      │                    │
+     │                         │                       │                    │
+     │ valida a descrição (1..1000), no cliente        │                    │
+     │ addDoc salas/{s}/chamados/{c} ─────────────────►│                    │
+     │   { autorUid, descricao, cor, formato,          │                    │
+     │     horario: serverTimestamp(), horarioIso,     │                    │
+     │     imagem: URL, anexo: {…}, atendido: false }  │                    │
+     │      rule: membro, sala ATIVA, descrição de     │                    │
+     │      1 a 1000, cor e formato válidos,           │                    │
+     │      horario == request.time                    │                    │
+     │                         │                       │                    │
+     │                         │  onSnapshot(subcoleção da sala,            │
+     │                         │  orderBy horario, limit 200) ─────────────►│
+     │                         │                       │  o card aparece na │
+     │                         │                       │  fila, em tempo    │
+     │                         │                       │  real, ordenado    │
+     │                         │                       │  por perk e chegada│
+     │                         │                       │                    │
+     │                         │                       │◄── update ─────────┤
+     │                         │                       │  {atendido,        │
+     │                         │                       │   atendidoEm}      │
+     │                         │                       │                    │
+     ├─ confirma "Excluir"     │                       │                    │
+     │  5 s de DESFAZER na tela; nada foi ao banco ainda                    │
+     │  ├── desfez  → o card volta, e acabou           │                    │
+     │  └── passou  → delete do documento ────────────►│                    │
+     │                delete do anexo ──►│             │                    │
+     │                (senão o arquivo fica órfão na cota da escola)        │
+```
+
+As decisões que o desenho carrega:
+
+- **O id é sorteado antes do upload.** Sem isso, o anexo subiria para uma pasta
+  temporária e precisaria ser movido depois — e "depois" é onde mora o arquivo
+  órfão. Se o aluno fechar o modal sem concluir, o anexo já enviado é apagado na
+  hora.
+- **O nome do arquivo são 16 bytes sorteados**, e não `Date.now()`: o relógio
+  das máquinas de laboratório está errado, e uma turma que envia print no mesmo
+  minuto colidiria — colidir no Storage é sobrescrever o print de outra pessoa,
+  em silêncio.
+- **`horario` é `serverTimestamp()`, e a rule exige `request.time`.** É a
+  autoridade de tempo do sistema inteiro
+  ([`adr/0004-serverTimestamp-como-autoridade-de-tempo.md`](adr/0004-serverTimestamp-como-autoridade-de-tempo.md)).
+  Sem ela, adiantar o relógio da máquina furaria a fila.
+- **`horarioIso` e a `imagem` em string continuam sendo gravados.** São os
+  campos que um cliente da v0.1.0 lê. A v1.0.0 decidiu **mantê-los** — ver § 6 e
+  a entrada da versão em [`HISTORICO.md`](HISTORICO.md).
+- **A exclusão só vai ao banco quando a janela de desfazer fecha.** Gravar antes
+  e restaurar depois exigiria recriar o documento com outro id e ressubir o
+  anexo, que já teria saído do Storage. Fechar a aba no meio da janela
+  **confirma** a exclusão: quem pediu, pediu — fechar a aba não é desfazer.
+- **O aluno apaga só o dele; o dono da sala apaga qualquer um.** Imposto pela
+  rule, e não pela ausência do botão.

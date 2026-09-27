@@ -80,7 +80,19 @@ consciente, e a mitigação operacional é o professor regerar o PIN.
 
 - **Versão:** 0.10.0 (task 08)
 - **Critério afetado:** AC-ANIM-08
-- **Estado:** implementado; a prova automatizada cobre a regra, não o layout
+- **Estado:** **FECHADO na v1.0.0** por `tests/e2e/layout.spec.js`
+
+> **Como foi fechado.** A proposta desta entrada era exatamente `npm run test:e2e`
+> num navegador com layout real, e é o que a v1.0.0 entregou.
+> `tests/e2e/layout.spec.js` abre as duas resoluções que importam — 1024×768 e
+> 360×640 —, afirma `scrollWidth <= clientWidth` em cada tela, e compara os
+> retângulos do último card e do botão flutuante. Foi ele que pegou o defeito do
+> painel de chat descrito em B-005, que nenhuma leitura de CSS pegaria.
+>
+> Continua **em aberto** o item 4 da proposta original: a imagem de referência por
+> viewport, para regressão visual. Ela não é exigida por critério nenhum, e a falta
+> dela é o que torna B-005 caro de fechar. O texto abaixo fica como registro do que
+> o limite era e de por que ele existia.
 
 ### O limite
 
@@ -343,3 +355,88 @@ botões do sistema na véspera não é estabilização.
 **Custo de não fazer agora:** cada tela nova que puser um botão dentro de um flex
 em coluna vai encontrar o mesmo defeito, e vai encontrá-lo do mesmo jeito — olhando
 para a tela, não rodando a suíte.
+
+
+---
+
+## B-006 — `autorizados` é de leitura pública, e fechá-la exige um servidor
+
+- **Versão:** 1.0.0 (task 09)
+- **Critério afetado:** AC-SEC-03 (atendido), AC-SEC-02 (atendido) — o limite é de
+  confidencialidade da lista, não de autorização
+- **Estado:** limite conhecido e aceito; a autorização em si está fechada
+
+### O limite
+
+`firestore.rules` libera `allow read: if true` em `autorizados/{email}`. A escrita
+está fechada para todos — ninguém se acrescenta à lista —, mas **qualquer pessoa,
+logada ou não, consegue ler quem está nela**. Na prática, a lista de e-mails dos
+professores da escola é legível por quem souber onde procurar.
+
+O `TODO(task-09)` que estava no arquivo desde a task 01 dizia: "mover a checagem
+para um custom claim e fechar a leitura". Esta é a entrada que explica por que ele
+não foi fechado aqui.
+
+### Por que a leitura precisa estar aberta hoje
+
+`utils/permissoes.js` consulta `autorizados/{email}` **antes de existir sessão**: é
+essa consulta que decide se a tela de cadastro oferece a opção de professor. Uma
+Security Rule não consegue liberar leitura para "quem está se cadastrando" — não
+existe `request.auth` ainda. As únicas formas de escrever essa rule são
+`if request.auth != null` (que quebraria o cadastro) ou `if true` (que é o que está
+lá).
+
+Trocar a ordem da tela — pedir o login primeiro e só depois oferecer o papel —
+resolveria isso, e foi considerado. Não foi feito porque muda o fluxo de cadastro
+de todo mundo na véspera da versão estável, sem que exista um problema de
+autorização para justificar: o que vaza é a lista, não o poder.
+
+### Por que não foi resolvido nesta task
+
+A saída definitiva é o **custom claim**: gravar `professor: true` no token do
+Firebase Auth e a rule ler `request.auth.token.professor`. O papel deixa de morar
+num documento e passa a morar no token, e `autorizados` pode ser fechado de vez —
+ou deixar de existir.
+
+O que isso exige, e que este projeto não tem:
+
+- `admin.auth().setCustomUserClaims()` só roda no **Admin SDK**, em ambiente de
+  servidor. O navegador não tem como chamá-lo, e é exatamente esse o ponto;
+- o lugar natural para isso é uma **Cloud Function**, que exige o plano Blaze do
+  Firebase. O projeto roda no plano gratuito por restrição declarada (§ 7 do
+  `tasks/_PROTOCOLO.md`), e mudar de plano é decisão do dono do produto, não da
+  sessão que implementa;
+- a alternativa sem Cloud Function é um script administrativo rodado à mão pela
+  coordenação a cada professor novo, com a chave de conta de serviço. Isso troca um
+  problema de confidencialidade por um problema operacional — e por um segredo a
+  mais circulando fora do repositório.
+
+### O que foi feito, então
+
+- A **autorização** está fechada e testada: só vira professor quem está na lista, a
+  rule reconfere a cada escrita, e a promoção depois do cadastro é negada
+  (`tests/rules/firestore.rules.test.js`).
+- A **escrita** em `autorizados` é negada para todos, inclusive para professores.
+- `utils/permissoes.js` não registra nada no console: a função recebe o e-mail de
+  quem está entrando, e o console fica visível na projeção da sala e em qualquer
+  captura de tela de suporte.
+- O limite está documentado em `docs/SEGURANCA.md` § 2.3 e no § 10 de
+  `docs/ARQUITETURA.md`, em vez de viver só como um `TODO` no meio das rules.
+
+### Proposta para fechar (1.1.0, ou antes se o plano mudar)
+
+1. Decidir o ambiente de servidor: Cloud Function no plano Blaze, ou um script
+   administrativo com a chave de conta de serviço.
+2. Escrever o gatilho que, na criação do usuário, consulta a lista e grava o custom
+   claim.
+3. Migrar em duas etapas, nunca numa só: **ler dos dois lugares** (claim, com
+   fallback para `autorizados`) → conferir que todos os professores têm o claim →
+   fechar a leitura de `autorizados` e parar de consultá-la.
+4. O teste que fecha esta entrada: a rule nega `get` em `autorizados/{email}` para
+   quem não está autenticado, e o cadastro de professor continua funcionando.
+
+**Custo de não fazer agora:** quem souber o caminho do documento consegue enumerar
+os e-mails dos professores da escola. É exposição de dado de contato profissional,
+não de dado de aluno, e não dá a ninguém nenhum poder de escrita. A mitigação é a
+que já existe: a lista é mantida pela coordenação, e sair da escola é sair da lista
+— item do checklist de release em `docs/SEGURANCA.md` § 4.5.
