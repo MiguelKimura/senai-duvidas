@@ -14,6 +14,8 @@ import { TIPO_ERRO, useToasts } from './Toast';
 import CardDoChamado from './CardDoChamado';
 import ConfirmarAcao from './ConfirmarAcao';
 import FilaDeChamados from './FilaDeChamados';
+import AbasDaSala from './AbasDaSala';
+import PainelDaTurma from './PainelDaTurma';
 import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import PainelDePerks from './perks/PainelDePerks';
 import '../styles/TelaProfessor.css';
@@ -176,25 +178,46 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
       <BotaoSair />
       <h1>Chamados dos Alunos</h1>
 
-      {/* Só o dono da sala concede: é o que a rule cobra do outro lado
-          (AC-PERK-07). Um professor que não é o dono desta turma vê a fila e
-          o chat, e nada mais. */}
-      {ehDono && (
-        <PainelDePerks
-          salaId={salaId}
-          perks={perks}
-          agoraServidor={agoraServidor}
-          somenteLeitura={somenteLeitura}
-        />
-      )}
-
-      <FilaDeChamados
-        chamados={visiveis}
-        carregando={carregando}
-        erro={erroDaFila}
-        tentarNovamente={tentarNovamente}
-        textoVazio={FILA_VAZIA}
-        renderizarCard={renderizarCard}
+      {/* A fila abre sempre primeiro. Premiações e turma ficam em abas
+          próprias, e só para o dono da sala: é o que a rule cobra do outro
+          lado (AC-PERK-07, AC-SALA-08). Um professor que não é o dono desta
+          turma vê a fila e o chat, e nada mais. */}
+      <AbasDaSala
+        rotulo="Seções da sala"
+        abas={[
+          {
+            id: 'chamados',
+            titulo: 'Chamados',
+            conteudo: (
+              <FilaDeChamados
+                chamados={visiveis}
+                carregando={carregando}
+                erro={erroDaFila}
+                tentarNovamente={tentarNovamente}
+                textoVazio={FILA_VAZIA}
+                renderizarCard={renderizarCard}
+              />
+            ),
+          },
+          ehDono && {
+            id: 'premiacoes',
+            titulo: 'Premiações',
+            conteudo: (
+              <PainelDePerks
+                salaId={salaId}
+                perks={perks}
+                agoraServidor={agoraServidor}
+                somenteLeitura={somenteLeitura}
+              />
+            ),
+          },
+          ehDono &&
+            salaId && {
+              id: 'turma',
+              titulo: 'Turma',
+              conteudo: <PainelDaTurma salaId={salaId} podeRemover={!somenteLeitura} />,
+            },
+        ]}
       />
 
       {/* A confirmação do AC-CHAMADO-04. O professor apaga o chamado de um

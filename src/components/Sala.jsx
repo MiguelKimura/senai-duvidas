@@ -13,7 +13,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { PAPEL_DE_PROFESSOR, lerPapelNaSala, lerSala } from '../services/salas';
-import PainelDaTurma from './PainelDaTurma';
 import TelaAluno from './TelaAluno';
 import TelaProfessor from './TelaProfessor';
 import '../styles/Salas.css';
@@ -96,8 +95,6 @@ export default function Sala() {
           </p>
         )}
       </header>
-
-      {ehDono && <PainelDaTurma salaId={salaId} podeRemover={!somenteLeitura} />}
 
       {papelNaSala === PAPEL_DE_PROFESSOR ? (
         <TelaProfessor salaId={salaId} somenteLeitura={somenteLeitura} ehDono={ehDono} />
