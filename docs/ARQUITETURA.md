@@ -527,7 +527,7 @@ o resto: para qual tela ela vai e o que ela pode escrever.
       │                                                             │
       │ papel resolvido                                             │
       ├──► professor → /salas (Minhas salas, com "Criar sala")      │
-      └──► aluno     → /salas (Minhas salas, com "Entrar com PIN")  │
+      └──► aluno     → /salas (PIN na tela ou "Adicionar nova sala")│
 ```
 
 Quatro pontos que o desenho fixa:

@@ -44,7 +44,7 @@ barrou o login do Google — libere o site e tente de novo.
 
 Depois de entrar, você cai em **Minhas salas**. Na primeira vez, sem sala nenhuma, o campo
 do PIN já aparece na tela, em **Entre na sua sala** — a conta nunca entra numa sala
-sozinha. Quando você já tem sala e quer entrar em outra, use o botão **Entrar com PIN**.
+sozinha. Quando você já tem sala e quer entrar em outra, use o botão **Adicionar nova sala**.
 
 ![Tela Minhas salas, com o botão Entrar com PIN e o cartão de uma sala já cadastrada](imagens/aluno-minhas-salas.png)
 
