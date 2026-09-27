@@ -897,6 +897,29 @@ a remissão explícita "fica para a task 09": a rule de criação de chamado ace
   antes de existir o primeiro teste e tem orçamento próprio. O que o desenvolvedor sente na
   prática: a suíte para de reprovar por estar com pressa, e a mensagem de falha volta a
   apontar para o teste que falhou de verdade.
+- **A sonda dos emuladores passou a acusar a causa certa.** O defeito acima tinha um irmão, e
+  ele custou vinte minutos na própria execução de release. `npm run test:rules` encerrou
+  deixando o emulador de Firestore órfão na porta 8080 — o Firebase avisa que ele saiu por
+  SIGKILL e o processo Java segue de pé. A suíte e2e subiu em seguida, o `reuseExistingServer`
+  do Playwright achou a 8080 respondendo, concluiu que a Suíte já estava pronta e **não subiu
+  nada**: Auth e Storage nunca abriram. A sonda reprovou no lugar certo, e disse a coisa
+  errada — "suba o Emulator Suite" para quem estava justamente rodando `npm run test:e2e`. O
+  dado que resolvia o caso a sonda tinha como obter e jogava fora: o Firestore estava de pé,
+  logo o problema não é Suíte ausente, é porta ocupada. Agora, quando uma porta não abre, a
+  sonda varre as três antes de desistir, e há duas mensagens em vez de uma: nada de pé manda
+  subir os emuladores; alguém de pé nomeia quem subiu, explica o `reuseExistingServer` e manda
+  encerrar o órfão. São dois problemas com conselhos opostos, e dar o conselho de um no caso do
+  outro manda quem lê para o lado contrário da causa.
+- **Um aviso de build que fica, e por que ele é inócuo.** Desde o code-splitting por rota, o
+  `npm run build` termina com "Compiled with warnings": o `mini-css-extract-plugin` avisa que
+  não consegue garantir a ordem entre `Lightbox.css` e `TextoMarkdown.css`, porque dois pedaços
+  sob demanda os importam em ordens diferentes. O aviso é sobre uma garantia que ele não pode
+  dar, e não sobre um defeito: os seletores dos dois arquivos são **disjuntos** (`.lightbox-*`
+  contra `.texto-markdown*`), então não existe regra cuja aparência dependa de qual vem
+  primeiro. Os dez testes de layout medem pixel em navegador de verdade sobre o build de
+  produção e passam. A alternativa era reordenar importações de produção para calar um aviso
+  cosmético na véspera de um release, e ela foi descartada: o risco de regressão é maior que o
+  do aviso. Fica registrado para ser limpo com calma na 1.1.0.
 - **Os campos de compatibilidade ficam.** O plano previa remover `horarioIso`, a `imagem` em
   string e os `nome`/`email` duplicados nas mensagens nesta versão. **Não foram removidos** —
   ver a seção seguinte.
