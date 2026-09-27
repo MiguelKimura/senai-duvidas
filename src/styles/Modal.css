@@ -11,6 +11,21 @@
   z-index: 1000;
 }
 
+.modal h2 {
+  /* Respiro entre o título e a caixa de descrição: colados, o título parecia
+     o rótulo de outro campo. */
+  margin: 0 0 var(--espaco-3);
+}
+
+/* A caixa de descrição do novo chamado tem tamanho fixo: não cresce nem para
+   o lado nem para baixo. O texto que não couber rola dentro dela, e o
+   diálogo continua do mesmo tamanho enquanto o aluno escreve. */
+.modal textarea {
+  height: 160px;
+  resize: none;
+  overflow-y: auto;
+}
+
 .modal {
   background: var(--cor-superficie);
   padding: 20px;
@@ -24,6 +39,9 @@ textarea {
   width: 100%;
   height: 100px;
   margin-bottom: 15px;
+  /* A caixa não cresce para o lado em nenhum lugar do app: arrastar o canto
+     para a direita empurrava o conteúdo para fora do diálogo. */
+  resize: vertical;
   padding: 12px;
   border: 1px solid var(--cor-borda-campo);
   border-radius: 8px;
