@@ -36,6 +36,13 @@ module.exports = defineConfig({
   // suíte unitária. Eles não abrem navegador nenhum.
   testIgnore: ['**/__meta__/**', '**/fixtures/**'],
 
+  // A espera pelos três emuladores, uma vez, antes do primeiro teste. O
+  // `webServer` abaixo só sabe esperar uma URL, e é por isso que esta existe:
+  // sem ela, o tempo que Auth e Storage levam para abrir a porta é cobrado do
+  // teto do primeiro teste que precise do banco, e reprova em cascata todos os
+  // que começarem antes da subida terminar. Ver `tests/e2e/prontidao.js`.
+  globalSetup: './tests/e2e/prontidao.js',
+
   // O teto por teste. Generoso para o de carga, que semeia 1000 mensagens, e
   // ainda assim um teto: sem ele, um `waitFor` que nunca resolve pendura o CI.
   timeout: 60000,
@@ -77,8 +84,8 @@ module.exports = defineConfig({
         'npx firebase emulators:start --project demo-senai-duvidas --only auth,firestore,storage',
       // Esta URL só diz que o **Firestore** subiu: ele é Java e abre a porta
       // bem antes de o Auth abrir a dele. Quem espera os três é
-      // `aguardarEmuladores()`, chamado no `limparTudo` de cada spec — o
-      // `webServer` do Playwright só sabe esperar uma URL.
+      // `aguardarEmuladores()`, chamado no `globalSetup` acima — o `webServer`
+      // do Playwright só sabe esperar uma URL.
       url: `http://${HOST}:${PORTA_FIRESTORE}/`,
       reuseExistingServer: !process.env.CI,
       // Os emuladores de Firestore e Storage são aplicações Java: a primeira

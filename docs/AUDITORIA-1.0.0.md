@@ -163,7 +163,7 @@ release.
 | AC-TEST-06 | ❌ → ✅ | `tests/e2e/*.spec.js` | **Não existia nada.** Playwright, os seis fluxos críticos, contra o Emulator Suite. **Ciclos 7, 8 e 9 desta task.** |
 | AC-TEST-07 | ✅ | contagem antes/depois nesta auditoria | 1609 testes unitários na entrada; nenhum removido, nenhum `.skip`, nenhum `.todo` |
 | AC-TEST-08 | ❌ → ✅ | `src/__tests__/orcamentoDaSuite.test.js` | Havia `timeout-minutes: 5` **por job**, o que permite 25 minutos somados e não prova nada sobre a suíte. **Ciclo 11 desta task.** |
-| AC-TEST-09 | ✅ | `src/test-utils/__tests__/relogio.test.js` | e, para a suíte e2e nova, `tests/e2e/__meta__/semEsperaCega.test.js` |
+| AC-TEST-09 | ✅ | `src/test-utils/__tests__/relogio.test.js` | e, para a suíte e2e nova, `src/__tests__/semEsperaCegaNoE2E.test.js` e `src/__tests__/prontidaoDosEmuladores.test.js` — este último nasceu de uma execução completa que reprovou seis testes corretos porque a subida a frio dos emuladores era cobrada do teto do primeiro `beforeEach` |
 | AC-TEST-10 | ❌ → ✅ | `src/__tests__/regressaoPorCriterio.test.js` | **Sem teste que o provasse.** Existem 11 critérios [REG]; nada garantia que cada um tivesse teste de regressão nomeado. **Ciclo 12 desta task.** |
 
 ## 13. CI/CD e Branches (`CI`)

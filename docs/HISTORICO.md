@@ -886,6 +886,17 @@ a remissão explícita "fica para a task 09": a rule de criação de chamado ace
   não só o formato da mensagem.
 - **O orçamento de tempo passou a ser da suíte inteira**: `scripts/orcamentoDaSuite.js` soma
   as três e reprova se o total passar de cinco minutos.
+- **A subida dos emuladores deixou de ser cobrada de um teste.** Este foi o último defeito
+  achado na versão, e ele só aparece quando se roda a suíte **inteira** numa máquina ocupada:
+  seis testes corretos ficaram vermelhos de uma vez, todos com "timeout exceeded while running
+  beforeEach hook". A causa não era nenhum deles. O `webServer` do Playwright sabe esperar uma
+  URL só, e a escolhida é a do Firestore, que abre a porta antes de Auth e Storage abrirem as
+  suas; o resto da espera caía no orçamento do primeiro teste que precisasse do banco — e,
+  porque a sonda é memoizada, todos os que começassem antes da subida terminar aguardavam a
+  mesma promessa pendente e estouravam junto. A espera passou para o `globalSetup`, que roda
+  antes de existir o primeiro teste e tem orçamento próprio. O que o desenvolvedor sente na
+  prática: a suíte para de reprovar por estar com pressa, e a mensagem de falha volta a
+  apontar para o teste que falhou de verdade.
 - **Os campos de compatibilidade ficam.** O plano previa remover `horarioIso`, a `imagem` em
   string e os `nome`/`email` duplicados nas mensagens nesta versão. **Não foram removidos** —
   ver a seção seguinte.
