@@ -175,6 +175,13 @@
    tamanho em todas as linhas. Até a v1.1.0 eram pílulas que quebravam linha
    conforme o tamanho do nome, e o botão "Remover Fulano" herdava a margem de
    cima e o preenchimento dos botões grandes das telas de sala. */
+.painel-da-turma h2 {
+  margin: 0 0 var(--espaco-2);
+  font-size: 1.2rem;
+  color: var(--cor-texto-titulo);
+  text-align: left;
+}
+
 .painel-da-turma-lista {
   display: flex;
   flex-direction: column;
