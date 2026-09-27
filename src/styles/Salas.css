@@ -214,7 +214,7 @@
 .aviso-verificacao,
 .salas-primeiro-acesso {
   max-width: 420px;
-  margin: 0 0 var(--espaco-4);
+  margin: 0 auto var(--espaco-4);
   padding: var(--espaco-3);
   border-radius: var(--raio-2);
   background-color: var(--cor-superficie);
@@ -234,4 +234,32 @@
 .aviso-verificacao-acoes {
   display: flex;
   gap: var(--espaco-2);
+}
+
+/* Uma coluna estreita no centro da tela: a entrada por PIN e o primeiro
+   acesso do aluno. O conteúdo fica alinhado entre si, e não colado no canto
+   esquerdo de um monitor de 1920px. */
+.salas-centralizada {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 420px;
+  margin: 8vh auto 0;
+  text-align: center;
+}
+
+.salas-centralizada .salas-formulario {
+  text-align: left;
+}
+
+.salas-acao-larga {
+  width: 100%;
+}
+
+/* No primeiro acesso a caixa já é a seção inteira: o formulário dentro dela
+   não ganha sombra nem fundo próprios, senão viram duas caixas encaixadas. */
+.salas-primeiro-acesso .salas-formulario {
+  max-width: none;
+  padding: 0;
+  background: none;
+  box-shadow: none;
 }

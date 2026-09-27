@@ -98,18 +98,23 @@ export default function EntrarComPin() {
   return (
     <div className="tela-salas">
       <BotaoSair />
-      <h1>Entrar na sala</h1>
-      <p>Digite o PIN de {TAMANHO_DO_PIN} dígitos que o professor passou para a turma.</p>
 
-      <FormularioDePin />
+      {/* Uma coluna só, no centro: título, instrução, formulário e o voltar
+          alinhados entre si, em vez do formulário colado no canto esquerdo. */}
+      <div className="salas-centralizada">
+        <h1>Entrar na sala</h1>
+        <p>Digite o PIN de {TAMANHO_DO_PIN} dígitos que o professor passou para a turma.</p>
 
-      <button
-        type="button"
-        className="salas-acao salas-acao-discreta"
-        onClick={() => navegar('/salas')}
-      >
-        Voltar para minhas salas
-      </button>
+        <FormularioDePin />
+
+        <button
+          type="button"
+          className="salas-acao salas-acao-discreta salas-acao-larga"
+          onClick={() => navegar('/salas')}
+        >
+          Voltar para minhas salas
+        </button>
+      </div>
     </div>
   );
 }

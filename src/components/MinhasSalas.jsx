@@ -172,17 +172,22 @@ export default function MinhasSalas() {
 
       {pinNovo && <PainelDoPin pin={pinNovo} titulo="Novo PIN da sala" />}
 
-      <div className="salas-barra">
-        <button type="button" className="salas-acao" onClick={() => navegar('/salas/entrar')}>
-          Entrar com PIN
-        </button>
-
-        {papel === PAPEL_DE_PROFESSOR && (
-          <button type="button" className="salas-acao" onClick={() => navegar('/salas/nova')}>
-            Criar sala
+      {/* O aluno sem sala nenhuma não vê esta barra: o campo do PIN já está
+          na tela, e um segundo botão para a mesma coisa só confunde. Quem já
+          tem sala usa "Adicionar nova sala" para entrar em outra turma. */}
+      {(papel === PAPEL_DE_PROFESSOR || salas.length > 0) && (
+        <div className="salas-barra">
+          <button type="button" className="salas-acao" onClick={() => navegar('/salas/entrar')}>
+            Adicionar nova sala
           </button>
-        )}
-      </div>
+
+          {papel === PAPEL_DE_PROFESSOR && (
+            <button type="button" className="salas-acao" onClick={() => navegar('/salas/nova')}>
+              Criar sala
+            </button>
+          )}
+        </div>
+      )}
 
       {carregando ? (
         <>
@@ -199,7 +204,10 @@ export default function MinhasSalas() {
           que leva até ele. A conta nunca cai numa sala sozinha — quem decide
           em que turma o aluno entra é o PIN que o professor passou. */}
       {!carregando && salas.length === 0 && papel !== PAPEL_DE_PROFESSOR ? (
-        <section className="salas-primeiro-acesso" aria-labelledby="titulo-primeiro-acesso">
+        <section
+          className="salas-primeiro-acesso salas-centralizada"
+          aria-labelledby="titulo-primeiro-acesso"
+        >
           <h2 id="titulo-primeiro-acesso">Entre na sua sala</h2>
           <p>
             Você ainda não está em nenhuma sala. Digite o PIN de {TAMANHO_DO_PIN} dígitos que o
