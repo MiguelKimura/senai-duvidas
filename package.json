@@ -34,7 +34,8 @@
     "build:e2e": "cross-env BUILD_PATH=build-e2e REACT_APP_EMULADORES=1 REACT_APP_FIREBASE_PROJECT_ID=demo-senai-duvidas REACT_APP_FIREBASE_API_KEY=chave-de-emulador REACT_APP_FIREBASE_AUTH_DOMAIN=localhost REACT_APP_FIREBASE_STORAGE_BUCKET=demo-senai-duvidas.appspot.com REACT_APP_FIREBASE_MESSAGING_SENDER_ID=0 REACT_APP_FIREBASE_APP_ID=aplicativo-de-emulador react-scripts build",
     "test:e2e": "npm run build:e2e && playwright test",
     "eject": "react-scripts eject",
-    "changelog": "node scripts/gerarChangelog.js"
+    "changelog": "node scripts/gerarChangelog.js",
+    "capturas": "node scripts/gerarCapturas.js"
   },
   "jest": {
     "testMatch": [
