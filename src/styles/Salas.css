@@ -117,6 +117,9 @@
 /* ---- PIN em destaque --------------------------------------------------- */
 
 .painel-do-pin {
+  /* Centralizado: é o número que o professor projeta para a turma. */
+  margin: 0 auto var(--espaco-3);
+  box-sizing: border-box;
   background-color: var(--cor-superficie);
   border-radius: var(--raio-2);
   box-shadow: var(--sombra-elevada);
@@ -168,23 +171,38 @@
   padding: var(--espaco-3) var(--espaco-4);
 }
 
+/* Uma linha por pessoa, com o nome à esquerda e o botão à direita, no mesmo
+   tamanho em todas as linhas. Até a v1.1.0 eram pílulas que quebravam linha
+   conforme o tamanho do nome, e o botão "Remover Fulano" herdava a margem de
+   cima e o preenchimento dos botões grandes das telas de sala. */
 .painel-da-turma-lista {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--espaco-2);
+  flex-direction: column;
+  gap: var(--espaco-1);
   list-style: none;
   padding: 0;
+  max-width: 640px;
 }
 
 .painel-da-turma-lista li {
   display: flex;
   align-items: center;
-  gap: var(--espaco-1);
+  justify-content: space-between;
+  gap: var(--espaco-2);
   background-color: var(--cor-superficie);
   border: 1px solid var(--cor-borda);
-  border-radius: var(--raio-4);
-  padding: var(--espaco-1) var(--espaco-3);
+  border-radius: var(--raio-1);
+  padding: var(--espaco-1) var(--espaco-2);
   color: var(--cor-texto-rotulo);
+  text-align: left;
+}
+
+.painel-da-turma-lista li .salas-acao {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 0.85rem;
 }
 
 /* ---- O carregamento inicial (AC-ANIM-04) ------------------------------- */

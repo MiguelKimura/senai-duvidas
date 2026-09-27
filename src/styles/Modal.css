@@ -27,6 +27,12 @@
 }
 
 .modal {
+  /* Nunca mais alto que a tela: com as opções avançadas abertas e um print
+     colado por link, o diálogo passava da janela e o "Concluir" sumia. Quem
+     rola é o diálogo, e não a página por trás dele. */
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  box-sizing: border-box;
   background: var(--cor-superficie);
   padding: 20px;
   border-radius: 8px;
@@ -146,23 +152,28 @@ button:hover {
 
 .image-preview img {
   max-width: 100%;
-  max-height: 200px;
+  max-height: 140px;
   object-fit: contain;
   border-radius: 8px;
   margin-top: 10px;
 }
 
+/* Botão vermelho de texto branco, como os outros botões do diálogo. Era um
+   texto cinza sobre o vermelho do `button` global, e não se lia. */
 .delete-image-btn {
+  flex: none;
+  padding: 8px 16px;
+  margin-top: 10px;
+  border: none;
+  border-radius: var(--raio-1);
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
   font-size: 14px;
   cursor: pointer;
-  text-decoration: none;
-  margin-top: 10px;
-  color: var(--cor-texto-discreto);
 }
 
 .delete-image-btn:hover {
-  text-decoration: underline;
-  color: var(--cor-primaria-hover);
+  background-color: var(--cor-primaria-hover);
 }
 
 /* Abaixo de 480px o diálogo ocupa a tela inteira, pela mesma razão da

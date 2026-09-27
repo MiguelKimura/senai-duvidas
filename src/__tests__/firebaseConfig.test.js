@@ -277,7 +277,7 @@ describe('o envio de imagem não fica parado por minutos (v1.1.0)', () => {
       require('path').join(__dirname, '..', 'firebase.js'),
       'utf8'
     );
-    const achado = fonte.match(/setMaxUploadRetryTime\(\s*storage\s*,\s*([\d_]+)\s*\)/);
+    const achado = fonte.match(/storage\.maxUploadRetryTime\s*=\s*([\d_]+)\s*;/);
 
     expect(achado).not.toBeNull();
     expect(Number(achado[1].replace(/_/g, ''))).toBeLessThanOrEqual(60000);

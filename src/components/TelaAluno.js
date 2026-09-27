@@ -20,7 +20,6 @@ import {
   TITULO_DA_CONFIRMACAO,
   useExclusaoComDesfazer,
 } from '../hooks/useExclusaoComDesfazer';
-import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import VitrineDeConquistas from './perks/VitrineDeConquistas';
 import PreferenciasDePremiacao from './perks/PreferenciasDePremiacao';
 import PremiacaoDaSala from './perks/PremiacaoDaSala';
@@ -96,18 +95,6 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
     [fila, estaOculto]
   );
 
-  // A insígnia do chat sai do mesmo índice do card: uma consulta de perks por
-  // sala, e não uma por balão renderizado (AC-PERK-05, AC-PERF-03).
-  const insigniasDe = useCallback(
-    (mensagem) => (
-      <InsigniasDoAluno
-        perks={perksPorUid}
-        uid={mensagem.autorUid}
-        agoraServidor={agoraServidor}
-      />
-    ),
-    [perksPorUid, agoraServidor]
-  );
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -334,12 +321,13 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
 
       {/* O papel vai explícito: é ele que decide o selo do balão e quem pode
           usar o `!clear` (AC-CHAT-04, AC-CHAT-08). Quem abre esta tela é aluno
-          na sala — a decisão de qual tela abrir é de `Sala.jsx`, pelo vínculo. */}
+          na sala — a decisão de qual tela abrir é de `Sala.jsx`, pelo vínculo.
+          Sem `insigniasDe` desde a v1.1.0: as premiações saíram do chat a
+          pedido do cliente, para a conversa não ficar poluída. */}
       <Chat
         salaId={salaId}
         papelNaSala={PAPEL_DE_ALUNO}
         somenteLeitura={somenteLeitura}
-        insigniasDe={insigniasDe}
       />
     </div>
   );

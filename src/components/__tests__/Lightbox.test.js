@@ -47,7 +47,10 @@ describe('Lightbox — como se fecha', () => {
     const fechar = jest.fn();
     render(<Lightbox url={URL_DO_PRINT} descricao="print" onFechar={fechar} />);
 
-    userEvent.type(screen.getByRole('dialog'), '{esc}');
+    // Só a tecla, sem clique: `userEvent.type` clica no elemento antes de
+    // digitar, e o clique no fundo já fecha o visualizador — o teste passava
+    // pelo clique, e não pelo Esc.
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
 
     expect(fechar).toHaveBeenCalledTimes(1);
   });

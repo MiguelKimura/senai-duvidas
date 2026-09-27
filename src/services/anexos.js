@@ -302,6 +302,18 @@ function mensagemDeFalha(erro) {
     return 'O espaço de armazenamento da escola acabou. Avise o professor e descreva o erro por escrito.';
   }
 
+  // O servidor de imagens não respondeu, não existe ou devolveu algo que o
+  // SDK não reconhece. Tentar de novo quase nunca resolve na hora; colar o
+  // link da imagem resolve, e o campo está logo abaixo.
+  if (
+    codigo === 'storage/retry-limit-exceeded' ||
+    codigo === 'storage/bucket-not-found' ||
+    codigo === 'storage/project-not-found' ||
+    codigo === 'storage/unknown'
+  ) {
+    return 'O servidor de imagens não respondeu. Tente de novo ou cole o link da imagem no campo abaixo — o que você escreveu continua aqui.';
+  }
+
   return 'Não foi possível enviar a imagem. Confira a conexão e tente de novo — o que você escreveu continua aqui.';
 }
 

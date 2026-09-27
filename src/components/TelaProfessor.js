@@ -16,7 +16,6 @@ import ConfirmarAcao from './ConfirmarAcao';
 import FilaDeChamados from './FilaDeChamados';
 import AbasDaSala from './AbasDaSala';
 import PainelDaTurma from './PainelDaTurma';
-import InsigniasDoAluno from './perks/InsigniasDoAluno';
 import PainelDePerks from './perks/PainelDePerks';
 import '../styles/TelaProfessor.css';
 import Chat from './chat/Chat';
@@ -87,19 +86,6 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
     [salaId, mostrar]
   );
 
-  // A mesma insígnia do card, ao lado do nome no chat. O índice e o instante
-  // são os que a sala já carregou: o chat não abre consulta de perk nenhuma
-  // (AC-PERK-05, AC-PERF-03).
-  const insigniasDe = useCallback(
-    (mensagem) => (
-      <InsigniasDoAluno
-        perks={perksPorUid}
-        uid={mensagem.autorUid}
-        agoraServidor={agoraServidor}
-      />
-    ),
-    [perksPorUid, agoraServidor]
-  );
 
   const tentarNovamente = useCallback(() => setTentativa((atual) => atual + 1), []);
 
@@ -240,7 +226,6 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
         salaId={salaId}
         papelNaSala={PAPEL_DE_PROFESSOR}
         somenteLeitura={somenteLeitura}
-        insigniasDe={insigniasDe}
       />
     </div>
   );

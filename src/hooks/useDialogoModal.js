@@ -50,7 +50,44 @@ function focalizaveisDe(raiz) {
  * @returns {{aoTeclar: (evento: React.KeyboardEvent) => void}} o manipulador
  *   a pendurar no contêiner.
  */
+/**
+ * Os diálogos abertos, do mais de baixo para o mais de cima.
+ *
+ * O `Esc` pendurado no contêiner só chega quando o foco está dentro dele. Um
+ * clique num pedaço não focável do diálogo — um texto, uma área vazia —
+ * manda o foco para o `<body>`, e o `Esc` deixava de fechar. A escuta no
+ * documento cobre esse caso, e a pilha garante que só o diálogo de cima
+ * fecha: a premiação em tela cheia sobre a fila, por exemplo.
+ */
+const pilhaDeDialogos = [];
+
 export function useDialogoModal({ referencia, aoFechar, focoInicial }) {
+  const fechar = useRef(aoFechar);
+  fechar.current = aoFechar;
+
+  useEffect(() => {
+    const entrada = {};
+    pilhaDeDialogos.push(entrada);
+
+    const aoTeclarNoDocumento = (evento) => {
+      if (evento.key !== 'Escape') return;
+      if (pilhaDeDialogos[pilhaDeDialogos.length - 1] !== entrada) return;
+      // Tecla vinda de dentro do diálogo já foi tratada pelo `aoTeclar`.
+      if (referencia.current && referencia.current.contains(evento.target)) return;
+
+      fechar.current();
+    };
+
+    document.addEventListener('keydown', aoTeclarNoDocumento);
+
+    return () => {
+      document.removeEventListener('keydown', aoTeclarNoDocumento);
+      pilhaDeDialogos.splice(pilhaDeDialogos.indexOf(entrada), 1);
+    };
+    // `referencia` é estável por vir de `useRef`; o efeito é de montagem.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Guardado num `ref` para não recriar o efeito de abertura quando o chamador
   // passar uma função nova a cada render — recriá-lo roubaria o foco de volta
   // para o botão inicial a cada tecla digitada dentro do diálogo.
