@@ -167,15 +167,17 @@
 /* Cada conquista é um cartão, com o selo do tipo em destaque e os detalhes
    embaixo, alinhados à esquerda. Até a v1.1.0 era uma lista de linhas de
    texto soltas, com parte dela centralizada pelo `p` global. */
+/* Larga o bastante para três cartões por linha, e no centro da aba. */
 .perk-vitrine {
-  max-width: 640px;
+  width: 100%;
+  max-width: 880px;
   box-sizing: border-box;
   text-align: left;
   background: var(--cor-superficie);
   border-radius: var(--raio-2);
   box-shadow: var(--sombra-caixa);
   padding: var(--espaco-3) var(--espaco-4);
-  margin: var(--espaco-3) 0;
+  margin: var(--espaco-3) auto;
 }
 
 .perk-vitrine h3 {
@@ -256,13 +258,14 @@
 .perk-painel {
   /* Teto de largura: esticado na tela inteira, cada campo virava uma faixa
      de 1500px com o rótulo numa ponta e o valor na outra. */
+  width: 100%;
   max-width: 640px;
   box-sizing: border-box;
   text-align: left;
   background: var(--cor-fundo-caixa);
   border-radius: var(--raio-2);
   padding: var(--espaco-3);
-  margin-top: var(--espaco-2);
+  margin: var(--espaco-2) auto 0;
   display: flex;
   flex-direction: column;
   gap: var(--espaco-2);
@@ -298,13 +301,14 @@
 /* ---- As preferencias de premiacao (AC-PERK-08) ------------------------ */
 
 .perk-preferencias {
-  max-width: 640px;
+  width: 100%;
+  max-width: 880px;
   box-sizing: border-box;
   text-align: left;
   border: 1px solid var(--cor-borda);
   border-radius: var(--raio-2);
   padding: var(--espaco-2) var(--espaco-3);
-  margin: var(--espaco-2) 0 var(--espaco-3);
+  margin: var(--espaco-2) auto var(--espaco-3);
   display: flex;
   flex-direction: column;
   gap: var(--espaco-1);
