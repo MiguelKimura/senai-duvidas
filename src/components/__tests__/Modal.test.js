@@ -12,7 +12,7 @@
 // A alternativa seria subir para um lugar provisório e mover depois, e o
 // Storage não move objeto: copia, e paga duas vezes.
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { __arquivosEnviados, __derrubarUploads, __resetarStorage } from 'firebase/storage';
 import { __resetarFirestore } from 'firebase/firestore';
@@ -389,6 +389,17 @@ describe('Modal — teclado e foco (AC-ANIM-10)', () => {
     const { aoFechar } = montar();
 
     await userEvent.keyboard('{Escape}');
+
+    expect(aoFechar).toHaveBeenCalledTimes(1);
+  });
+
+  // v1.1.0: clicar num pedaço não focável do diálogo (um texto, uma área
+  // vazia) manda o foco para o <body>, e o Esc deixava de chegar ao diálogo.
+  it('Esc fecha mesmo com o foco fora do diálogo', () => {
+    const { aoFechar } = montar();
+
+    document.activeElement.blur();
+    fireEvent.keyDown(document.body, { key: 'Escape' });
 
     expect(aoFechar).toHaveBeenCalledTimes(1);
   });

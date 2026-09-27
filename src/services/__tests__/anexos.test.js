@@ -519,6 +519,21 @@ describe('enviarAnexo — a falha de rede é acionável (AC-IMG-09)', () => {
     await expect(envio).rejects.toThrow(/sala/i);
   });
 
+  // v1.1.0: o servidor de imagens que não responde deixava a barra parada por
+  // até dez minutos (o padrão de novas tentativas do SDK). A mensagem aponta a
+  // saída que funciona na hora: colar o link da imagem.
+  it.each(['storage/retry-limit-exceeded', 'storage/bucket-not-found', 'storage/unknown'])(
+    'com o servidor de imagens fora (%s), oferece colar o link',
+    async (codigo) => {
+      const envio = envioEmAndamento();
+
+      await aguardarUpload();
+      __falharUploads(codigo);
+
+      await expect(envio).rejects.toThrow(/link da imagem/i);
+    }
+  );
+
   it('a falha não é marcada como cancelamento — a tela trata os dois diferente', async () => {
     const envio = envioEmAndamento();
 

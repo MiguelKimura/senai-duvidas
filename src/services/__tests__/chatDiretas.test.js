@@ -18,6 +18,7 @@ import {
   __consultasAtivas,
   __documentosDe,
   __ouvintesAtivos,
+  __recusarLeituraEm,
   __resetarFirestore,
   __semearColecao,
   getDoc,
@@ -258,6 +259,50 @@ describe('observarConversas — a lista (AC-DM-04, AC-DM-06)', () => {
     });
 
     expect(recebidas.map((conversa) => conversa.id)).toEqual(['recente', 'meio', 'antiga']);
+  });
+
+  // v1.1.0: `where(array-contains)` + `orderBy` em outro campo exige índice
+  // composto no Firestore de produção — o emulador não exige, e por isso o
+  // defeito só apareceu no projeto de verdade, com a aba presa em
+  // "Carregando". A ordem passa a ser decidida no navegador.
+  it('não pede orderBy ao servidor: a consulta não depende de índice composto', () => {
+    observarConversas(SALA, ANA.uid, () => {});
+
+    const { ordenacoes } = __consultasAtivas().find(
+      (consulta) => consulta.caminho === CONVERSAS
+    );
+
+    expect(ordenacoes).toEqual([]);
+  });
+
+  it('lista a conversa recém-criada, ainda sem mensagem nenhuma, no topo', () => {
+    __semearColecao(CONVERSAS, [
+      conversaSemeada('antiga', [ANA.uid, CARLOS.uid], 1),
+      {
+        id: 'nova',
+        participantes: [ANA.uid, BRUNO.uid],
+        participantesNomes: {},
+        naoLidas: {},
+        ultimaMensagem: null,
+        criadaEm: new Date(Date.UTC(2026, 2, 10, 13, 0)),
+      },
+    ]);
+
+    let recebidas = [];
+    observarConversas(SALA, ANA.uid, (conversas) => {
+      recebidas = conversas;
+    });
+
+    expect(recebidas.map((conversa) => conversa.id)).toEqual(['nova', 'antiga']);
+  });
+
+  it('avisa quem chamou quando o servidor recusa a lista, em vez de ficar calado', () => {
+    __recusarLeituraEm(CONVERSAS);
+    const aoErro = jest.fn();
+
+    observarConversas(SALA, ANA.uid, () => {}, aoErro);
+
+    expect(aoErro).toHaveBeenCalled();
   });
 
   it('devolve uma função que cancela a inscrição (AC-PERF-04)', () => {
