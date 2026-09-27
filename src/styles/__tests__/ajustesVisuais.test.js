@@ -57,3 +57,32 @@ describe('ajustes visuais da v1.1.0', () => {
     expect(item).toMatch(/border-radius/);
   });
 });
+
+describe('o chat legível (revisão da v1.1.0)', () => {
+  it('a aba do chat não fica vermelha no hover: o `button:hover` global perde', () => {
+    expect(bloco('Chat.css', '.chat-abas .chat-aba:hover')).toMatch(
+      /background-color:\s*var\(--cor-fundo-caixa\)/
+    );
+  });
+
+  it('o nome na lista de conversas tem cor própria, e não o branco dos botões', () => {
+    expect(bloco('Chat.css', '.conversa-nome')).toMatch(/color:\s*var\(--cor-texto-titulo\)/);
+    expect(bloco('Chat.css', '.conversa-item')).toMatch(/color:\s*var\(--cor-texto-forte\)/);
+  });
+});
+
+describe('o painel de premiações e a turma (revisão da v1.1.0)', () => {
+  it('os seletores do painel têm altura de campo, e não a do controle nativo', () => {
+    expect(bloco('Perks.css', '.perk-painel select')).toMatch(/padding:/);
+  });
+
+  it('a caixa "Anunciar para a sala" fica numa linha, ao lado do texto', () => {
+    expect(bloco('Perks.css', '.perk-painel .perk-painel-caixa')).toMatch(
+      /flex-direction:\s*row/
+    );
+  });
+
+  it('o título da turma tem respiro antes da lista', () => {
+    expect(bloco('Salas.css', '.painel-da-turma h2')).toMatch(/margin:/);
+  });
+});
