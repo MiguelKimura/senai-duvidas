@@ -160,7 +160,18 @@ describe('criarSala — o PIN (AC-SALA-02, AC-SEC-05)', () => {
 
     expect(segredo.hash).toBe(await hashDePin(pin, segredo.sal));
     expect(segredo.sal).toMatch(/^[0-9a-f]{32}$/);
-    expect(JSON.stringify(segredo)).not.toContain(pin);
+  });
+
+  // v1.1.0: o professor precisa ver o PIN de novo, e o PIN em claro passa a
+  // morar no segredo, ao lado do resumo. Continua fora do alcance do aluno:
+  // só o dono lê este documento (tests/rules/salas.rules.test.js). No
+  // documento da sala, que toda a turma lê, ele segue sem aparecer.
+  it('guarda o PIN em claro só no segredo, para o dono vê-lo de novo', async () => {
+    const { salaId, pin } = await criarSala(DADOS, CARLOS);
+
+    const segredo = await dadosDe(`${COLECAO_DE_SALAS}/${salaId}/segredo/pin`);
+
+    expect(segredo.pin).toBe(pin);
   });
 
   it('indexa o PIN para que o aluno consiga achar a sala', async () => {

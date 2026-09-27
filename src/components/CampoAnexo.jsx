@@ -18,7 +18,14 @@
 // O campo por URL continua onde estava, com o mesmo texto: é regressão
 // declarada (AC-IMG-01), e há chamado aberto assim todo dia.
 import React, { useCallback, useRef, useState } from 'react';
-import { ORIGEM_DE_URL, ehUrlDeImagem, enviarAnexo, removerAnexo } from '../services/anexos';
+import {
+  ORIGEM_DE_URL,
+  ORIGEM_DO_BANCO,
+  ehUrlDeImagem,
+  removerAnexo,
+  removerImagemDoBanco,
+} from '../services/anexos';
+import { enviarImagemParaOBanco } from '../services/imagensNoBanco';
 import useColarImagem from '../hooks/useColarImagem';
 import '../styles/CampoAnexo.css';
 
@@ -90,7 +97,9 @@ export default function CampoAnexo({
       controle.current = abortador;
 
       try {
-        const enviado = await enviarAnexo(arquivo, {
+        // Desde a v1.1.0 a imagem vai para o próprio banco, e não para o
+        // Storage, que deixou de estar disponível no plano gratuito.
+        const enviado = await enviarImagemParaOBanco(arquivo, {
           salaId,
           chamadoId,
           sinal: abortador.signal,
@@ -164,7 +173,8 @@ export default function CampoAnexo({
   const remover = () => {
     setImagemQuebrada(false);
     setLinkDigitado('');
-    if (anexo && anexo.caminho) removerAnexo(anexo.caminho);
+    if (anexo && anexo.origem === ORIGEM_DO_BANCO) removerImagemDoBanco(salaId, anexo.id);
+    else if (anexo && anexo.caminho) removerAnexo(anexo.caminho);
     onAnexoMudou(null);
   };
 

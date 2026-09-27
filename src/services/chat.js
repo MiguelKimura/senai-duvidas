@@ -387,8 +387,9 @@ export function observarConversas(salaId, uid, aoMudar, aoErro) {
  */
 export function ordenarConversas(conversas) {
   const instante = (conversa) =>
-    paraData((conversa.ultimaMensagem && conversa.ultimaMensagem.horario) || conversa.criadaEm)
-      ?.getTime() ?? Number.POSITIVE_INFINITY;
+    paraData(
+      (conversa.ultimaMensagem && conversa.ultimaMensagem.horario) || conversa.criadaEm
+    )?.getTime() ?? Number.POSITIVE_INFINITY;
 
   return [...conversas].sort((a, b) => instante(b) - instante(a));
 }

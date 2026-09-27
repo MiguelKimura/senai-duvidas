@@ -15,7 +15,7 @@
 // O foco inicial vai no botão **seguro**. É a diferença entre um diálogo que
 // protege e um que só atrasa: quem aperta Enter de reflexo, porque estava
 // digitando quando a caixa apareceu, cancela em vez de apagar.
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useDialogoModal } from '../hooks/useDialogoModal';
 import '../styles/ConfirmarAcao.css';
 
@@ -31,8 +31,10 @@ export const ROTULO_CANCELAR = 'Cancelar';
  * @param {string} props.rotuloConfirmar o verbo da ação — "Excluir", e não "OK".
  * @param {string} [props.rotuloCancelar]
  * @param {boolean} [props.destrutiva] marca o botão de confirmar como perigoso.
- * @param {() => void} props.aoConfirmar
+ * @param {(escolha: {naoPerguntar: boolean}) => void} props.aoConfirmar
  * @param {() => void} props.aoCancelar chamado também pelo `Esc` e pelo fundo.
+ * @param {boolean} [props.oferecerNaoPerguntar] mostra a caixa "Não perguntar
+ *   mais", e a escolha chega em `aoConfirmar` (v1.1.0).
  */
 export default function ConfirmarAcao({
   titulo,
@@ -42,8 +44,10 @@ export default function ConfirmarAcao({
   destrutiva = false,
   aoConfirmar,
   aoCancelar,
+  oferecerNaoPerguntar = false,
 }) {
   const dialogo = useRef(null);
+  const [naoPerguntar, setNaoPerguntar] = useState(false);
   const seguro = useRef(null);
 
   const { aoTeclar } = useDialogoModal({
@@ -88,6 +92,19 @@ export default function ConfirmarAcao({
           </p>
         )}
 
+        {/* Só vale ao confirmar: marcar e cancelar não muda nada, porque
+            quem cancelou ainda não viu a exclusão sem pergunta funcionar. */}
+        {oferecerNaoPerguntar && (
+          <label className="confirmar-nao-perguntar">
+            <input
+              type="checkbox"
+              checked={naoPerguntar}
+              onChange={(evento) => setNaoPerguntar(evento.target.checked)}
+            />
+            Não perguntar mais
+          </label>
+        )}
+
         <div className="confirmar-botoes">
           <button
             type="button"
@@ -107,7 +124,7 @@ export default function ConfirmarAcao({
               destrutiva ? 'confirmar-botao confirmar-botao--destrutiva' : 'confirmar-botao'
             }
             data-destrutiva={destrutiva ? 'true' : undefined}
-            onClick={aoConfirmar}
+            onClick={() => aoConfirmar({ naoPerguntar })}
           >
             {rotuloConfirmar}
           </button>

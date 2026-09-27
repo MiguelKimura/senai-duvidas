@@ -85,15 +85,17 @@ test('a aluna abre um chamado com print, cor e markdown, e o card aparece (AC-CH
   // Desde a v1.1.0 o card mostra o olho, e não a miniatura do print.
   await expect(card.getByRole('button', { name: /ver imagem/i })).toBeVisible();
 
-  // E o documento no banco: o anexo gravado nos dois formatos, que é a
-  // compatibilidade que a 1.0.0 mantém (AC-IMG-13, docs/MIGRACOES.md).
+  // E o documento no banco. Desde a v1.1.0 o print do computador mora em
+  // `salas/{salaId}/imagens/{chamadoId}`, e o chamado guarda só o endereço
+  // dele — a fila não baixa a imagem a cada reemissão.
   const [chamadoId] = await idsDe(`salas/${SALA.id}/chamados`);
   const gravado = await ler(`salas/${SALA.id}/chamados/${chamadoId}`);
+  const imagem = await ler(`salas/${SALA.id}/imagens/${chamadoId}`);
 
-  expect(gravado.imagem.stringValue).toMatch(/^http/);
-  expect(gravado.anexo.mapValue.fields.caminho.stringValue).toContain(
-    `salas/${SALA.id}/chamados/${chamadoId}/`
-  );
+  expect(gravado.anexo.mapValue.fields.origem.stringValue).toBe('banco');
+  expect(gravado.anexo.mapValue.fields.id.stringValue).toBe(chamadoId);
+  expect(gravado.anexo.mapValue.fields.url).toBeUndefined();
+  expect(imagem.dados.stringValue).toMatch(/^data:image\/[a-z]+;base64,/);
   expect(gravado.formato.stringValue).toBe('markdown');
   expect(gravado.autorUid.stringValue).toBe(ANA.uid);
   // A escrita dupla do autor continua: `nome` é o que o cliente da v0.4.0 lê.

@@ -528,9 +528,17 @@ describe('"Não perguntar mais" na exclusão do professor (v1.1.0)', () => {
       within(screen.getByRole('dialog')).getByRole('checkbox', { name: 'Não perguntar mais' })
     );
     await userEvent.click(confirmar());
+    // A escolha fica gravada neste navegador, por professor.
+    await waitFor(() =>
+      expect(
+        window.localStorage.getItem(`senai-duvidas:naoConfirmarExclusao:${CARLOS.uid}`)
+      ).toBe('1')
+    );
     unmount();
 
     renderComProvedores(<TelaProfessor salaId={SALA} ehDono />);
+    // A tela lembra da escolha: o caminho de volta aparece sozinho.
+    await screen.findByRole('button', { name: /voltar a pedir confirmação/i });
     await pedirExclusao('o cabo de rede caiu');
 
     expect(screen.queryByRole('dialog')).toBeNull();

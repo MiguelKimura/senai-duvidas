@@ -73,3 +73,24 @@
   background-color: var(--cor-sucesso);
   color: var(--cor-texto-invertido);
 }
+
+/* O caminho de volta do "Não perguntar mais" (v1.1.0): um link discreto
+   acima da fila, e não mais um botão vermelho disputando atenção. */
+.tela-professor .voltar-a-confirmar {
+  align-self: center;
+  width: auto;
+  flex: none;
+  margin: 0 0 var(--espaco-2);
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: var(--cor-texto-rotulo);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tela-professor .voltar-a-confirmar:hover {
+  background: none;
+  color: var(--cor-texto-titulo);
+}

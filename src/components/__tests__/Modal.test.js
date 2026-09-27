@@ -14,8 +14,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { __arquivosEnviados, __derrubarUploads, __resetarStorage } from 'firebase/storage';
-import { __resetarFirestore } from 'firebase/firestore';
+import { __documentosDe, __resetarFirestore } from 'firebase/firestore';
 import Modal from '../Modal';
 import { FOCALIZAVEIS } from '../../hooks/useDialogoModal';
 import { ROTULO_DO_PAINEL } from '../PainelAvancado';
@@ -43,6 +42,21 @@ function montar(props = {}) {
   return { aoEnviar, aoFechar };
 }
 
+const EXE = [0x4d, 0x5a, 0x90, 0x00, 0x03, 0, 0, 0, 0x04, 0, 0, 0];
+
+/** Um executável com nome de print: o envio falha sem gravar nada. */
+function executavel() {
+  return new File([new Uint8Array(EXE)], 'print.png', { type: 'image/png' });
+}
+
+/**
+ * As imagens gravadas no banco, pelo id do chamado. Desde a v1.1.0 a imagem
+ * do computador vai para `salas/{salaId}/imagens/{chamadoId}`.
+ */
+function imagensGravadas() {
+  return __documentosDe('salas/sala-3b/imagens').map((documento) => documento.id);
+}
+
 function seletorDeArquivo() {
   return screen.getByLabelText(/imagem do computador/i);
 }
@@ -50,7 +64,6 @@ function seletorDeArquivo() {
 beforeEach(() => {
   window.localStorage.clear();
   __resetarFirestore();
-  __resetarStorage();
   instalarCanvasFalso();
 });
 
@@ -82,27 +95,27 @@ describe('Modal — o que ele entrega ao gravar', () => {
 
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'O VS Code não abre');
     userEvent.upload(seletorDeArquivo(), print());
-    await waitFor(() => expect(__arquivosEnviados()).toHaveLength(1));
+    await waitFor(() => expect(imagensGravadas()).toHaveLength(1));
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
 
     expect(aoEnviar).toHaveBeenCalledWith(
       'O VS Code não abre',
-      expect.objectContaining({ origem: 'upload' }),
+      expect.objectContaining({ origem: 'banco' }),
       expect.any(String),
       COR_AUTOMATICA
     );
   });
 
-  it('o anexo sobe para a pasta do id que o modal reservou', async () => {
+  it('a imagem é gravada com o id que o modal reservou', async () => {
     const { aoEnviar } = montar();
 
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'Olha o erro');
     userEvent.upload(seletorDeArquivo(), print());
-    await waitFor(() => expect(__arquivosEnviados()).toHaveLength(1));
+    await waitFor(() => expect(imagensGravadas()).toHaveLength(1));
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
 
     const [, , chamadoId] = aoEnviar.mock.calls[0];
-    expect(__arquivosEnviados()[0]).toContain(`salas/sala-3b/chamados/${chamadoId}/`);
+    expect(imagensGravadas()).toEqual([chamadoId]);
   });
 
   it('o anexo por URL chega como objeto de origem url (AC-IMG-01)', () => {
@@ -152,23 +165,21 @@ describe('Modal — o que ele entrega ao gravar', () => {
 
 describe('Modal — a falha de upload não custa o texto digitado (AC-IMG-09)', () => {
   it('a descrição continua no campo depois do erro de envio', async () => {
-    __derrubarUploads('storage/retry-limit-exceeded');
     montar();
     const campo = screen.getByPlaceholderText('Descreva o problema');
 
     userEvent.type(campo, 'O VS Code não abre no computador 12');
-    userEvent.upload(seletorDeArquivo(), print());
+    userEvent.upload(seletorDeArquivo(), executavel());
 
     await screen.findByRole('alert');
     expect(campo).toHaveValue('O VS Code não abre no computador 12');
   });
 
   it('e dá para concluir o chamado sem o anexo, com o texto intacto', async () => {
-    __derrubarUploads('storage/retry-limit-exceeded');
     const { aoEnviar } = montar();
 
     userEvent.type(screen.getByPlaceholderText('Descreva o problema'), 'Sem o print mesmo');
-    userEvent.upload(seletorDeArquivo(), print());
+    userEvent.upload(seletorDeArquivo(), executavel());
     await screen.findByRole('alert');
 
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
@@ -182,16 +193,16 @@ describe('Modal — a falha de upload não custa o texto digitado (AC-IMG-09)', 
   });
 });
 
-describe('Modal — fechar sem concluir não deixa órfão no Storage', () => {
+describe('Modal — fechar sem concluir não deixa imagem órfã no banco', () => {
   it('apaga o anexo já enviado quando o aluno desiste do chamado', async () => {
     montar();
 
     userEvent.upload(seletorDeArquivo(), print());
-    await waitFor(() => expect(__arquivosEnviados()).toHaveLength(1));
+    await waitFor(() => expect(imagensGravadas()).toHaveLength(1));
 
     userEvent.click(screen.getByRole('button', { name: 'Fechar' }));
 
-    await waitFor(() => expect(__arquivosEnviados()).toEqual([]));
+    await waitFor(() => expect(imagensGravadas()).toEqual([]));
   });
 
   it('fechar sem anexo nenhum não é erro', () => {
@@ -570,7 +581,7 @@ describe('Modal — a descrição obrigatória de 1 a 1000 caracteres (AC-CHAMAD
     const { aoEnviar } = montar();
 
     userEvent.upload(seletorDeArquivo(), print());
-    await waitFor(() => expect(__arquivosEnviados()).toHaveLength(1));
+    await waitFor(() => expect(imagensGravadas()).toHaveLength(1));
 
     userEvent.click(screen.getByRole('button', { name: 'Concluir' }));
     expect(aoEnviar).not.toHaveBeenCalled();
@@ -580,7 +591,7 @@ describe('Modal — a descrição obrigatória de 1 a 1000 caracteres (AC-CHAMAD
 
     expect(aoEnviar).toHaveBeenCalledWith(
       'olha o erro',
-      expect.objectContaining({ origem: 'upload' }),
+      expect.objectContaining({ origem: 'banco' }),
       expect.any(String),
       COR_AUTOMATICA
     );

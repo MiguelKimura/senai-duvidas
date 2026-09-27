@@ -15,7 +15,8 @@ import {
   ref,
   uploadBytesResumable,
 } from 'firebase/storage';
-import { storage } from '../firebase';
+import { deleteDoc, doc } from 'firebase/firestore';
+import { db, storage } from '../firebase';
 import { caminhoDoAnexo } from './salas';
 
 /**
@@ -61,6 +62,12 @@ export const ORIGEM_DE_UPLOAD = 'upload';
 
 /** O anexo que continua sendo só um endereço na internet (AC-IMG-01). */
 export const ORIGEM_DE_URL = 'url';
+
+/**
+ * A imagem do computador guardada no próprio Firestore (v1.1.0), em
+ * `salas/{salaId}/imagens/{chamadoId}`. Ver `services/imagensNoBanco.js`.
+ */
+export const ORIGEM_DO_BANCO = 'banco';
 
 /** Quantos bytes bastam para reconhecer qualquer assinatura da tabela. */
 const BYTES_DA_ASSINATURA = 12;
@@ -242,7 +249,12 @@ function recodificar(bitmap, largura, altura, tipo, qualidade) {
  *   recomprimida: boolean}>}
  */
 export async function comprimirImagem(arquivo, opcoes = {}) {
-  const { tipo = arquivo.type, ladoMaximo = LADO_MAXIMO, qualidade = QUALIDADE } = opcoes;
+  const {
+    tipo = arquivo.type,
+    ladoMaximo = LADO_MAXIMO,
+    qualidade = QUALIDADE,
+    forcar = false,
+  } = opcoes;
 
   const bitmap = await createImageBitmap(arquivo);
   const original = { largura: bitmap.width, altura: bitmap.height };
@@ -250,7 +262,9 @@ export async function comprimirImagem(arquivo, opcoes = {}) {
 
   const intacto = { blob: arquivo, ...original, recomprimida: false };
 
-  if (tipo === TIPO_ANIMADO || !alvo.precisaReduzir) {
+  // `forcar` recodifica mesmo dentro do teto: é o que troca o formato para
+  // JPEG quando a imagem precisa caber num documento do banco (v1.1.0).
+  if (!forcar && (tipo === TIPO_ANIMADO || !alvo.precisaReduzir)) {
     if (bitmap.close) bitmap.close();
     return intacto;
   }
@@ -439,6 +453,10 @@ export async function enviarAnexo(arquivo, { salaId, chamadoId, onProgresso, sin
 export function normalizarAnexo(valor) {
   if (!valor) return null;
 
+  // A imagem guardada no banco não tem URL no chamado: ela é lida pelo id,
+  // só quando alguém clica no olho (v1.1.0).
+  if (typeof valor === 'object' && valor.origem === ORIGEM_DO_BANCO && valor.id) return valor;
+
   const url = typeof valor === 'string' ? valor : valor.url;
 
   if (!ehUrlDeImagem(url)) return null;
@@ -460,7 +478,42 @@ export function normalizarAnexo(valor) {
  * @returns {{imagem: string|null, anexo: object|null}}
  */
 export function camposDoAnexo(anexo) {
-  return anexo ? { imagem: anexo.url, anexo } : { imagem: null, anexo: null };
+  if (!anexo) return { imagem: null, anexo: null };
+
+  // A imagem do banco não vai para o chamado: a `url` que o formulário usou
+  // na prévia é a própria imagem, centenas de KB, e a fila da turma a baixaria
+  // inteira a cada reemissão. Fica só o endereço dela — o id.
+  if (anexo.origem === ORIGEM_DO_BANCO) {
+    const { url: _previa, ...semPrevia } = anexo;
+    return { imagem: null, anexo: semPrevia };
+  }
+
+  return { imagem: anexo.url, anexo };
+}
+
+/** O documento da imagem de um chamado, guardada no banco (v1.1.0). */
+export function referenciaDaImagem(salaId, chamadoId) {
+  return doc(db, 'salas', salaId, 'imagens', chamadoId);
+}
+
+/**
+ * Apaga a imagem do chamado guardada no banco.
+ *
+ * Não lança: imagem que já não existe, ou recusa por a sala ter sido
+ * arquivada, não pode impedir a exclusão do chamado.
+ *
+ * @param {string|null} salaId
+ * @param {string} chamadoId
+ * @returns {Promise<void>}
+ */
+export async function removerImagemDoBanco(salaId, chamadoId) {
+  if (!salaId || !chamadoId) return;
+
+  try {
+    await deleteDoc(referenciaDaImagem(salaId, chamadoId));
+  } catch (_erro) {
+    // Ver acima.
+  }
 }
 
 /**
@@ -576,6 +629,11 @@ export async function removerAnexoDoChamado(salaId, chamado) {
   if (!chamado) return { apagados: 0 };
 
   const anexo = normalizarAnexo(chamado.anexo);
+
+  if (anexo && anexo.origem === ORIGEM_DO_BANCO) {
+    await removerImagemDoBanco(salaId, anexo.id);
+    return { apagados: 1 };
+  }
 
   // O formato antigo — `imagem` em string — nunca tem caminho: aquela URL
   // aponta para fora, para um servidor que não é nosso. Não há o que apagar.

@@ -153,16 +153,120 @@
 
 /* ---- Dentro da sala ---------------------------------------------------- */
 
+/* O nome da sala e, ao lado, o caminho para as outras (v1.1.0). O espaço à
+   direita é do botão Sair, que é fixo no canto. */
 .sala-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espaco-2) var(--espaco-4);
   font-family: var(--fonte-base);
   background-color: var(--cor-superficie);
-  padding: var(--espaco-3) var(--espaco-4);
+  padding: var(--espaco-3) 110px var(--espaco-3) var(--espaco-4);
   box-shadow: var(--sombra-caixa);
 }
 
 .sala-cabecalho h2 {
   color: var(--cor-texto-titulo);
   margin: 0;
+  text-align: left;
+}
+
+.sala-navegacao {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+}
+
+.sala-navegacao .sala-navegacao-voltar {
+  flex: none;
+  width: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-fundo-caixa);
+  color: var(--cor-texto-titulo);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.sala-navegacao .sala-navegacao-voltar:hover {
+  background-color: var(--cor-fundo-chat);
+}
+
+.sala-navegacao-seletor {
+  padding: 6px 10px;
+  border: 1px solid var(--cor-borda-campo);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto-forte);
+  font-family: inherit;
+  font-size: 0.9rem;
+  max-width: 320px;
+}
+
+/* O PIN da sala num canto, a aula inteira (v1.1.0). Embaixo à direita: na
+   tela do professor não há o botão "+" do aluno ali, e o chat fica no canto
+   oposto. */
+.selo-do-pin {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--espaco-2) var(--espaco-3);
+  border-radius: var(--raio-2);
+  background-color: var(--cor-superficie);
+  box-shadow: var(--sombra-elevada);
+  font-family: var(--fonte-base);
+}
+
+.selo-do-pin-rotulo {
+  color: var(--cor-texto-rotulo);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.selo-do-pin-numero {
+  color: var(--cor-primaria);
+  font-size: 1.8rem;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+  user-select: all;
+}
+
+.selo-do-pin-ausente {
+  color: var(--cor-texto-discreto);
+  font-size: 0.85rem;
+}
+
+.selo-do-pin .selo-do-pin-gerar {
+  flex: none;
+  width: auto;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border: none;
+  background: none;
+  color: var(--cor-texto-rotulo);
+  font-size: 0.75rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.selo-do-pin .selo-do-pin-gerar:hover {
+  background: none;
+  color: var(--cor-texto-titulo);
+}
+
+.selo-do-pin-erro {
+  max-width: 180px;
+  color: var(--cor-erro);
+  font-size: 0.75rem;
+  text-align: center;
 }
 
 .painel-da-turma {

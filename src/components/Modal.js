@@ -16,7 +16,7 @@ import React, { useRef, useState } from 'react';
 import { useDialogoModal } from '../hooks/useDialogoModal';
 import CampoAnexo from './CampoAnexo';
 import PainelAvancado from './PainelAvancado';
-import { removerAnexo } from '../services/anexos';
+import { ORIGEM_DO_BANCO, removerAnexo, removerImagemDoBanco } from '../services/anexos';
 import { reservarChamado } from '../services/salas';
 import { corAutomatica } from '../utils/paleta';
 import { guardarCorPreferida, lerCorPreferida } from '../utils/preferenciaDeCor';
@@ -99,7 +99,8 @@ function Modal({ salaId = null, onClose, onSubmit, autor = '' }) {
    * ocupando a cota da escola para sempre (AC-CHAMADO-08, mesmo espírito).
    */
   const fechar = () => {
-    if (anexo && anexo.caminho) removerAnexo(anexo.caminho);
+    if (anexo && anexo.origem === ORIGEM_DO_BANCO) removerImagemDoBanco(salaId, anexo.id);
+    else if (anexo && anexo.caminho) removerAnexo(anexo.caminho);
     onClose();
   };
 

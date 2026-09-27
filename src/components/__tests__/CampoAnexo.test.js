@@ -239,6 +239,9 @@ describe('CampoAnexo — progresso e cancelamento (AC-IMG-08)', () => {
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print());
 
     expect(await screen.findByRole('progressbar')).toBeInTheDocument();
+    // Espera o envio terminar: um envio solto gravaria no banco do próximo
+    // teste, depois do `__resetarFirestore` dele.
+    await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
   });
 
   it('oferece cancelar enquanto o envio está em andamento', async () => {
@@ -247,6 +250,7 @@ describe('CampoAnexo — progresso e cancelamento (AC-IMG-08)', () => {
     userEvent.upload(screen.getByLabelText(/imagem do computador/i), print());
 
     expect(await screen.findByRole('button', { name: /cancelar/i })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
   });
 
   it('cancelar interrompe o envio e limpa o campo, sem fechar o modal', async () => {

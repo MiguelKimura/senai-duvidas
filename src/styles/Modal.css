@@ -93,6 +93,20 @@ textarea:focus {
   margin-top: 15px;
 }
 
+/* Presos no fim do diálogo enquanto ele rola (v1.1.0): com a imagem anexada
+   e as opções avançadas abertas, o conteúdo passa da altura da tela, e o
+   aluno precisa alcançar o "Concluir" sem rolar até o fim. O `bottom`
+   negativo cola a faixa na borda de baixo, por cima do preenchimento. */
+.modal .buttons-container {
+  position: sticky;
+  bottom: -20px;
+  z-index: 1;
+  margin: 15px -20px -20px;
+  padding: 12px 20px;
+  background: var(--cor-superficie);
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.06);
+}
+
 /* Aplicado a todos os botões para uniformidade */
 button {
   padding: 12px;

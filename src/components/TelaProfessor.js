@@ -11,6 +11,8 @@ import {
   useExclusaoComDesfazer,
 } from '../hooks/useExclusaoComDesfazer';
 import { TIPO_ERRO, useToasts } from './Toast';
+import { useAuth } from '../contexts/AuthContext';
+import { usePreferenciaLocal } from '../hooks/usePreferenciaLocal';
 import CardDoChamado from './CardDoChamado';
 import ConfirmarAcao from './ConfirmarAcao';
 import FilaDeChamados from './FilaDeChamados';
@@ -28,6 +30,9 @@ export const AVISO_DE_FALHA_AO_ATENDER =
 /** O que a tela diz quando o servidor recusa a leitura da fila. */
 export const ERRO_AO_CARREGAR =
   'Não foi possível carregar a fila de dúvidas. Verifique a conexão.';
+
+/** Onde fica a escolha "Não perguntar mais" da exclusão, junto do uid. */
+export const CHAVE_NAO_CONFIRMAR = 'senai-duvidas:naoConfirmarExclusao';
 
 /** A turma ainda não abriu nada — o professor não é quem abre chamado. */
 export const FILA_VAZIA = 'Nenhuma dúvida por aqui ainda. A turma ainda não chamou.';
@@ -60,8 +65,36 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
 
   const excluir = useCallback((chamado) => excluirChamado(salaId, chamado), [salaId]);
 
-  const { emConfirmacao, pedirExclusao, confirmar, cancelar, estaSaindo, estaOculto } =
-    useExclusaoComDesfazer({ excluir });
+  const {
+    emConfirmacao,
+    pedirExclusao: perguntarAntes,
+    confirmar,
+    cancelar,
+    estaSaindo,
+    estaOculto,
+    excluirSemPerguntar,
+  } = useExclusaoComDesfazer({ excluir });
+
+  // "Não perguntar mais" (v1.1.0). Guardado neste navegador, por professor: o
+  // professor que exclui dez chamados resolvidos no fim da aula não precisa
+  // confirmar dez vezes — o desfazer de cinco segundos continua valendo.
+  const { usuario } = useAuth();
+  const [naoPerguntar, setNaoPerguntar] = usePreferenciaLocal(
+    usuario ? `${CHAVE_NAO_CONFIRMAR}:${usuario.uid}` : null
+  );
+
+  const pedirExclusao = useCallback(
+    (chamado) => (naoPerguntar ? excluirSemPerguntar(chamado) : perguntarAntes(chamado)),
+    [naoPerguntar, excluirSemPerguntar, perguntarAntes]
+  );
+
+  const confirmarExclusao = useCallback(
+    (escolha) => {
+      if (escolha && escolha.naoPerguntar) setNaoPerguntar(true);
+      confirmar();
+    },
+    [confirmar, setNaoPerguntar]
+  );
 
   const visiveis = useMemo(
     () => fila.filter((problema) => !estaOculto(problema.id)),
@@ -78,14 +111,14 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
   const alternarAtendido = useCallback(
     async (chamado) => {
       try {
-        await marcarAtendido(salaId, chamado.id, !chamado.atendido);
+        // O anexo vai junto: resolvido, o print guardado no banco sai (v1.1.0).
+        await marcarAtendido(salaId, chamado.id, !chamado.atendido, chamado.anexo);
       } catch {
         mostrar({ tipo: TIPO_ERRO, texto: AVISO_DE_FALHA_AO_ATENDER });
       }
     },
     [salaId, mostrar]
   );
-
 
   const tentarNovamente = useCallback(() => setTentativa((atual) => atual + 1), []);
 
@@ -127,6 +160,7 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
       <CardDoChamado
         key={problema.id}
         chamado={problema}
+        salaId={salaId}
         indice={indice}
         saindo={estaSaindo(problema.id)}
         perksPorUid={perksPorUid}
@@ -156,7 +190,15 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
         }
       />
     ),
-    [estaSaindo, perksPorUid, agoraServidor, somenteLeitura, alternarAtendido, pedirExclusao]
+    [
+      estaSaindo,
+      perksPorUid,
+      agoraServidor,
+      somenteLeitura,
+      alternarAtendido,
+      pedirExclusao,
+      salaId,
+    ]
   );
 
   return (
@@ -175,14 +217,27 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
             id: 'chamados',
             titulo: 'Chamados',
             conteudo: (
-              <FilaDeChamados
-                chamados={visiveis}
-                carregando={carregando}
-                erro={erroDaFila}
-                tentarNovamente={tentarNovamente}
-                textoVazio={FILA_VAZIA}
-                renderizarCard={renderizarCard}
-              />
+              <>
+                {/* O caminho de volta de "Não perguntar mais": sem ele, a
+                    escolha feita num clique ficaria para sempre. */}
+                {naoPerguntar && !somenteLeitura && (
+                  <button
+                    type="button"
+                    className="voltar-a-confirmar"
+                    onClick={() => setNaoPerguntar(false)}
+                  >
+                    Voltar a pedir confirmação ao excluir
+                  </button>
+                )}
+                <FilaDeChamados
+                  chamados={visiveis}
+                  carregando={carregando}
+                  erro={erroDaFila}
+                  tentarNovamente={tentarNovamente}
+                  textoVazio={FILA_VAZIA}
+                  renderizarCard={renderizarCard}
+                />
+              </>
             ),
           },
           ehDono && {
@@ -214,7 +269,8 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
           descricao={DESCRICAO_DA_CONFIRMACAO}
           rotuloConfirmar="Excluir"
           destrutiva
-          aoConfirmar={confirmar}
+          oferecerNaoPerguntar
+          aoConfirmar={confirmarExclusao}
           aoCancelar={cancelar}
         />
       )}
@@ -222,11 +278,7 @@ function TelaProfessor({ salaId = null, somenteLeitura = false, ehDono = false }
       {/* Quem chega a esta tela é o professor da sala, pelo vínculo que
           `Sala.jsx` conferiu. O papel vai junto porque é ele que libera o
           `!clear` na interface — a autorização que vale é a da rule. */}
-      <Chat
-        salaId={salaId}
-        papelNaSala={PAPEL_DE_PROFESSOR}
-        somenteLeitura={somenteLeitura}
-      />
+      <Chat salaId={salaId} papelNaSala={PAPEL_DE_PROFESSOR} somenteLeitura={somenteLeitura} />
     </div>
   );
 }

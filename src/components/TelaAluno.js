@@ -95,7 +95,6 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
     [fila, estaOculto]
   );
 
-
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
@@ -151,6 +150,7 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
       <CardDoChamado
         key={problema.id}
         chamado={problema}
+        salaId={salaId}
         indice={indice}
         saindo={estaSaindo(problema.id)}
         perksPorUid={perksPorUid}
@@ -166,7 +166,7 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
         }
       />
     ),
-    [estaSaindo, perksPorUid, agoraServidor, somenteLeitura, pedirExclusao]
+    [estaSaindo, perksPorUid, agoraServidor, somenteLeitura, pedirExclusao, salaId]
   );
 
   const openModal = () => setIsModalOpen(true);
@@ -324,11 +324,7 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
           na sala — a decisão de qual tela abrir é de `Sala.jsx`, pelo vínculo.
           Sem `insigniasDe` desde a v1.1.0: as premiações saíram do chat a
           pedido do cliente, para a conversa não ficar poluída. */}
-      <Chat
-        salaId={salaId}
-        papelNaSala={PAPEL_DE_ALUNO}
-        somenteLeitura={somenteLeitura}
-      />
+      <Chat salaId={salaId} papelNaSala={PAPEL_DE_ALUNO} somenteLeitura={somenteLeitura} />
     </div>
   );
 }

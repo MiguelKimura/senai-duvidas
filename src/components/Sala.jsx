@@ -10,10 +10,12 @@
 // com o cliente adulterado. O que esta tela faz é traduzir a recusa numa frase
 // em português, em vez de deixar uma tela vazia sem explicação.
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { PAPEL_DE_PROFESSOR, lerPapelNaSala, lerSala } from '../services/salas';
+import SeloDoPin from './SeloDoPin';
 import TelaAluno from './TelaAluno';
+import { useSalasDaPessoa } from '../hooks/useSalasDaPessoa';
 import TelaProfessor from './TelaProfessor';
 import '../styles/Salas.css';
 
@@ -22,10 +24,16 @@ const RECUSA = 'Você não faz parte desta sala. Peça o PIN ao professor da tur
 export default function Sala() {
   const { salaId } = useParams();
   const { usuario } = useAuth();
+  const navegar = useNavigate();
 
   const [estado, setEstado] = useState({ situacao: 'carregando' });
 
   const uid = usuario?.uid;
+
+  // As outras salas da pessoa, para trocar de turma sem voltar à lista
+  // (v1.1.0). O professor que dá aula para três turmas no mesmo dia troca
+  // daqui.
+  const salasDaPessoa = useSalasDaPessoa(uid);
 
   useEffect(() => {
     if (!salaId || !uid) return undefined;
@@ -84,10 +92,39 @@ export default function Sala() {
 
   return (
     <div className="sala">
+      {/* O PIN num canto, a aula inteira, só para o dono (v1.1.0). */}
+      {ehDono && <SeloDoPin salaId={salaId} podeGerar={!somenteLeitura} />}
+
       <header className="sala-cabecalho">
         <h2>
           {sala.nome} — {sala.curso} · {sala.anoLetivo}
         </h2>
+
+        <nav className="sala-navegacao" aria-label="Salas">
+          <button
+            type="button"
+            className="sala-navegacao-voltar"
+            onClick={() => navegar('/salas')}
+          >
+            Minhas salas
+          </button>
+
+          {salasDaPessoa.length > 1 && (
+            <select
+              className="sala-navegacao-seletor"
+              aria-label="Trocar de sala"
+              value={salaId}
+              onChange={(evento) => navegar(`/sala/${evento.target.value}`)}
+            >
+              {salasDaPessoa.map((outra) => (
+                <option key={outra.salaId} value={outra.salaId}>
+                  {outra.nome}
+                  {outra.curso ? ` — ${outra.curso}` : ''}
+                </option>
+              ))}
+            </select>
+          )}
+        </nav>
 
         {somenteLeitura && (
           <p className="sala-cartao-arquivada">

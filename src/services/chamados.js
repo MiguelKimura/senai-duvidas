@@ -12,7 +12,7 @@
 // contrário deixaria o card na tela sem o anexo.
 import { deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { colecaoDeChamados } from './salas';
-import { removerAnexoDoChamado } from './anexos';
+import { ORIGEM_DO_BANCO, removerAnexoDoChamado, removerImagemDoBanco } from './anexos';
 
 /**
  * Apaga o chamado e o anexo dele.
@@ -57,8 +57,13 @@ export async function excluirChamado(salaId, chamado) {
  * @param {boolean} atendido
  * @returns {Promise<void>}
  */
-export async function marcarAtendido(salaId, chamadoId, atendido) {
+export async function marcarAtendido(salaId, chamadoId, atendido, anexo = null) {
   if (!chamadoId) return;
+
+  // Resolvido, o print guardado no banco não tem mais serventia e ocupa a
+  // cota gratuita da escola (v1.1.0): sai a imagem, e o card deixa de
+  // apontar para ela. Anexo por link não é nosso para apagar.
+  const levaAImagem = Boolean(atendido) && anexo && anexo.origem === ORIGEM_DO_BANCO;
 
   await updateDoc(doc(colecaoDeChamados(salaId), chamadoId), {
     atendido: Boolean(atendido),
@@ -66,5 +71,8 @@ export async function marcarAtendido(salaId, chamadoId, atendido) {
     // relógio das máquinas de laboratório não é confiável, e uma métrica de
     // tempo de atendimento medida por ele não vale nada.
     atendidoEm: atendido ? serverTimestamp() : null,
+    ...(levaAImagem ? { anexo: null, imagem: null } : {}),
   });
+
+  if (levaAImagem) await removerImagemDoBanco(salaId, anexo.id);
 }

@@ -106,14 +106,15 @@ describe('enviarImagemParaOBanco — onde a imagem vai parar', () => {
 
 describe('comprimirParaOBanco — cabe no documento', () => {
   it('reduz a imagem em degraus até caber no teto', async () => {
-    // Com o canvas falso, 1 byte a cada 100 pixels: um teto baixo força as
-    // tentativas menores.
-    const resultado = await comprimirParaOBanco(print(3000, 2000), 'image/png', { teto: 900 });
+    // Com o canvas falso, 1 byte a cada 100 pixels: a 1600px a data URL passa
+    // de 22 mil caracteres, e a 800px fica em uns 5.700. Um teto de 8 mil
+    // obriga a descer todos os degraus.
+    const resultado = await comprimirParaOBanco(print(3000, 2000), 'image/png', { teto: 8000 });
 
     const lados = desenhosFeitos().map((desenho) => Math.max(desenho.largura, desenho.altura));
 
     expect(lados[lados.length - 1]).toBeLessThan(lados[0]);
-    expect(resultado.dados.length).toBeLessThanOrEqual(900);
+    expect(resultado.dados.length).toBeLessThanOrEqual(8000);
   });
 
   it('desiste com uma frase acionável quando nem a menor versão cabe', async () => {

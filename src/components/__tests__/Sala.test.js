@@ -382,9 +382,14 @@ describe('o PIN sempre à vista para o dono da sala (v1.1.0)', () => {
     renderComProvedores(<Sala />);
 
     const selo = await screen.findByRole('region', { name: 'PIN da sala' });
-    await userEvent.click(within(selo).getByRole('button', { name: 'Gerar novo PIN' }));
+    // O botão aparece quando a leitura do PIN guardado termina.
+    await userEvent.click(await within(selo).findByRole('button', { name: 'Gerar novo PIN' }));
 
-    await waitFor(() => expect(within(selo).getByText(/^\d{6}$/)).toBeInTheDocument());
+    // Gerar é uma sequência de leituras e escritas (índice, segredo, sala):
+    // com a suíte inteira rodando em paralelo, o segundo padrão não basta.
+    await waitFor(() => expect(within(selo).getByText(/^\d{6}$/)).toBeInTheDocument(), {
+      timeout: 5000,
+    });
     // O PIN novo fica guardado, para aparecer de novo na próxima vez.
     expect(__documentosDe('salas/sala-mecanica/segredo')[0].pin).toMatch(/^\d{6}$/);
   });

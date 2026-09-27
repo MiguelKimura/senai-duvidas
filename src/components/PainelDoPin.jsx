@@ -50,8 +50,8 @@ export default function PainelDoPin({ pin, titulo = 'PIN da sala' }) {
       )}
 
       <p className="painel-do-pin-aviso">
-        Anote agora: o PIN aparece uma única vez. O sistema guarda só o resumo dele, então
-        ninguém — nem o suporte — consegue recuperá-lo depois. Se perder, gere um novo.
+        Passe este PIN para a turma. Ele fica guardado e aparece no canto da tela da sala, só
+        para você, a aula inteira. Se ele vazar, gere um novo ali mesmo.
       </p>
     </div>
   );

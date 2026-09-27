@@ -36,6 +36,8 @@ import '../styles/CardDoChamado.css';
  * @param {Map<string, Array<object>>|object} [props.perksPorUid]
  * @param {Date|null} [props.agoraServidor]
  * @param {React.ReactNode} [props.acoes] o rodapé de ações da tela.
+ * @param {string|null} [props.salaId] de onde o olho lê a imagem guardada no
+ *   banco (v1.1.0).
  */
 function CardDoChamado({
   chamado,
@@ -44,6 +46,7 @@ function CardDoChamado({
   perksPorUid,
   agoraServidor,
   acoes = null,
+  salaId = null,
 }) {
   // Recolhida por padrão: é o que dá a todo card a mesma altura na fila, e é
   // o que impede um chamado de vinte linhas de empurrar os outros para fora
@@ -75,7 +78,7 @@ function CardDoChamado({
         {/* O olho 👁️ do anexo, no canto de sempre. Clicar abre o
             visualizador na própria página — `window.open` vinha bloqueado em
             parte dos laboratórios (AC-IMG-10). */}
-        <AnexoDoCard chamado={chamado} />
+        <AnexoDoCard chamado={chamado} salaId={salaId} />
       </div>
 
       {/* Data e hora logo abaixo do nome, antes do texto: é a primeira coisa

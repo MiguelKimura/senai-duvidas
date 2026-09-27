@@ -17,7 +17,8 @@
 //      do navegador, que não explica nada a ninguém (AC-IMG-12).
 import React, { useState } from 'react';
 import Lightbox from './Lightbox';
-import { normalizarAnexo } from '../services/anexos';
+import { ORIGEM_DO_BANCO, normalizarAnexo } from '../services/anexos';
+import { lerImagemDoBanco } from '../services/imagensNoBanco';
 import '../styles/AnexoDoCard.css';
 
 /** O que o card diz quando a imagem do anexo não carrega (AC-IMG-12). */
@@ -51,9 +52,10 @@ export function anexoDoChamado(chamado) {
  * A imagem quebrada continua avisada: quem avisa agora é o `Lightbox`, que é
  * onde ela tenta carregar (AC-IMG-12).
  *
- * @param {{chamado: object}} props
+ * @param {{chamado: object, salaId?: string|null}} props `salaId` é de onde
+ *   sai a imagem guardada no banco (v1.1.0).
  */
-export default function AnexoDoCard({ chamado }) {
+export default function AnexoDoCard({ chamado, salaId = null }) {
   const [aberto, setAberto] = useState(false);
 
   const anexo = anexoDoChamado(chamado);
@@ -77,9 +79,16 @@ export default function AnexoDoCard({ chamado }) {
         <span aria-hidden="true">👁️</span>
       </button>
 
-      {aberto && (
-        <Lightbox url={anexo.url} descricao={descricao} onFechar={() => setAberto(false)} />
-      )}
+      {aberto &&
+        (anexo.origem === ORIGEM_DO_BANCO ? (
+          <Lightbox
+            carregar={() => lerImagemDoBanco(salaId, anexo.id)}
+            descricao={descricao}
+            onFechar={() => setAberto(false)}
+          />
+        ) : (
+          <Lightbox url={anexo.url} descricao={descricao} onFechar={() => setAberto(false)} />
+        ))}
     </>
   );
 }

@@ -92,3 +92,20 @@
     flex-direction: column-reverse;
   }
 }
+
+/* "Não perguntar mais" (v1.1.0): discreto, abaixo da descrição. */
+.confirmar-nao-perguntar {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-1);
+  margin: 0 0 var(--espaco-3);
+  color: var(--cor-texto-rotulo);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.confirmar-nao-perguntar input {
+  width: auto;
+  margin: 0;
+}
