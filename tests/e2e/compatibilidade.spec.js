@@ -36,7 +36,7 @@ const {
   semearBancoDaV010,
 } = require('./fixtures/cenario');
 const { HOST, PORTA_FIRESTORE, idsDe, ler, limparTudo, projeto } = require('./fixtures/emulador');
-const { entrar } = require('./fixtures/app');
+const { abrirSala, entrar } = require('./fixtures/app');
 
 const RAIZ = path.join(__dirname, '..', '..');
 
@@ -73,13 +73,42 @@ function migrar(script, argumentos) {
   });
 }
 
-test('a aluna entra num banco sem sala nenhuma e vê o histórico dela (AC-SALA-06, AC-TEMPO-08)', async ({
+/**
+ * Leva o banco da v0.1.0 para dentro de uma sala, pelo caminho documentado.
+ *
+ * Desde a v1.1.0 a interface não lê mais as coleções globais: `/aluno` e
+ * `/professor` redirecionam para `/salas`. O que continua valendo — e é o que
+ * estes testes guardam — é que o documento no formato antigo, copiado pela
+ * migração, aparece certo dentro da sala: horário em string ISO, `nome` sem
+ * `autorNome`, `imagem` como string de URL.
+ *
+ * @returns {Promise<string>} o id da sala criada.
+ */
+async function migrarParaSala() {
+  migrar('migrar-para-salas.js', ['--confirmar', '--professor', CARLOS.uid]);
+
+  const [salaId] = await idsDe('salas');
+
+  return salaId;
+}
+
+test('a aluna num banco sem sala nenhuma cai no PIN, e não na fila global (v1.1.0)', async ({
   page,
 }) => {
   await entrar(page, ANA);
 
-  // O fallback de leitura: sem sala, a rota do aluno cai nas coleções globais.
-  await expect(page).toHaveURL(/\/aluno$/);
+  await expect(page).toHaveURL(/\/salas$/);
+  await expect(page.getByLabel('PIN da sala')).toBeVisible();
+  await expect(page.locator('.problema-card')).toHaveCount(0);
+});
+
+test('o histórico da v0.1.0, migrado para a sala, aparece certo (AC-SALA-06, AC-TEMPO-08)', async ({
+  page,
+}) => {
+  const salaId = await migrarParaSala();
+
+  await entrar(page, ANA);
+  await abrirSala(page, salaId);
 
   const comPrint = page.locator('.problema-card').filter({ hasText: 'olha o print' });
   const semPrint = page.locator('.problema-card').filter({ hasText: 'A furadeira' });
@@ -102,16 +131,20 @@ test('a aluna entra num banco sem sala nenhuma e vê o histórico dela (AC-SALA-
     descricoes.findIndex((texto) => texto.includes('A furadeira'))
   );
 
-  // O anexo em formato de string de URL continua sendo um anexo (AC-IMG-13).
-  await expect(comPrint.getByRole('button', { name: /anexo do chamado/i })).toBeVisible();
+  // O anexo em formato de string de URL continua sendo um anexo (AC-IMG-13): o
+  // olho aparece no card.
+  await expect(comPrint.getByRole('button', { name: /ver imagem/i })).toBeVisible();
   // E o chamado sem anexo não ganha um botão para um arquivo que não existe.
-  await expect(semPrint.getByRole('button', { name: /anexo do chamado/i })).toHaveCount(0);
+  await expect(semPrint.getByRole('button', { name: /ver imagem/i })).toHaveCount(0);
 });
 
 test('a aluna usa as features novas sobre o banco antigo (AC-COR-01, AC-COR-07)', async ({
   page,
 }) => {
+  const salaId = await migrarParaSala();
+
   await entrar(page, ANA);
+  await abrirSala(page, salaId);
 
   await page.getByRole('button', { name: /abrir novo chamado/i }).click();
 
@@ -135,7 +168,10 @@ test('a aluna usa as features novas sobre o banco antigo (AC-COR-01, AC-COR-07)'
 test('o cliente da v0.1.0 lê sem quebrar o que a 1.0.0 grava (compatibilidade futura)', async ({
   page,
 }) => {
+  const salaId = await migrarParaSala();
+
   await entrar(page, ANA);
+  await abrirSala(page, salaId);
 
   await page.getByRole('button', { name: /abrir novo chamado/i }).click();
 
@@ -145,7 +181,7 @@ test('o cliente da v0.1.0 lê sem quebrar o que a 1.0.0 grava (compatibilidade f
   await modal.getByRole('button', { name: /^concluir$/i }).click();
   await expect(page.locator('.problema-card').filter({ hasText: 'pela 1.0.0' })).toBeVisible();
 
-  const ids = await idsDe('chamados');
+  const ids = await idsDe(`salas/${salaId}/chamados`);
   const idNovo = ids.find((id) => !id.startsWith('legado-'));
 
   expect(idNovo).toBeTruthy();
@@ -156,12 +192,15 @@ test('o cliente da v0.1.0 lê sem quebrar o que a 1.0.0 grava (compatibilidade f
   // condição, e ela é parte do que se está provando — a janela em que um cliente
   // da v0.1.0 leria `Invalid Date` é a duração desse ida e volta.
   await expect
-    .poll(async () => (await ler(`chamados/${idNovo}`)).horarioIso?.stringValue, {
-      timeout: 15000,
-    })
+    .poll(
+      async () => (await ler(`salas/${salaId}/chamados/${idNovo}`)).horarioIso?.stringValue,
+      {
+        timeout: 15000,
+      }
+    )
     .toBeTruthy();
 
-  const gravado = await ler(`chamados/${idNovo}`);
+  const gravado = await ler(`salas/${salaId}/chamados/${idNovo}`);
 
   // O leitor da v0.1.0, reconstruído: ele conhece cinco campos e mais nada. Se
   // ele lançar exceção, é a tela branca no meio da aula de quem não atualizou a
@@ -189,11 +228,17 @@ test('o cliente da v0.1.0 lê sem quebrar o que a 1.0.0 grava (compatibilidade f
   expect(gravado.horario.timestampValue).toBeTruthy();
 });
 
-test('o professor também vê o histórico global, e a mensagem antiga do chat', async ({ page }) => {
-  await entrar(page, CARLOS);
+test('o professor também vê o histórico migrado, e a mensagem antiga do chat', async ({
+  page,
+}) => {
+  const salaId = await migrarParaSala();
 
-  await expect(page).toHaveURL(/\/professor$/);
-  await expect(page.locator('.problema-card').filter({ hasText: 'olha o print' })).toBeVisible();
+  await entrar(page, CARLOS);
+  await abrirSala(page, salaId);
+
+  await expect(
+    page.locator('.problema-card').filter({ hasText: 'olha o print' })
+  ).toBeVisible();
 
   await page
     .getByRole('button', { name: /chat|conversa/i })
@@ -213,26 +258,34 @@ test('o professor também vê o histórico global, e a mensagem antiga do chat',
   await expect(balao).toContainText(CARLOS.nome);
 });
 
-test('o app preenche horarioIso sozinho no chamado antigo do próprio autor', async ({ page }) => {
+test('o app preenche horarioIso sozinho no chamado antigo do próprio autor', async ({
+  page,
+}) => {
+  const salaId = await migrarParaSala();
+  const caminho = `salas/${salaId}/chamados/legado-com-print`;
+
   // Antes de a Ana entrar, os documentos dela não têm o campo.
-  const antes = await ler('chamados/legado-com-print');
+  const antes = await ler(caminho);
 
   expect(antes.horarioIso).toBeUndefined();
 
   await entrar(page, ANA);
-  await expect(page.locator('.problema-card').filter({ hasText: 'olha o print' })).toBeVisible();
+  await abrirSala(page, salaId);
+  await expect(
+    page.locator('.problema-card').filter({ hasText: 'olha o print' })
+  ).toBeVisible();
 
   // `completarHorariosIso` escreve só nos documentos de quem está logado, e a
   // rule aceita porque `horario` não mudou. A espera é por condição — o valor
   // aparecendo no banco —, nunca por tempo.
   await expect
-    .poll(async () => (await ler('chamados/legado-com-print')).horarioIso?.stringValue, {
+    .poll(async () => (await ler(caminho)).horarioIso?.stringValue, {
       timeout: 15000,
     })
     .toBe(new Date(HORARIO_LEGADO).toISOString());
 
   // E `horario` continua intocado: a migração é aditiva, nunca reescreve.
-  const depois = await ler('chamados/legado-com-print');
+  const depois = await ler(caminho);
 
   expect(depois.horario.stringValue).toBe(HORARIO_LEGADO);
 });

@@ -82,7 +82,8 @@ test('a aluna abre um chamado com print, cor e markdown, e o card aparece (AC-CH
 
   await expect(card).toBeVisible();
   await expect(card.locator('strong', { hasText: 'torno' })).toBeVisible();
-  await expect(card.getByRole('button', { name: /anexo do chamado/i })).toBeVisible();
+  // Desde a v1.1.0 o card mostra o olho, e não a miniatura do print.
+  await expect(card.getByRole('button', { name: /ver imagem/i })).toBeVisible();
 
   // E o documento no banco: o anexo gravado nos dois formatos, que é a
   // compatibilidade que a 1.0.0 mantém (AC-IMG-13, docs/MIGRACOES.md).

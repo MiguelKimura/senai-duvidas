@@ -121,14 +121,20 @@ test.describe('na 1024×768 dos laboratórios', () => {
     expect(caixa.y + caixa.height).toBeLessThanOrEqual(LABORATORIO.height);
   });
 
-  test('a tela do professor cabe com o painel da turma e o de perks (AC-ANIM-08)', async ({
+  test('a tela do professor cabe em cada aba: fila, premiações e turma (AC-ANIM-08)', async ({
     page,
   }) => {
-    // A tela mais cheia do sistema: cabeçalho, turma, premiações e a fila. É
-    // onde duas colunas disputam a largura.
+    // Desde a v1.1.0 turma e premiações têm abas próprias. Cada aba precisa
+    // caber na 1024×768 sem vazar para o lado.
     await entrar(page, CARLOS);
     await abrirSala(page, SALA.id);
+    await naoVazaParaOLado(page);
 
+    await page.getByRole('tab', { name: 'Premiações' }).click();
+    await expect(page.getByRole('region', { name: 'Conceder premiações' })).toBeVisible();
+    await naoVazaParaOLado(page);
+
+    await page.getByRole('tab', { name: 'Turma' }).click();
     await expect(page.getByRole('region', { name: 'Turma da sala' })).toBeVisible();
     await naoVazaParaOLado(page);
   });
@@ -163,7 +169,9 @@ test.describe('na 1024×768 dos laboratórios', () => {
 
     const painel = await page.locator('.chat-box').boundingBox();
     const conversa = await page.locator('.mensagens-rolagem').boundingBox();
-    const historico = await page.getByRole('button', { name: /ver dias anteriores/i }).boundingBox();
+    const historico = await page
+      .getByRole('button', { name: /ver dias anteriores/i })
+      .boundingBox();
 
     expect(conversa.height).toBeGreaterThan(painel.height * 0.5);
 
