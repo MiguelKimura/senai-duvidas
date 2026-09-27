@@ -38,7 +38,7 @@ Em **Settings → Branches → Add branch protection rule**, crie duas regras.
   - [x] Dismiss stale pull request approvals when new commits are pushed
 - [x] Require status checks to pass before merging
   - [x] Require branches to be up to date before merging
-  - Checks obrigatórios: `lint`, `test`, `test-rules`, `build`
+  - Checks obrigatórios: `lint`, `test`, `test-rules`, `e2e`, `build`
 - [x] Require conversation resolution before merging
 - [x] Do not allow bypassing the above settings
 - [ ] Allow force pushes — **desmarcado**

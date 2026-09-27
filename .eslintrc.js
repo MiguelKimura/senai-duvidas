@@ -80,5 +80,18 @@ module.exports = {
         'no-undef': 'error',
       },
     },
+    {
+      // Specs do Playwright. `page.getByRole(...)` é a API do Playwright, e não
+      // a do Testing Library — as regras de `testing-library` não distinguem as
+      // duas e pedem `screen.getByRole` em cada consulta. Não existe `screen`
+      // aqui: o teste conversa com um navegador de verdade, por CDP, e o DOM
+      // está no outro processo.
+      files: ['tests/e2e/**/*.js'],
+      env: { node: true, es2021: true },
+      rules: {
+        'testing-library/prefer-screen-queries': 'off',
+        'testing-library/no-await-sync-queries': 'off',
+      },
+    },
   ],
 };

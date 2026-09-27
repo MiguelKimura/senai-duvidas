@@ -161,3 +161,32 @@ export function __registrarCredencial(email, senha, usuario = {}) {
     usuario: { uid: `uid-${email}`, email, displayName: null, ...usuario },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Ligação com o Emulator Suite (AC-TEST-06)
+// ---------------------------------------------------------------------------
+//
+// O mock não simula emulador nenhum: ele apenas registra que `src/firebase.js`
+// pediu a ligação, e com quais host e porta. O que o teste precisa provar é
+// que o build de produção **não** pede, e que o build de e2e pede uma vez só.
+
+let emuladoresLigados = [];
+
+// A assinatura é a do SDK de verdade, e ela difere das outras duas: o Auth
+// recebe uma URL inteira, o Firestore e o Storage recebem host e porta
+// separados. O mock desmonta a URL para que a asserção do teste seja a mesma
+// nos três — se `src/firebase.js` montar a URL errada, o desmonte falha aqui.
+export function connectAuthEmulator(_alvo, url) {
+  const { hostname, port } = new URL(url);
+
+  emuladoresLigados.push({ host: hostname, porta: Number(port) });
+}
+
+/** As ligações pedidas até agora, em ordem. */
+export function __emuladoresLigados() {
+  return emuladoresLigados;
+}
+
+export function __resetarEmuladores() {
+  emuladoresLigados = [];
+}

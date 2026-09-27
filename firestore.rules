@@ -194,6 +194,66 @@ service cloud.firestore {
         && pinConfere(salaId, tentativaAtual().pinTentado);
     }
 
+    /// O `formato` do chamado, se ele vier (AC-COR-07).
+    ///
+    /// Ausente é válido: é o chamado da v0.1.0, e o leitor trata a ausência
+    /// como texto puro. Presente, só os dois valores que `utils/markdown.js`
+    /// sabe renderizar — qualquer outro cairia em texto na leitura de
+    /// qualquer forma, e aceitá-lo no banco só cria documento que mente
+    /// sobre si mesmo.
+    function formatoEhValido() {
+      return !('formato' in request.resource.data)
+        || request.resource.data.formato in ['texto', 'markdown']
+        || formatoNaoMudou();
+    }
+
+    /// O `formato` da escrita é o que já está gravado no documento.
+    ///
+    /// Mesmo desenho de `horarioNaoMudou()`, e pela mesma razão. Numa
+    /// atualização, `request.resource.data` é o documento **inteiro** depois
+    /// da escrita: sem isto, um chamado antigo com formato desconhecido
+    /// recusaria "marcar como atendido" e o preenchimento de `horarioIso` —
+    /// escritas que o app faz sozinho, sem ninguém pedir.
+    ///
+    /// O campo que não mudou não é reconferido; trocá-lo por outro inválido
+    /// continua negado, porque aí ele mudou.
+    function formatoNaoMudou() {
+      return resource != null
+        && 'formato' in resource.data
+        && request.resource.data.formato == resource.data.formato;
+    }
+
+    /// A `cor` do card, se ela vier (AC-COR-04).
+    ///
+    /// Este campo termina num atributo de estilo, renderizado para os
+    /// quarenta membros da sala. A rule fecha o conjunto no servidor, e não
+    /// só no cliente, porque uma escrita feita pelo DevTools também pinta o
+    /// card de todo mundo.
+    ///
+    /// São exatamente as duas formas que o app produz: o `hsl(...)` sorteado
+    /// desde a v0.1.0 e o hexadecimal da paleta da v0.7.0. O que `url(` e
+    /// `expression(` fariam ali é pedir uma imagem ao servidor de outra
+    /// pessoa — e entregar o IP da turma inteira a ele.
+    ///
+    /// O teto de tamanho é o guarda contra a forma que ninguém previu: nenhum
+    /// valor legítimo dos dois formatos passa de 40 caracteres.
+    function corEhValida() {
+      return !('cor' in request.resource.data)
+        || (request.resource.data.cor is string
+            && request.resource.data.cor.size() <= 40
+            && (request.resource.data.cor.matches('^#[0-9a-fA-F]{3,8}$')
+                || request.resource.data.cor.matches(
+                     '^hsl[(] *[0-9.]+ *, *[0-9.]+% *, *[0-9.]+% *[)]$')))
+        || corNaoMudou();
+    }
+
+    /// A `cor` da escrita é a que já está gravada. Ver `formatoNaoMudou()`.
+    function corNaoMudou() {
+      return resource != null
+        && 'cor' in resource.data
+        && request.resource.data.cor == resource.data.cor;
+    }
+
     // ----------------------------------------------------------------------
     // salas/{salaId}
     // ----------------------------------------------------------------------
@@ -272,14 +332,19 @@ service cloud.firestore {
           && request.resource.data.descricao is string
           && request.resource.data.descricao.size() > 0
           && request.resource.data.descricao.size() <= 1000
+          && formatoEhValido()
+          && corEhValida()
           && horarioEhDoServidor();
 
         // Marcar como atendido é do professor; completar `horarioIso` é do
-        // autor. Nenhum dos dois troca a autoria.
+        // autor. Nenhum dos dois troca a autoria — nem a cor ou o formato por
+        // um valor que a criação teria recusado.
         allow update: if ehMembroDaSala(salaId)
           && salaEstaAtiva(salaId)
           && (resource.data.autorUid == request.auth.uid || ehDonoDaSala(salaId))
           && request.resource.data.autorUid == resource.data.autorUid
+          && formatoEhValido()
+          && corEhValida()
           && horarioEhDoServidor();
 
         allow delete: if salaEstaAtiva(salaId)
@@ -466,6 +531,28 @@ service cloud.firestore {
           return ehAutenticado() && request.auth.uid in resource.data.participantes;
         }
 
+        /// Quem está pedindo é um dos dois uids embutidos no id da conversa.
+        ///
+        /// Existe por causa do documento que **ainda não existe**. O cliente lê
+        /// a conversa antes de criá-la — é a leitura que distingue abrir de
+        /// reabrir, e um `setDoc` cego em cima de uma conversa existente seria
+        /// um `update` que recarimbaria `criadaEm`. Nesse `get`, `resource` é
+        /// nulo, e `participa()` estouraria ao procurar `participantes` dentro
+        /// dele: a primeira conversa de cada par seria sempre negada.
+        ///
+        /// O id é `uidMenor_uidMaior`, e `conversaBemFormada()` é quem garante
+        /// que ele corresponda aos participantes gravados. Isso o torna fonte
+        /// confiável de quem são os dois lados **antes** de haver documento.
+        ///
+        /// Por que não liberar o inexistente para qualquer membro da sala: um
+        /// terceiro compararia as duas respostas — vazio contra
+        /// permission-denied — e teria um detector de conversas alheias sem ler
+        /// uma única mensagem. Saber que duas pessoas conversam é informação
+        /// sobre elas (AC-DM-04).
+        function souParteDoId() {
+          return ehAutenticado() && request.auth.uid in conversaId.split('_');
+        }
+
         /// A pessoa tem vínculo com esta sala.
         function ehMembro(uid) {
           return exists(/databases/$(database)/documents/salas/$(salaId)/membros/$(uid));
@@ -494,7 +581,9 @@ service cloud.firestore {
             && request.resource.data.criadaEm == request.time;
         }
 
-        allow get, list: if participa();
+        // `resource == null` é o documento que ainda não existe: ali a rule
+        // não tem participantes para conferir, e o id é o que sobra.
+        allow get, list: if resource == null ? souParteDoId() : participa();
 
         allow create: if ehMembroDaSala(salaId)
           && salaEstaAtiva(salaId)
@@ -662,7 +751,15 @@ service cloud.firestore {
     // ANTES de existir sessão, então a leitura continua pública enquanto o
     // fluxo de cadastro for esse.
     //
-    // TODO(task-09): mover a checagem para um custom claim e fechar a leitura.
+    // A task 09 auditou este ponto e decidiu MANTER a leitura aberta. Fechá-la
+    // exige mover o papel para um custom claim, que exige `setCustomUserClaims`
+    // do Admin SDK, que exige um ambiente de servidor (Cloud Function, plano
+    // Blaze) que este projeto não tem. A autorização em si está fechada: a
+    // escrita é negada a todos, e a rule de `usuarios/{uid}` reconfere o papel a
+    // cada escrita. O que fica legível é a lista, não o poder.
+    //
+    // Registrado como B-006 em `docs/BLOQUEIOS.md`, com a migração em duas
+    // etapas, e explicado em `docs/SEGURANCA.md` § 2.3. Previsto para a 1.1.0.
     match /autorizados/{email} {
       allow read: if true;
       allow write: if false;

@@ -805,4 +805,282 @@ animação mínima do próprio escopo — e escolheu a duração e a curva na ho
 
 ## v1.0.0 — Primeira versão estável
 
-*(a preencher pela task 09, incluindo a seção "O sistema hoje, pelos olhos de quem usa")*
+**O que existia**
+
+Dez versões de funcionalidade, todas entregues e todas testadas: salas com PIN, fila de
+chamados com horário do servidor, anexo de imagem, cor e markdown no card, chat reescrito com
+conversas diretas, premiações, acabamento e acessibilidade. A suíte tinha 1609 testes
+unitários e 228 de Security Rules, e estava verde.
+
+Uma versão estável, porém, não é a soma das anteriores. É a afirmação de que **o projeto
+inteiro** atende ao que foi combinado — e essa é uma afirmação que só a auditoria produz.
+Esta versão começou por ela: percorrer `docs/CRITERIOS-DE-ACEITE.md` critério por critério,
+localizar o teste que prova cada um e **rodá-lo**, sob uma regra dura: *um AC sem teste que o
+prove conta como não atendido, ainda que a funcionalidade exista na tela*.
+
+**O que a auditoria encontrou**
+
+Onze critérios [MVP] entraram como ❌. Nenhum era funcionalidade faltando; quase todos eram a
+mesma coisa — algo que funcionava sem que nada garantisse que continuaria funcionando. A
+tabela completa está em [`AUDITORIA-1.0.0.md`](AUDITORIA-1.0.0.md); estes são os que valem ser
+contados:
+
+- **O cliente não validava o tamanho da descrição.** O servidor recusava descrição vazia ou
+  acima de 1000 caracteres, mas a tela só tinha um `if (!descricao) return;`. O aluno que
+  colasse um log de 4000 caracteres via o modal fechar sem erro — e o chamado não aparecer.
+  Dois lugares discordando, e o aluno recebendo o silêncio.
+- **O bundle estava dentro do orçamento e isso não significava nada.** 218,76 KB gzip, abaixo
+  dos 300 do critério. Mas **nada media** esse número e **nada quebrava** se ele dobrasse — e
+  não havia divisão por rota: um único `main.js` fazia o aluno baixar a tela do professor
+  para conseguir ver o campo de e-mail.
+- **FCP e carga nunca tinham sido medidos.** O teste de carga media render em jsdom com dados
+  em memória, que é medir outra coisa.
+- **Não havia suíte end-to-end.** Nenhum fluxo do sistema tinha prova em navegador de verdade.
+- **O orçamento de tempo da suíte era por job.** `timeout-minutes: 5` em cada um dos cinco
+  jobs permite 25 minutos somados, e não diz nada sobre o conjunto.
+- **Nada lia o histórico de commits**, embora o AC-TEST-02 exija o ciclo red-green-refactor
+  comprovado ali. E nada garantia que cada um dos onze critérios [REG] tivesse teste de
+  regressão nomeado.
+- **Não existia workflow de release.** Nenhum merge em `main` gerava tag, e o procedimento de
+  deploy — e o de voltar atrás — não estava escrito em lugar nenhum.
+- **O AC-SEC-07 não tinha prova.** Ele tem duas metades — nenhum dado além de nome e e-mail é
+  coletado, e nenhum log expõe dado pessoal — e nenhuma das duas era verificada.
+- **A responsividade era lida no texto do CSS.** O jsdom não aplica folha de estilo nem
+  calcula posição; não existe, dentro do Jest, pixel para medir. Estava declarado como
+  bloqueio B-002 desde a v0.10.0.
+- **Três manuais faltando ou desatualizados.** O manual do aluno não existia — adiado pela
+  v0.9.0 e de novo pela v0.10.0 —, o do professor cobria só as premiações, e o README dizia
+  "Versão atual: 0.5.0" com o pacote em 0.10.0.
+
+Duas lacunas **de servidor** apareceram junto, as duas registradas em versões anteriores com
+a remissão explícita "fica para a task 09": a rule de criação de chamado aceitava `formato` e
+`cor` sem olhar, e a de mensagem direta não conferia o tamanho do texto.
+
+**O que foi decidido, e por quê**
+
+- **Playwright contra o Emulator Suite**, sobre o **build de produção** — não o dev server,
+  que serve módulos sem minificação e mediria um artefato que nunca chega ao aluno. Seis
+  fluxos críticos em navegador: login com sessão restaurada, o ciclo do PIN com duas pessoas,
+  abrir chamado com print e excluir com desfazer, chat da sala, mensagem direta com um
+  terceiro logado sem acesso, e a 1.0.0 lendo o banco da v0.1.0.
+  **Descartado:** Cypress, porque não expõe o CDP de forma direta — e é por ele que se faz o
+  throttling de 3G rápida e se lê o First Contentful Paint. Detalhes no ADR 0013.
+- **Divisão do bundle por rota**, com `React.lazy` nas oito telas e um `Suspense` só em volta
+  de todas. O inicial caiu de 218,76 para **172,77 KB gzip**, com 13 pedaços sob demanda. E,
+  mais importante que o número: `scripts/verificarOrcamentoDoBundle.js` **reprova o CI** se
+  ele estourar. Um orçamento sem alarme é uma frase num documento.
+  **Descartado:** dividir por biblioteca (`vendor`), que melhora o cache entre deploys e não
+  reduz o primeiro carregamento; e ejetar o Create React App, que custaria a manutenção da
+  configuração inteira para sempre. Detalhes no ADR 0012.
+- **Varreduras que olham o código, e não uma lista escrita à mão.** É o padrão que esta versão
+  repetiu em seis lugares, porque lista à mão envelhece em silêncio: todo `onSnapshot` do
+  `src/` precisa ter escopo, `limit` e cancelamento; todo `dangerouslySetInnerHTML` precisa
+  morar num arquivo que importe o sanitizador; toda escrita precisa ter seus campos na lista
+  de dados pessoais declarados **com o motivo escrito**, e a lista não pode ter sobra; o
+  orçamento de leitura é derivado dos `limit()` do fonte, e não copiado do documento.
+  Cada varredura tem uma asserção que prova que ela **enxerga** — varredura que aprova o vazio
+  não prova nada.
+- **O ciclo red-green-refactor passou a ser lido no `git log`.** O AC-TEST-02 pede o ciclo
+  comprovado no histórico; agora um teste exige que todo commit de implementação seja
+  precedido por um commit de teste no mesmo escopo, e o job `commits` do CI verifica a ordem,
+  não só o formato da mensagem.
+- **O orçamento de tempo passou a ser da suíte inteira**: `scripts/orcamentoDaSuite.js` soma
+  as três e reprova se o total passar de cinco minutos.
+- **A subida dos emuladores deixou de ser cobrada de um teste.** Este foi o último defeito
+  achado na versão, e ele só aparece quando se roda a suíte **inteira** numa máquina ocupada:
+  seis testes corretos ficaram vermelhos de uma vez, todos com "timeout exceeded while running
+  beforeEach hook". A causa não era nenhum deles. O `webServer` do Playwright sabe esperar uma
+  URL só, e a escolhida é a do Firestore, que abre a porta antes de Auth e Storage abrirem as
+  suas; o resto da espera caía no orçamento do primeiro teste que precisasse do banco — e,
+  porque a sonda é memoizada, todos os que começassem antes da subida terminar aguardavam a
+  mesma promessa pendente e estouravam junto. A espera passou para o `globalSetup`, que roda
+  antes de existir o primeiro teste e tem orçamento próprio. O que o desenvolvedor sente na
+  prática: a suíte para de reprovar por estar com pressa, e a mensagem de falha volta a
+  apontar para o teste que falhou de verdade.
+- **A sonda dos emuladores passou a acusar a causa certa.** O defeito acima tinha um irmão, e
+  ele custou vinte minutos na própria execução de release. `npm run test:rules` encerrou
+  deixando o emulador de Firestore órfão na porta 8080 — o Firebase avisa que ele saiu por
+  SIGKILL e o processo Java segue de pé. A suíte e2e subiu em seguida, o `reuseExistingServer`
+  do Playwright achou a 8080 respondendo, concluiu que a Suíte já estava pronta e **não subiu
+  nada**: Auth e Storage nunca abriram. A sonda reprovou no lugar certo, e disse a coisa
+  errada — "suba o Emulator Suite" para quem estava justamente rodando `npm run test:e2e`. O
+  dado que resolvia o caso a sonda tinha como obter e jogava fora: o Firestore estava de pé,
+  logo o problema não é Suíte ausente, é porta ocupada. Agora, quando uma porta não abre, a
+  sonda varre as três antes de desistir, e há duas mensagens em vez de uma: nada de pé manda
+  subir os emuladores; alguém de pé nomeia quem subiu, explica o `reuseExistingServer` e manda
+  encerrar o órfão. São dois problemas com conselhos opostos, e dar o conselho de um no caso do
+  outro manda quem lê para o lado contrário da causa.
+- **Um aviso de build que fica, e por que ele é inócuo.** Desde o code-splitting por rota, o
+  `npm run build` termina com "Compiled with warnings": o `mini-css-extract-plugin` avisa que
+  não consegue garantir a ordem entre `Lightbox.css` e `TextoMarkdown.css`, porque dois pedaços
+  sob demanda os importam em ordens diferentes. O aviso é sobre uma garantia que ele não pode
+  dar, e não sobre um defeito: os seletores dos dois arquivos são **disjuntos** (`.lightbox-*`
+  contra `.texto-markdown*`), então não existe regra cuja aparência dependa de qual vem
+  primeiro. Os dez testes de layout medem pixel em navegador de verdade sobre o build de
+  produção e passam. A alternativa era reordenar importações de produção para calar um aviso
+  cosmético na véspera de um release, e ela foi descartada: o risco de regressão é maior que o
+  do aviso. Fica registrado para ser limpo com calma na 1.1.0.
+- **Os campos de compatibilidade ficam.** O plano previa remover `horarioIso`, a `imagem` em
+  string e os `nome`/`email` duplicados nas mensagens nesta versão. **Não foram removidos** —
+  ver a seção seguinte.
+
+**As duas dúvidas do cliente, revisitadas**
+
+As duas perguntas explícitas do cliente foram respondidas nas versões em que apareceram, e a
+resposta continua de pé na 1.0.0. Vale repeti-las aqui porque são as duas decisões que mais
+parecem erradas à primeira vista.
+
+*"Por que não consultar uma API de horário de Brasília?"* — Porque **não resolveria nada**.
+Quem carimbaria o documento com a resposta da API ainda seria o cliente, e o valor continuaria
+falsificável, agora com mais passos. Seria também uma segunda rede para cair no meio da aula.
+O `serverTimestamp()` do Firestore é atômico com a própria escrita, não depende de rede extra,
+não custa cota, e — o ponto decisivo — as Security Rules **recusam** qualquer `horario` que
+não seja `request.time`. A fila deixou de ser ordenável por quem adianta o relógio do Windows.
+(v0.4.0, ADR 0004.)
+
+*"Mudar o banco de dados pra permitir imagens, porque o Firebase é burocrático com imagem"* —
+**Não trocamos de banco, e não precisava.** A premissa está meio certa: o *Firestore* não
+guarda binário grande, porque o limite é 1 MB por documento. Mas isso não é limitação do
+Firebase: o **Firebase Storage** foi feito exatamente para isso, já estava inicializado no
+código desde a primeira versão, tem cota no mesmo plano gratuito e compartilha a mesma sessão
+de login. Trocar de banco custaria semanas e jogaria fora o login social, as rules por sala e
+o tempo real — e o banco novo teria o mesmo problema pela frente, porque guardar imagem dentro
+de linha de banco é ruim em qualquer banco. (v0.6.0, ADR 0007.)
+
+**O que ficou por resolver, e está declarado**
+
+- **Os campos de compatibilidade não foram removidos, e isso é a decisão.** O plano da 1.0.0
+  previa derrubar `horarioIso`, a `imagem` em string e os `nome`/`email` duplicados nas
+  mensagens. A condição para remover era a auditoria confirmar que nenhum cliente antigo segue
+  em uso — e ela **não tem como confirmar isso**: não há telemetria de versão de cliente, e um
+  navegador de laboratório com a aba aberta desde antes do deploy é exatamente o cenário do
+  projeto. Manter é reversível; remover não é. A remoção fica registrada para a **1.1.0**,
+  depois de uma versão inteira de convivência observada.
+- **Três critérios continuam 🟡**, e os três pela mesma razão: a parte automatizável está
+  automatizada e o que falta é configuração de painel externo ou medição de uso real, que
+  nenhum teste rodando nesta máquina produz. São a proteção de branch do GitHub (AC-CI-04), a
+  lista de domínios autorizados do Firebase Auth (AC-SEC-06) e a conta de custo, que é
+  estimativa derivada do código e não medição de um semestre no console (AC-PERF-06). Os três
+  estão em [`BLOQUEIOS.md`](BLOQUEIOS.md) com causa e proposta.
+- **`autorizados` tem leitura pública** (B-006, novo nesta versão). O cadastro consulta a
+  lista antes de existir sessão, e uma rule não consegue liberar leitura a quem ainda não
+  está autenticado sem liberá-la a todo mundo. A autorização em si está fechada — ninguém se
+  acrescenta à lista, e a rule reconfere o papel a cada escrita. O que vaza é a lista de
+  e-mails dos professores, não o poder. Fechar exige custom claim, que exige Admin SDK, que
+  exige um servidor que este projeto não tem.
+- **`Modal.css` continua estilizando todo botão do aplicativo** (B-005). O CSS do Create React
+  App é global, e um `button { flex: 1 }` sem escopo alcança o app inteiro — foi ele que, num
+  painel de 440px, deu 170px de altura ao botão "Ver dias anteriores" e 162 à conversa. A
+  correção certa é escopar a regra em `.modal`, o que trocaria a aparência de todos os botões
+  do sistema na véspera do release, sem teste de regressão visual que segure. Fica para a
+  1.1.0; o desfazer pontual em `Chat.css` está no lugar, com teste.
+- **O deploy existe no workflow e não tem credencial para rodar** (B-004). A tag é criada e o
+  release é publicado; o passo de publicar o site espera um segredo que só quem administra o
+  projeto pode cadastrar.
+
+**O que o usuário sente na prática**
+
+- **O aluno que cola um log gigante na dúvida** recebe uma frase dizendo o que está errado, em
+  vez de ver o modal fechar e o chamado não aparecer.
+- **A turma inteira abrindo o site ao mesmo tempo, no minuto em que a aula começa**, baixa 47
+  KB a menos cada uma para chegar à tela de login — e não baixa mais a tela do professor para
+  isso. Numa rede de laboratório compartilhada, o que se economiza não é o tempo de um
+  download; é a contenção de quarenta downloads simultâneos no mesmo enlace.
+- **Quem usa o chat numa aula inteira** vê a conversa ocupar o painel, e não três mensagens
+  com um botão invisível de 170px embaixo.
+- **Ninguém percebe as outras mudanças desta versão, e é esse o ponto.** Uma versão de
+  estabilização que se faz notar falhou: o que ela entrega é a garantia de que o que já
+  funcionava não vai parar de funcionar sem alguém ser avisado por um teste vermelho.
+
+---
+
+## O sistema hoje, pelos olhos de quem usa
+
+> Esta seção fecha o documento. Ela não fala de decisão técnica nenhuma: descreve o dia de um
+> aluno e o dia de um professor, do login ao fim da aula, como o sistema realmente se comporta
+> na versão 1.0.0.
+
+### O dia da Ana, aluna do 2º ano de Mecânica
+
+**7h50, primeira aula do ano.** Ana senta na máquina 14 e abre o site. Entra com a conta do
+Google — a mesma do celular, sem senha nova para decorar. A tela diz "Minhas salas" e está
+vazia. O professor escreveu seis dígitos no quadro; ela clica em **Entrar com PIN**, digita, e
+a sala "Mecânica 2º ano" aparece.
+
+Isso acontece **uma vez**. Em setembro, Ana abre o site e a sala já está lá.
+
+**8h20.** O torno trava no meio do exercício. Antes, Ana levantaria a mão e esperaria — sem
+saber se o professor a viu, sem poder continuar. Agora ela aperta `PrintScreen`, clica no
+botão **+**, cola o print com `Ctrl+V` e escreve o que aconteceu. Em Opções avançadas escolhe
+verde, a cor que a turma combinou para "máquina parada". Conclui.
+
+O card aparece na tela do professor **no mesmo segundo**, com o print junto. Ana volta a
+trabalhar no que dá para adiantar.
+
+**8h23.** Ela olha a fila e vê que o Bruno abriu uma dúvida parecida às 8h11, e que a
+descrição dele traz uma frase que ela não tinha notado. Ela tenta, e funciona. Clica em
+**Excluir** no próprio card, confirma, e o aviso "Desfazer" fica cinco segundos no rodapé — se
+ela tivesse se enganado, bastava um clique. Não se enganou. O nome dela sai da fila, e o
+professor vai direto para quem ainda precisa.
+
+**9h40.** Dúvida de uma frase só, que não merece um card. Ana abre o chat da turma e pergunta.
+O nome dela sai sempre na mesma cor — desde fevereiro, em toda mensagem —, e o professor tem
+um selo ao lado do dele, então ninguém confunde a resposta dele com o palpite de um colega.
+
+**10h15.** Uma tela cheia aparece: **Colaborador, nível 1**, com a justificativa do professor.
+Ana aperta **Pular** — a aula está corrida — e a insígnia fica ao lado do nome dela nos cards
+e no chat, e guardada em "Minhas conquistas". A animação não repete na próxima vez que ela
+abrir a sala. Se incomodasse, ela poderia desligá-la de vez nas preferências; o som já nasce
+desligado.
+
+**11h30, fim da aula.** Ana clica em **Sair** — a máquina é compartilhada, e o próximo aluno
+não abre o sistema no nome dela. Amanhã, na máquina 7, ela entra de novo e tudo está no lugar.
+
+O que Ana **não** vê, e é o que mais importa: a hora do card dela é a do servidor, não a do
+relógio daquela máquina — que está três horas adiantado desde a última reimagem. Sem isso, ela
+teria ido para o fim da fila sem que nada parecesse errado.
+
+### O dia do Carlos, professor de Mecânica
+
+**Fevereiro, primeira aula.** Carlos cria a sala: nome, turma, ano letivo. O sistema mostra o
+PIN de seis dígitos com um aviso claro — **ele aparece uma vez só**. Carlos copia, escreve no
+quadro e anota na agenda. O sistema não guarda o número, só um resumo dele; nem ele, nem a
+coordenação, nem o suporte conseguem recuperá-lo. Se perder, gera outro em um clique, e quem
+já entrou continua dentro.
+
+**Uma sala para o ano inteiro.** Não há nada a fazer no começo de cada aula.
+
+**8h20, laboratório cheio.** Carlos abre a sala no computador da bancada. A fila está à
+frente dele, em ordem de chegada, com nome, descrição e print. Ele não precisa varrer a sala
+com os olhos nem interpretar quem levantou a mão primeiro — e as cores que a turma combinou
+dizem, de longe, o que é máquina parada e o que é dúvida de conteúdo.
+
+Ele atende a Ana, marca **Atendido** no card e segue. Não há caixa de diálogo perguntando se
+é isso mesmo: uma confirmação a cada atendimento atrapalharia justamente a hora em que ele
+está circulando pela sala.
+
+**9h10.** Duas dúvidas iguais na fila — alguém abriu duas vezes. Carlos exclui a duplicata; a
+confirmação aparece, e o Desfazer fica cinco segundos.
+
+**10h15.** O Bruno parou o próprio exercício para desatolar a colega ao lado. Carlos abre o
+painel **Premiações**, escolhe Colaborador, nível 1, sete dias, e escreve uma justificativa
+curta. Ele sabe — porque o manual diz isso na primeira página da seção — que **a turma
+consegue ler a justificativa**, e escreve como se fosse lida. O que for reservado vai pelo
+canal que a escola já usa.
+
+**10h40.** O chat descarrilha em memes. Carlos apaga as mensagens e segue; se fosse o caso,
+`!clear` limparia a conversa inteira — e só funciona para ele.
+
+**10h50.** Precisa avisar uma aluna sobre a entrega atrasada, e isso não é da turma. Ele abre
+uma **conversa direta**. Ninguém mais lê aquilo — nem outro professor, nem outro aluno. O
+contrário também vale, e é deliberado: a conversa direta entre dois alunos da sala dele não é
+acessível a ele.
+
+**Novembro, última aula.** Carlos **arquiva** a sala. Ela vira somente leitura: ninguém entra
+mais com o PIN, ninguém abre dúvida nova, e **tudo o que houve continua visível** — a fila do
+ano, o chat, as conquistas de cada aluno. Em fevereiro ele cria a sala da turma nova, que
+começa vazia, sem herdar a fila do ano anterior.
+
+O que Carlos **não** vê: um aluno tentou entrar na sala da outra turma chutando PINs, e parou
+na quinta tentativa. Outro trocou o próprio tipo para "professor" no navegador e o servidor
+recusou a escrita. Nenhuma das duas coisas chegou até ele, e é assim que deveria ser.

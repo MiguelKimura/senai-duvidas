@@ -11,6 +11,7 @@ import { carimboServidor, completarHorariosIso } from '../services/tempo';
 import { LIMITE_DE_CHAMADOS, PAPEL_DE_ALUNO, colecaoDeChamados } from '../services/salas';
 import { FORMATO_MARKDOWN } from '../utils/markdown';
 import { corAutomatica } from '../utils/paleta';
+import { validarDescricao } from '../utils/descricaoDoChamado';
 
 import { usePerksDaSala } from '../hooks/usePerksDaSala';
 import {
@@ -182,7 +183,13 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
   const closeModal = () => setIsModalOpen(false);
 
   const addProblema = async (descricao, anexo, chamadoId, cor = null) => {
-    if (!descricao) return;
+    // O modal já recusou o que estava fora da faixa e já entregou o texto
+    // aparado (AC-CHAMADO-01). Reconferir aqui não é desconfiança dele: é que
+    // esta função é o último ponto antes do `setDoc`, e era `if (!descricao)`
+    // — que deixava passar 4000 caracteres — que estava aqui antes. A mesma
+    // função nos dois lugares é o que impede os dois de divergirem de novo.
+    const { valida, texto } = validarDescricao(descricao);
+    if (!valida) return;
 
     const user = auth.currentUser;
     if (!user) return;
@@ -201,7 +208,7 @@ function TelaAluno({ salaId = null, somenteLeitura = false }) {
       autorNome: usuarioNome,
       nome: usuarioNome,
       email: user.email,
-      descricao,
+      descricao: texto,
       // AC-TEMPO-01: quem decide a posição na fila é o servidor, não o relógio
       // desta máquina. Ver services/tempo.js.
       horario: carimboServidor(),

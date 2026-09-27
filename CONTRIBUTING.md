@@ -92,6 +92,7 @@ npm run lint        # ESLint, zero warnings toleradas
 npm run test        # unitários, em watch, enquanto você desenvolve
 npm run test:ci     # unitários uma vez, com cobertura — é o que o CI roda
 npm run test:rules  # Security Rules; sobe o emulador, roda e desliga sozinho
+npm run test:e2e    # Playwright: os fluxos críticos num navegador de verdade
 npm run build       # build de produção
 ```
 
@@ -100,6 +101,23 @@ Antes de abrir o PR, os quatro precisam passar:
 ```bash
 npm run lint && npm run test:ci && npm run test:rules && npm run build
 ```
+
+E, se o seu PR encosta em tela, rota, rules ou desempenho, **rode também a suíte
+end-to-end**:
+
+```bash
+npm run test:e2e
+```
+
+Ela nasceu na v1.0.0 e cobre o que nenhuma das outras duas alcança: layout em pixel,
+cascata de CSS entre arquivos, First Contentful Paint e o comportamento com uma sala
+cheia. Ela constrói o app (`build:e2e`), sobe o Emulator Suite e o servidor estático
+sozinha — só precisa de Java e de um navegador. Numa máquina sem o Chromium do Playwright
+baixado, `PLAYWRIGHT_CANAL=chrome` usa o Chrome do sistema.
+
+O CI roda as três de qualquer jeito, mas descobrir no CI custa um ciclo de espera.
+As decisões por trás dela estão em
+[`docs/adr/0013-suite-end-to-end-com-playwright.md`](docs/adr/0013-suite-end-to-end-com-playwright.md).
 
 ### Os emuladores
 

@@ -1,0 +1,73 @@
+# Homologação do Projeto Dúvidas SENAI — AC-CI-08.
+#
+# Dispara em push para `dev`. É o ambiente onde o professor que topa testar vê a
+# versão de amanhã, contra um banco que pode ser apagado sem consequência.
+#
+# Três diferenças em relação a `release.yml`, e cada uma tem motivo:
+#
+# **Não cria tag e não publica release.** Homologação não é uma versão: é o estado
+# atual de `dev`, que muda várias vezes por dia. Marcar tag aqui encheria o
+# repositório de tags que não correspondem a nada instalado em lugar nenhum.
+#
+# **Não roda a suíte end-to-end.** Ela já rodou no PR que gerou este push — o
+# check `e2e` é obrigatório para mesclar em `dev` (ver docs/PROTECAO-BRANCHES.md).
+# O que roda aqui é o que protege contra o merge de dois PRs verdes que se
+# atrapalham: lint, unitários e build. Repetir os três minutos de navegador a cada
+# push em `dev` atrasaria o retorno sem responder nenhuma pergunta nova.
+#
+# **Publica no projeto de homologação.** A variável é
+# `FIREBASE_PROJETO_HOMOLOGACAO`, e o nome do projeto de produção não aparece em
+# nenhum lugar deste arquivo. Um erro de uma letra aqui publicaria homologação em
+# cima de uma aula.
+name: homologacao
+
+on:
+  push:
+    branches: [dev]
+
+# Este workflow não escreve no repositório: não cria tag, não comenta, não move
+# branch. Ele só publica no Hosting, e a credencial disso é o segredo.
+permissions:
+  contents: read
+
+jobs:
+  publicar:
+    name: publicar
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Instalar
+        run: npm ci
+      - name: ESLint, zero warnings
+        run: npm run lint
+      - name: Testes unitários com cobertura
+        run: npm run test:ci
+      - name: Build de produção
+        run: npm run build
+      - name: Orçamento do bundle inicial
+        run: npm run orcamento
+
+      # As rules vão junto do código que as pressupõe. Publicar o app novo contra
+      # as rules antigas é o cenário em que a tela existe e o servidor nega tudo o
+      # que ela tenta — e homologação existe justamente para esse par ser
+      # exercitado antes de `main`.
+      - name: Publicar em homologação
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: credencial.json
+          FIREBASE_PROJETO: ${{ vars.FIREBASE_PROJETO_HOMOLOGACAO }}
+        run: |
+          printf '%s' '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > credencial.json
+          npx firebase deploy --only hosting,firestore:rules,storage \
+            --project "$FIREBASE_PROJETO" --non-interactive
+          rm -f credencial.json
+
+      - name: Avisar quando o deploy não foi configurado
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT == '' }}
+        run: |
+          echo "::warning::O build passou, mas o deploy de homologação não rodou: falta o segredo FIREBASE_SERVICE_ACCOUNT. Ver docs/RELEASE.md e docs/BLOQUEIOS.md."

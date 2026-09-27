@@ -258,3 +258,26 @@ export function __derrubarUploads(codigo = 'storage/retry-limit-exceeded') {
 export function __restaurarRede() {
   modoDeFalha = null;
 }
+
+// ---------------------------------------------------------------------------
+// Ligação com o Emulator Suite (AC-TEST-06)
+// ---------------------------------------------------------------------------
+//
+// O mock não simula emulador nenhum: ele apenas registra que `src/firebase.js`
+// pediu a ligação, e com quais host e porta. O que o teste precisa provar é
+// que o build de produção **não** pede, e que o build de e2e pede uma vez só.
+
+let emuladoresLigados = [];
+
+export function connectStorageEmulator(_alvo, host, porta) {
+  emuladoresLigados.push({ host, porta });
+}
+
+/** As ligações pedidas até agora, em ordem. */
+export function __emuladoresLigados() {
+  return emuladoresLigados;
+}
+
+export function __resetarEmuladores() {
+  emuladoresLigados = [];
+}

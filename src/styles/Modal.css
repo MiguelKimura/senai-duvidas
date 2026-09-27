@@ -38,6 +38,30 @@ textarea:focus {
   outline: none;
 }
 
+/* A recusa da descrição e o contador — AC-CHAMADO-01.
+   Os dois vivem dentro de `.modal`, cujo fundo é `--cor-superficie`: os pares
+   `--cor-erro`/`--cor-superficie` e `--cor-texto-discreto`/`--cor-superficie`
+   já estão na tabela de contraste, e nenhum par novo nasce aqui. */
+.modal-erro {
+  margin: calc(-1 * var(--espaco-2)) 0 var(--espaco-2);
+  color: var(--cor-erro);
+  font-size: 14px;
+}
+
+.modal-contador {
+  margin: calc(-1 * var(--espaco-2)) 0 var(--espaco-2);
+  text-align: right;
+  color: var(--cor-texto-discreto);
+  font-size: 12px;
+}
+
+/* Passou do teto: o número vira o mesmo vermelho da recusa, porque é
+   exatamente disso que ele está avisando. */
+.modal-contador--estourado {
+  color: var(--cor-erro);
+  font-weight: bold;
+}
+
 /* Contêiner para alinhar botões corretamente */
 .buttons-container {
   display: flex;

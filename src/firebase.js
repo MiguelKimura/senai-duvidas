@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { connectAuthEmulator, getAuth } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import { connectStorageEmulator, getStorage } from 'firebase/storage';
 
 // Configuração do Firebase (AC-AUTH-10).
 //
@@ -96,5 +96,51 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+// O Firebase Emulator Suite (AC-TEST-06).
+//
+// A suíte end-to-end roda contra o emulador, nunca contra o projeto da escola
+// — é a mesma exigência que `tests/rules/projetoDeTeste.js` faz nos testes de
+// rules, e pela mesma razão: os testes apagam coleções inteiras, e há turma em
+// aula do outro lado.
+//
+// A chave é `REACT_APP_EMULADORES`, lida em tempo de build. O `.env` de
+// produção não a define, o build de produção não embute nada disto e o caminho
+// fica exatamente como estava. `src/__tests__/firebaseConfig.test.js` prova as
+// duas metades: que sem a variável nenhuma ligação acontece, e que com ela as
+// três acontecem uma vez só.
+//
+// As portas são configuráveis porque este projeto é tocado por um orquestrador
+// que roda várias branches em paralelo, cada uma na própria worktree. A porta
+// do emulador é a única coisa que elas de fato compartilham, e duas sessões
+// disputando a 8080 derrubam as duas.
+const HOST_DO_EMULADOR = process.env.REACT_APP_EMULADOR_HOST || '127.0.0.1';
+
+const portaDoEmulador = (variavel, padrao) => Number(variavel || padrao);
+
+if (process.env.REACT_APP_EMULADORES) {
+  connectAuthEmulator(
+    auth,
+    `http://${HOST_DO_EMULADOR}:${portaDoEmulador(
+      process.env.REACT_APP_EMULADOR_PORTA_AUTH,
+      9099
+    )}`,
+    // Sem o banner amarelo por cima da tela: ele cobre o canto inferior da
+    // interface e o Playwright passa a clicar nele em vez de no que pediu.
+    { disableWarnings: true }
+  );
+
+  connectFirestoreEmulator(
+    db,
+    HOST_DO_EMULADOR,
+    portaDoEmulador(process.env.REACT_APP_EMULADOR_PORTA_FIRESTORE, 8080)
+  );
+
+  connectStorageEmulator(
+    storage,
+    HOST_DO_EMULADOR,
+    portaDoEmulador(process.env.REACT_APP_EMULADOR_PORTA_STORAGE, 9199)
+  );
+}
 
 export { app, auth, db, storage };

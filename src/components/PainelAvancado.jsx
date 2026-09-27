@@ -67,12 +67,25 @@ export default function PainelAvancado({
         // Redundante em navegador moderno, necessário em Firefox antigo, que
         // não põe `<summary>` na ordem de tabulação. Custa um atributo.
         tabIndex={0}
-        // O clique é ouvido **além** do comportamento nativo, não no lugar
-        // dele: o navegador continua abrindo e fechando o `<details>` sozinho,
-        // e isto apenas mantém o `aria-expanded` no mesmo compasso. Sem esta
-        // linha, o atributo só acertaria depois do evento `toggle`, que é
-        // assíncrono — e o leitor de tela anunciaria o estado anterior.
-        onClick={() => setAberto((valor) => !valor)}
+        // O clique **substitui** o comportamento nativo, e o `preventDefault()`
+        // é o ponto inteiro desta linha.
+        //
+        // Sem ele há dois toggles no mesmo clique, e eles se anulam: este
+        // handler marca `aberto = true`, o React grava o atributo `open` no
+        // mesmo tique (evento discreto é liberado de forma síncrona) e, aí, a
+        // ação nativa do `<summary>` alterna o que já foi alternado — de volta
+        // para fechado. O painel avançado simplesmente não abria no navegador.
+        //
+        // O jsdom não implementa essa ação nativa, então
+        // `PainelAvancado.test.js` passava com o defeito de pé; quem o
+        // encontrou foi `tests/e2e/chamado.spec.js`, clicando com o Chrome de
+        // verdade. Mantido o handler (e não só o `onToggle`) porque é ele que
+        // deixa `aria-expanded` correto no mesmo tique do clique — o evento
+        // `toggle` é assíncrono, e o leitor de tela anunciaria o estado velho.
+        onClick={(evento) => {
+          evento.preventDefault();
+          setAberto((valor) => !valor);
+        }}
       >
         {ROTULO_DO_PAINEL}
       </summary>

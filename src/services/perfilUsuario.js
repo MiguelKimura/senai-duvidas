@@ -70,10 +70,15 @@ async function resolverPapelDoPerfil(perfil, usuario) {
     return { papel: PAPEL_PROFESSOR, rebaixado: false };
   }
 
+  // Sem o uid, e sem o e-mail (AC-SEC-07). O console fica num navegador de
+  // laboratório compartilhado, a um F12 de distância da turma seguinte, e um
+  // identificador ali não ajuda ninguém: quem reconcilia `autorizados` com
+  // `usuarios` é o administrador, no console do Firebase, e não a pessoa
+  // sentada nesta máquina. O que a linha precisa dizer é **que** houve um
+  // rebaixamento e onde olhar.
   console.warn(
     '[auth] Documento diz professor, mas o e-mail não está em autorizados: ' +
-      'acesso rebaixado para aluno.',
-    { uid: usuario.uid }
+      'acesso rebaixado para aluno. Confira a coleção `autorizados` no console do Firebase.'
   );
 
   return { papel: PAPEL_ALUNO, rebaixado: true };
