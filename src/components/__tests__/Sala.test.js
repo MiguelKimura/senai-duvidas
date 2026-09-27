@@ -7,7 +7,7 @@
 // colega não entra — e é este arquivo que prova isso do lado do cliente, com o
 // lado do servidor provado em `tests/rules/salas.rules.test.js`.
 import React from 'react';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
@@ -173,6 +173,13 @@ describe('Sala — quem não é da sala não entra (AC-SEC-02)', () => {
   });
 });
 
+/** Desde a v1.1.0 o painel da turma mora numa aba própria. */
+async function abrirTurma() {
+  fireEvent.click(await screen.findByRole('tab', { name: 'Turma' }));
+
+  return screen.findByRole('region', { name: /turma/i });
+}
+
 describe('Sala — o painel da turma (AC-SALA-09)', () => {
   beforeEach(() => {
     semearProfessoresNoAuth();
@@ -183,13 +190,13 @@ describe('Sala — o painel da turma (AC-SALA-09)', () => {
   it('lista os membros da sala para o dono', async () => {
     renderComProvedores(<Sala />);
 
-    const painel = await screen.findByRole('region', { name: /turma/i });
+    const painel = await abrirTurma();
     expect(await within(painel).findByText('Ana Souza')).toBeInTheDocument();
   });
 
   it('remover um aluno apaga o vínculo e gera um PIN novo no mesmo gesto', async () => {
     renderComProvedores(<Sala />);
-    const painel = await screen.findByRole('region', { name: /turma/i });
+    const painel = await abrirTurma();
 
     await userEvent.click(
       await within(painel).findByRole('button', { name: /remover ana souza/i })
@@ -208,7 +215,7 @@ describe('Sala — o painel da turma (AC-SALA-09)', () => {
 
   it('não oferece remover o próprio professor da sala', async () => {
     renderComProvedores(<Sala />);
-    const painel = await screen.findByRole('region', { name: /turma/i });
+    const painel = await abrirTurma();
 
     await within(painel).findByText('Carlos Lima');
     expect(within(painel).queryByRole('button', { name: /remover carlos lima/i })).toBeNull();
@@ -221,6 +228,7 @@ describe('Sala — o painel da turma (AC-SALA-09)', () => {
 
     await screen.findByRole('heading', { name: /bem-vindo/i });
     expect(screen.queryByRole('region', { name: /turma/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Turma' })).not.toBeInTheDocument();
   });
 });
 

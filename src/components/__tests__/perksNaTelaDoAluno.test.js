@@ -4,7 +4,7 @@
 // de concessão —, e misturar os dois daria ao professor uma vitrine de
 // premiações que ele nunca vai receber.
 import React from 'react';
-import { screen, within } from '@testing-library/react';
+import { screen, within, fireEvent } from '@testing-library/react';
 import { __definirUsuarioAtual, __resetarAuth } from 'firebase/auth';
 import {
   Timestamp,
@@ -57,6 +57,11 @@ function vitrine() {
   return screen.queryByRole('region', { name: 'Minhas conquistas' });
 }
 
+/** Desde a v1.1.0 conquistas e premiações moram em abas próprias. */
+function abrirAba(nome) {
+  fireEvent.click(screen.getByRole('tab', { name: nome }));
+}
+
 beforeEach(() => {
   __resetarAuth();
   __resetarFirestore();
@@ -74,10 +79,23 @@ beforeEach(() => {
 });
 
 describe('TelaAluno — a vitrine "Minhas conquistas" (AC-PERK-06)', () => {
+  it('não fica na tela inicial: a fila abre primeiro, e a vitrine tem aba própria', () => {
+    semearPerk();
+
+    renderComProvedores(<TelaAluno salaId={SALA} />);
+
+    expect(vitrine()).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Chamados' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+  });
+
   it('mostra a vitrine com o perk ativo do aluno', () => {
     semearPerk();
 
     renderComProvedores(<TelaAluno salaId={SALA} />);
+    abrirAba('Minhas conquistas');
 
     expect(within(vitrine()).getByText(/Resolvedor/)).toBeInTheDocument();
   });
@@ -86,12 +104,14 @@ describe('TelaAluno — a vitrine "Minhas conquistas" (AC-PERK-06)', () => {
     semearPerk({ expiraEm: NO_PASSADO });
 
     renderComProvedores(<TelaAluno salaId={SALA} />);
+    abrirAba('Minhas conquistas');
 
     expect(within(vitrine()).getByRole('list', { name: 'Histórico' })).toBeInTheDocument();
   });
 
   it('explica a vitrine vazia para quem ainda não foi premiado', () => {
     renderComProvedores(<TelaAluno salaId={SALA} />);
+    abrirAba('Minhas conquistas');
 
     expect(within(vitrine()).getByText(/ainda não recebeu/i)).toBeInTheDocument();
   });
@@ -100,6 +120,7 @@ describe('TelaAluno — a vitrine "Minhas conquistas" (AC-PERK-06)', () => {
     semearPerk({ alunoUid: 'uid-bruno', alunoNome: 'Bruno Alves' });
 
     renderComProvedores(<TelaAluno salaId={SALA} />);
+    abrirAba('Minhas conquistas');
 
     expect(within(vitrine()).queryByText(/Resolvedor/)).toBeNull();
   });
@@ -142,6 +163,7 @@ describe('TelaAluno — a premiação em tela cheia (AC-PERK-04)', () => {
 describe('TelaAluno — onde o aluno desliga a animação (AC-PERK-08)', () => {
   it('oferece as preferências de premiação na própria sala', () => {
     renderComProvedores(<TelaAluno salaId={SALA} />);
+    abrirAba('Minhas conquistas');
 
     expect(screen.getByRole('checkbox', { name: /animação/i })).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: /som/i })).toBeInTheDocument();
@@ -149,6 +171,7 @@ describe('TelaAluno — onde o aluno desliga a animação (AC-PERK-08)', () => {
 
   it('o som nasce desligado, e a animação ligada', () => {
     renderComProvedores(<TelaAluno salaId={SALA} />);
+    abrirAba('Minhas conquistas');
 
     expect(screen.getByRole('checkbox', { name: /som/i })).not.toBeChecked();
     expect(screen.getByRole('checkbox', { name: /animação/i })).toBeChecked();
@@ -159,6 +182,10 @@ describe('TelaProfessor — o painel de concessão (AC-PERK-01, AC-PERK-07)', ()
   it('oferece o painel de premiações ao dono da sala', async () => {
     renderComProvedores(<TelaProfessor salaId={SALA} ehDono />);
 
+    // Numa aba própria, e não em cima da fila.
+    expect(screen.queryByRole('region', { name: 'Conceder premiações' })).toBeNull();
+    abrirAba('Premiações');
+
     expect(
       await screen.findByRole('region', { name: 'Conceder premiações' })
     ).toBeInTheDocument();
@@ -168,6 +195,7 @@ describe('TelaProfessor — o painel de concessão (AC-PERK-01, AC-PERK-07)', ()
     renderComProvedores(<TelaProfessor salaId={SALA} ehDono={false} />);
 
     expect(screen.queryByRole('region', { name: 'Conceder premiações' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Premiações' })).toBeNull();
   });
 
   it('o aluno não tem painel de concessão nenhum', () => {
