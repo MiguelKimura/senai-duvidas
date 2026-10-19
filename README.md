@@ -52,7 +52,7 @@ no repositório: as chaves do cliente Firebase são públicas por natureza (o bu
 quem protege os dados são as Security Rules em `firestore.rules` e `storage.rules`. O detalhe
 está em [`docs/SEGURANCA.md`](docs/SEGURANCA.md).
 
-**Requisitos:** Node 20. Os scripts que sobem emuladores (`test:rules`, `test:e2e`,
+**Requisitos:** Node 22. Os scripts que sobem emuladores (`test:rules`, `test:e2e`,
 `emulators`, `capturas`) precisam também de **Java 11 ou superior** — os emuladores de
 Firestore e Storage são aplicações Java.
 

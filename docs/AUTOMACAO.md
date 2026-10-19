@@ -38,7 +38,7 @@ da própria sessão, que é instruída a rodá-lo.
 
 | Ferramenta | Verificar | Se faltar |
 |---|---|---|
-| Node 20+ | `node -v` | https://nodejs.org |
+| Node 22+ | `node -v` | https://nodejs.org |
 | Python 3.11+ | `python --version` | https://python.org |
 | PyYAML | `python -c "import yaml"` | `python -m pip install pyyaml` |
 | Claude Code | `claude --version` | `npm install -g @anthropic-ai/claude-code` |
