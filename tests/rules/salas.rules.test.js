@@ -378,6 +378,42 @@ describe('salas/{salaId}/imagens — a imagem do chamado no banco (v1.1.0)', () 
   });
 });
 
+describe('o professor que não é dono da sala (v1.1.1)', () => {
+  beforeEach(async () => {
+    await semearSala(SALA_A);
+    await semearMembro(SALA_A, CARLOS, 'professor');
+    await semearMembro(SALA_A, ANA);
+    // Entrou pelo PIN: o vínculo é de aluno, mas a conta é de professor.
+    await semearMembro(SALA_A, BRUNO);
+    await semear(`autorizados/${BRUNO_EMAIL}`, { Tipo: 'professor' });
+  });
+
+  it('apaga a mensagem do chat da turma', async () => {
+    await semear(`salas/${SALA_A}/chat/m1`, {
+      texto: 'oi',
+      autorUid: ANA,
+      horario: Timestamp.now(),
+    });
+
+    await assertSucceeds(deleteDoc(doc(como(BRUNO, BRUNO_EMAIL), `salas/${SALA_A}/chat/m1`)));
+  });
+
+  it('apaga a imagem do chamado de um aluno', async () => {
+    await semear(`salas/${SALA_A}/imagens/c1`, {
+      dados: 'data:image/png;base64,AAAA',
+      autorUid: ANA,
+    });
+
+    await assertSucceeds(
+      deleteDoc(doc(como(BRUNO, BRUNO_EMAIL), `salas/${SALA_A}/imagens/c1`))
+    );
+  });
+
+  it('continua sem conceder premiação nem ler o PIN: isso é do dono', async () => {
+    await assertFails(getDoc(doc(como(BRUNO, BRUNO_EMAIL), `salas/${SALA_A}/segredo/pin`)));
+  });
+});
+
 describe('salas/{salaId}/segredo — o PIN guardado para o dono (v1.1.0)', () => {
   beforeEach(async () => {
     await semearSala(SALA_A);
@@ -909,11 +945,22 @@ describe('chamados da sala — escopo por turma (AC-SALA-07, AC-SEC-02)', () => 
       await assertFails(deleteDoc(doc(como(BRUNO), `salas/${SALA_A}/chamados/da-ana`)));
     });
 
-    it('o professor de outra sala NÃO apaga chamado desta', async () => {
+    // v1.1.1: todo professor é responsável pelas filas, e não só o dono da
+    // sala. O caso real: o professor que entrou na sala do colega pelo PIN —
+    // e ficou com vínculo de aluno — não conseguia excluir nada.
+    it('qualquer professor apaga chamado desta sala, mesmo não sendo o dono', async () => {
       await semear(`autorizados/outro@senai.br`, { Tipo: 'professor' });
 
-      await assertFails(
+      await assertSucceeds(
         deleteDoc(doc(como('uid-outro', 'outro@senai.br'), `salas/${SALA_A}/chamados/da-ana`))
+      );
+    });
+
+    it('o professor que entrou pelo PIN, com vínculo de aluno, apaga chamado', async () => {
+      await semear(`autorizados/${BRUNO_EMAIL}`, { Tipo: 'professor' });
+
+      await assertSucceeds(
+        deleteDoc(doc(como(BRUNO, BRUNO_EMAIL), `salas/${SALA_A}/chamados/da-ana`))
       );
     });
   });
@@ -963,11 +1010,11 @@ describe('chamados da sala — escopo por turma (AC-SALA-07, AC-SEC-02)', () => 
       );
     });
 
-    it('o professor de outra sala NÃO marca chamado desta', async () => {
-      await semear(`autorizados/outro@senai.br`, { Tipo: 'professor' });
+    it('qualquer professor marca chamado desta sala como atendido (v1.1.1)', async () => {
+      await semear(`autorizados/${BRUNO_EMAIL}`, { Tipo: 'professor' });
 
-      await assertFails(
-        updateDoc(doc(como('uid-outro', 'outro@senai.br'), `salas/${SALA_A}/chamados/da-ana`), {
+      await assertSucceeds(
+        updateDoc(doc(como(BRUNO, BRUNO_EMAIL), `salas/${SALA_A}/chamados/da-ana`), {
           atendido: true,
           atendidoEm: serverTimestamp(),
         })
