@@ -365,8 +365,9 @@ service cloud.firestore {
 
         allow update: if false;
 
-        allow delete: if ehMembroDaSala(salaId)
-          && (resource.data.autorUid == request.auth.uid || ehDonoDaSala(salaId));
+        allow delete: if (ehMembroDaSala(salaId) && resource.data.autorUid == request.auth.uid)
+          || ehDonoDaSala(salaId)
+          || ehProfessor();
       }
 
       // A fila da turma. Era `chamados`, global, com `allow read, delete: if
@@ -389,16 +390,23 @@ service cloud.firestore {
         // Marcar como atendido é do professor; completar `horarioIso` é do
         // autor. Nenhum dos dois troca a autoria — nem a cor ou o formato por
         // um valor que a criação teria recusado.
-        allow update: if ehMembroDaSala(salaId)
-          && salaEstaAtiva(salaId)
-          && (resource.data.autorUid == request.auth.uid || ehDonoDaSala(salaId))
+        //
+        // v1.1.1: qualquer professor modera a fila, e não só o dono. Todo
+        // professor é responsável pela turma que está atendendo — e o que
+        // entrou na sala do colega pelo PIN ficou com vínculo de aluno.
+        allow update: if salaEstaAtiva(salaId)
+          && ((ehMembroDaSala(salaId) && resource.data.autorUid == request.auth.uid)
+              || ehDonoDaSala(salaId)
+              || ehProfessor())
           && request.resource.data.autorUid == resource.data.autorUid
           && formatoEhValido()
           && corEhValida()
           && horarioEhDoServidor();
 
         allow delete: if salaEstaAtiva(salaId)
-          && (resource.data.autorUid == request.auth.uid || ehDonoDaSala(salaId));
+          && (resource.data.autorUid == request.auth.uid
+              || ehDonoDaSala(salaId)
+              || ehProfessor());
       }
 
       // A conversa da turma. Mesma história do `chamados`, e pior: o `!clear`
@@ -431,7 +439,7 @@ service cloud.firestore {
         // Apagar mensagem é do professor dono da sala, e só dele. É esta linha
         // — e não a checagem de papel em `services/chat.js` — que vale para um
         // cliente adulterado chamando `deleteDoc` pelo DevTools.
-        allow delete: if salaEstaAtiva(salaId) && ehDonoDaSala(salaId);
+        allow delete: if salaEstaAtiva(salaId) && (ehDonoDaSala(salaId) || ehProfessor());
       }
 
       // ----------------------------------------------------------------------

@@ -403,3 +403,56 @@ describe('o PIN sempre à vista para o dono da sala (v1.1.0)', () => {
     expect(screen.queryByRole('region', { name: 'PIN da sala' })).toBeNull();
   });
 });
+
+describe('o professor que entrou na sala do colega pelo PIN (v1.1.1)', () => {
+  /** A Marta é professora, mas entrou na sala do Carlos com o PIN da turma. */
+  function semearMartaComoMembro() {
+    semearProfessoresNoAuth();
+    semearSala();
+    __semearColecao('salas/sala-mecanica/membros', [
+      { id: CARLOS.uid, nome: 'Carlos Lima', email: CARLOS.email, papel: 'professor' },
+      { id: ANA.uid, nome: 'Ana Souza', email: ANA.email, papel: 'aluno' },
+      {
+        id: OUTRO_PROFESSOR.uid,
+        nome: 'Marta Reis',
+        email: OUTRO_PROFESSOR.email,
+        papel: 'aluno',
+      },
+    ]);
+  }
+
+  it('vê a tela do professor, e não a do aluno', async () => {
+    semearMartaComoMembro();
+    __definirUsuarioAtual(OUTRO_PROFESSOR);
+
+    renderComProvedores(<Sala />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Chamados dos Alunos' })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /bem-vindo/i })).not.toBeInTheDocument();
+  });
+
+  it('pode excluir e marcar como atendido os chamados da turma', async () => {
+    semearMartaComoMembro();
+    __definirUsuarioAtual(OUTRO_PROFESSOR);
+
+    renderComProvedores(<Sala />);
+    await screen.findByText('O torno travou.');
+
+    expect(screen.getByRole('button', { name: 'Excluir' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Atendido' })).toBeInTheDocument();
+  });
+
+  it('não ganha o que é do dono: premiações, turma e PIN', async () => {
+    semearMartaComoMembro();
+    __definirUsuarioAtual(OUTRO_PROFESSOR);
+
+    renderComProvedores(<Sala />);
+    await screen.findByRole('heading', { name: 'Chamados dos Alunos' });
+
+    expect(screen.queryByRole('tab', { name: 'Premiações' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Turma' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'PIN da sala' })).not.toBeInTheDocument();
+  });
+});
