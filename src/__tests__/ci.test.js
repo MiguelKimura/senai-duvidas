@@ -111,6 +111,23 @@ describe('.github/workflows/ci.yml', () => {
     expect(upload.if).toMatch(/always\(\)/);
   });
 
+  it('publica os tempos de unit e rules mesmo morando na pasta oculta .tempos', () => {
+    const { jobs } = lerCi();
+
+    // O upload-artifact@v4 ignora pastas que começam com ponto, a menos que
+    // `include-hidden-files` diga o contrário. Sem isso o artefato sai vazio e
+    // a soma do orçamento, no fim do e2e, acusa as etapas como não medidas.
+    for (const nome of ['test', 'test-rules']) {
+      const upload = jobs[nome].steps.find((passo) =>
+        String((passo.with || {}).name || '').startsWith('tempos-')
+      );
+
+      expect(upload).toBeDefined();
+      expect(upload.with.path).toMatch(/\.tempos/);
+      expect(upload.with['include-hidden-files']).toBe(true);
+    }
+  });
+
   it('limita cada job a 5 minutos, que é o teto do AC-TEST-08', () => {
     const { jobs } = lerCi();
 
