@@ -1,10 +1,13 @@
 // A porta da sala — AC-SALA-07, AC-SALA-09, AC-SALA-10, AC-SEC-02.
 //
-// Quem decide qual tela abrir aqui **não** é o papel global do `AuthContext`.
-// Ser professor no SENAI não é ser professor desta sala: o papel que vale é o
-// do vínculo `salas/{salaId}/membros/{uid}`, que é o mesmo documento que as
-// rules consultam do outro lado. Um professor que digite na barra de endereços
-// a URL da sala de um colega recebe a mesma recusa que um estranho.
+// Para entrar, todo mundo precisa do vínculo `salas/{salaId}/membros/{uid}`
+// (criado pelo PIN). Quem não tem vínculo recebe a recusa, professor ou não.
+//
+// Dentro da sala, a tela do professor abre pelo vínculo de professor **ou**
+// pelo papel global do `AuthContext` (v1.1.1): o professor que entra pelo PIN
+// na sala de um colega ganha vínculo de aluno, mas modera a fila do mesmo
+// jeito — as rules dão a ele excluir e atender chamados. O que é só do dono
+// (PIN, premiações, turma) continua preso a `ehDono`.
 //
 // A checagem daqui não é a proteção — a proteção é a rule, e ela vale mesmo
 // com o cliente adulterado. O que esta tela faz é traduzir a recusa numa frase
@@ -23,7 +26,7 @@ const RECUSA = 'Você não faz parte desta sala. Peça o PIN ao professor da tur
 
 export default function Sala() {
   const { salaId } = useParams();
-  const { usuario } = useAuth();
+  const { usuario, papel } = useAuth();
   const navegar = useNavigate();
 
   const [estado, setEstado] = useState({ situacao: 'carregando' });
@@ -133,7 +136,12 @@ export default function Sala() {
         )}
       </header>
 
-      {papelNaSala === PAPEL_DE_PROFESSOR ? (
+      {/* A tela do professor vale para o vínculo de professor e também para a
+          conta de professor que entrou pelo PIN (v1.1.1): o professor que
+          acompanha a turma do colega ficava com a tela do aluno e não
+          conseguia moderar a fila. O que é só do dono — premiações, turma e
+          PIN — continua dependendo de `ehDono`. */}
+      {papelNaSala === PAPEL_DE_PROFESSOR || papel === PAPEL_DE_PROFESSOR ? (
         <TelaProfessor salaId={salaId} somenteLeitura={somenteLeitura} ehDono={ehDono} />
       ) : (
         <TelaAluno salaId={salaId} somenteLeitura={somenteLeitura} />
