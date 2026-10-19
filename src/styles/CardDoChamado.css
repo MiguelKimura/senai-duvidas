@@ -1,0 +1,142 @@
+/* O card de um chamado — AC-CHAMADO-07, AC-ANIM-08, AC-ANIM-09.
+ *
+ * Estas regras viviam duplicadas em `TelaAluno.css` e `TelaProfessor.css`,
+ * **sem escopo nenhum** — `.card-header`, `.user-name` e `.view-image-icon`
+ * soltos nas duas folhas. Como as duas telas são importadas pelo mesmo bundle,
+ * quem valia era a última importada: o card do aluno herdava o
+ * `justify-content: space-between` do professor ou não, conforme a ordem dos
+ * imports mudasse. Com um componente só (`CardDoChamado.jsx`), há uma folha só.
+ *
+ * A versão que ficou é a do professor: o nome centralizado num envoltório
+ * flexível, com a miniatura do anexo à direita. É a que funciona nos dois
+ * casos, porque a do aluno dependia do `position: absolute` da miniatura, que
+ * a tirava do fluxo e a fazia flutuar sobre o texto em card curto.
+ */
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  margin-bottom: var(--espaco-1);
+}
+
+/* Com o olho do anexo à direita, um espaço do mesmo tamanho à esquerda mantém
+   o nome no centro do card, alinhado com o horário logo abaixo. */
+.card-header:has(.view-image-icon)::before {
+  content: '';
+  flex: 0 0 36px;
+}
+
+.user-name-wrapper {
+  display: flex;
+  justify-content: center;
+  flex-grow: 1;
+  /* `min-width: 0` para o nome longo quebrar em vez de empurrar a miniatura
+     para fora do card em 360px (AC-ANIM-08). */
+  min-width: 0;
+}
+
+.user-name {
+  font-weight: bold;
+  margin: 0;
+  text-align: center;
+  color: var(--cor-texto-forte);
+  overflow-wrap: anywhere;
+}
+
+/* O card tem tamanho padrão: a mesma largura em toda a fila, com ou sem
+   texto longo, com ou sem anexo. Quem cresce é a descrição, e só quando a
+   pessoa pede com "Ler mais". Até a v1.0.0 a largura saía do conteúdo, e três
+   cards de texto comprido ficavam muito mais largos que os outros. */
+.problema-card {
+  box-sizing: border-box;
+  padding: var(--espaco-2) var(--espaco-3);
+  margin: 0 auto var(--espaco-2);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-superficie);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  min-height: 140px;
+  flex: 0 0 auto;
+}
+
+.problema-card p {
+  margin: var(--espaco-minimo) 0;
+  font-size: 1rem;
+  color: var(--cor-texto-forte);
+  overflow-wrap: anywhere;
+}
+
+.problema-card .card-horario {
+  margin: 0 0 var(--espaco-1);
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.card-descricao {
+  overflow-wrap: anywhere;
+  /* Alinhado à esquerda mesmo com o `p` centralizado da base (index.css):
+     texto de várias linhas centralizado é difícil de ler. */
+  text-align: left;
+}
+
+/* Recolhida: quatro linhas e um degradê avisando que há mais texto. A altura
+   é a mesma do limite de `descricaoEhLonga` (utils/cardDoChamado.js). */
+.card-descricao--recolhida {
+  max-height: 6.4em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, var(--cor-texto-forte) 60%, transparent);
+  mask-image: linear-gradient(to bottom, var(--cor-texto-forte) 60%, transparent);
+}
+
+/* Cinza e discreto de propósito: é uma ação de leitura, e não pode disputar
+   atenção com o "Excluir". Os valores sobrescrevem o `button` global de
+   Modal.css, que pinta todo botão de vermelho e o estica com `flex: 1`. */
+.problema-card .card-ler-mais {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: auto;
+  margin: var(--espaco-minimo) 0 0;
+  padding: 4px 12px;
+  border: none;
+  border-radius: var(--raio-1);
+  background-color: var(--cor-borda);
+  color: var(--cor-texto-forte);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.problema-card .card-ler-mais:hover {
+  background-color: var(--cor-borda-forte);
+}
+
+/* O rodapé de ações fica sempre no fundo do card, alinhado à direita. */
+.problema-card .card-acoes,
+.problema-card .delete-button-container {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--espaco-2);
+  margin-top: auto;
+  padding-top: var(--espaco-2);
+}
+
+/* Tamanho fixo: o botão é o mesmo em todo card, qualquer que seja o tamanho
+   do texto. Até a v1.0.0 ele tinha `width: 100%` e acompanhava a largura do
+   card — que por sua vez acompanhava o texto. */
+.problema-card .delete-button,
+.problema-card .atendido-button {
+  flex: 0 0 auto;
+  width: 110px;
+  height: 36px;
+  margin: 0;
+  padding: 0 var(--espaco-2);
+  font-size: 0.95rem;
+  line-height: 36px;
+  text-align: center;
+  white-space: nowrap;
+}

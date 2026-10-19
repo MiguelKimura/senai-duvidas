@@ -1,0 +1,24 @@
+/*
+ * O olho do anexo no card — AC-IMG-10.
+ *
+ * A miniatura da v0.6.0 saiu a pedido do cliente e o olho 👁️ da v0.1.0
+ * voltou. O tamanho é fixo para que o cabeçalho de todo card tenha a mesma
+ * altura, com ou sem anexo.
+ */
+
+.view-image-icon {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--raio-circulo);
+  background-color: rgba(255, 255, 255, 0.7);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.view-image-icon:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+}

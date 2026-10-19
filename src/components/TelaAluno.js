@@ -1,129 +1,330 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import Modal from './Modal';
-import { db, auth } from '../firebase';
-import { collection, addDoc, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
-import { Timestamp } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
+import CardDoChamado from './CardDoChamado';
+import ConfirmarAcao from './ConfirmarAcao';
+import FilaDeChamados from './FilaDeChamados';
+import AbasDaSala from './AbasDaSala';
+import { auth } from '../firebase';
+import { doc, limit, onSnapshot, query, setDoc } from 'firebase/firestore';
+import { camposDoAnexo } from '../services/anexos';
+import { excluirChamado } from '../services/chamados';
+import { carimboServidor, completarHorariosIso } from '../services/tempo';
+import { LIMITE_DE_CHAMADOS, PAPEL_DE_ALUNO, colecaoDeChamados } from '../services/salas';
+import { FORMATO_MARKDOWN } from '../utils/markdown';
+import { corAutomatica } from '../utils/paleta';
+import { validarDescricao } from '../utils/descricaoDoChamado';
+
+import { usePerksDaSala } from '../hooks/usePerksDaSala';
+import {
+  DESCRICAO_DA_CONFIRMACAO,
+  TITULO_DA_CONFIRMACAO,
+  useExclusaoComDesfazer,
+} from '../hooks/useExclusaoComDesfazer';
+import VitrineDeConquistas from './perks/VitrineDeConquistas';
+import PreferenciasDePremiacao from './perks/PreferenciasDePremiacao';
+import PremiacaoDaSala from './perks/PremiacaoDaSala';
 import '../styles/TelaAluno.css';
-import Chat from './Chat';
+import Chat from './chat/Chat';
+import BotaoSair from './BotaoSair';
 
+// A tela do aluno, agora dentro de uma sala (AC-SALA-07).
+//
+// A identidade da tela não mudou — o cliente reconhece esta tela, e a task
+// proíbe repaginá-la. O que mudou é **de onde** vêm os dados: de
+// `salas/{salaId}/chamados` em vez da coleção global, que misturava a escola
+// inteira numa fila só.
+//
+// Sem `salaId`, a tela cai na coleção global da v0.4.0. Esse fallback é
+// deliberado e tem prazo: ele é o que impede a tela vazia para quem abrir o
+// app no meio da migração, e sai na 1.0.0, junto com as coleções globais.
+//
+// A v0.10.0 revisa a exclusão, que era o pedido explícito do cliente: ela
+// passa a pedir confirmação e a oferecer cinco segundos de arrependimento.
+// Toda a mecânica mora em `hooks/useExclusaoComDesfazer.js` — aqui ficam só
+// as duas decisões que são desta tela: quem vê o botão, e o que o card faz
+// enquanto sai.
 
-function TelaAluno() {
+/**
+ * O nome acessível do botão de abrir chamado.
+ *
+ * O botão mostra um "+", que é a identidade visual dele desde a v0.1.0 e que
+ * a task proíbe repaginar. O que ele **anuncia** deixa de ser "+": um leitor
+ * de tela lendo "botão, mais" não diz nada a ninguém, e este é o botão
+ * principal da tela do aluno (AC-ANIM-10).
+ *
+ * Exportado porque é por ele que os testes acham o botão — repetir a string
+ * em cinco arquivos faria a próxima mudança de rótulo quebrar cinco deles.
+ */
+export const ROTULO_DO_NOVO_CHAMADO = 'Abrir novo chamado';
+
+/** O que a tela diz quando o servidor recusa a leitura da fila. */
+export const ERRO_AO_CARREGAR =
+  'Não foi possível carregar a fila de dúvidas. Verifique a conexão.';
+
+function TelaAluno({ salaId = null, somenteLeitura = false }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [problemas, setProblemas] = useState([]);
+  // `true` até o primeiro snapshot chegar. Sem isso a fila aparecia vazia por
+  // um instante e depois se enchia: o aluno lia "nenhuma dúvida por aqui" e
+  // abria a mesma dúvida duas vezes (AC-ANIM-04).
+  const [carregando, setCarregando] = useState(true);
+  const [erroDaFila, setErroDaFila] = useState(null);
+  // Incrementado pelo "tentar novamente": é ele que refaz a inscrição, em vez
+  // de um `retry` escondido que ninguém consegue disparar de propósito.
+  const [tentativa, setTentativa] = useState(0);
   const [usuarioNome, setUsuarioNome] = useState('');
-  const navigate = useNavigate(); // Hook para navegação
+
+  // A ordem da fila passa a depender dos perks da sala (AC-PERK-02). O aluno
+  // vê a mesma fila do professor porque os dois a ordenam com a mesma função e
+  // com o mesmo instante do servidor — discordar aqui geraria briga em sala.
+  const { fila, perks, perksPorUid, agoraServidor } = usePerksDaSala(salaId, problemas);
+
+  // `useCallback` porque ela é dependência do hook de exclusão, que a guarda
+  // para o desmonte: uma seta nova a cada render faria a gravação adiada ser
+  // reagendada a cada quadro (AC-CHAMADO-04).
+  const excluir = useCallback((chamado) => excluirChamado(salaId, chamado), [salaId]);
+
+  const { emConfirmacao, pedirExclusao, confirmar, cancelar, estaSaindo, estaOculto } =
+    useExclusaoComDesfazer({ excluir });
+
+  // A exclusão é otimista: o card sai da fila de quem o excluiu antes de o
+  // documento sair do banco. Enquanto a janela de desfazer corre, ele está
+  // escondido só aqui — a fila da turma continua inteira (AC-CHAMADO-04).
+  const visiveis = useMemo(
+    () => fila.filter((problema) => !estaOculto(problema.id)),
+    [fila, estaOculto]
+  );
 
   useEffect(() => {
     const user = auth.currentUser;
     if (user) {
-      setUsuarioNome(user.displayName || "Aluno");
+      setUsuarioNome(user.displayName || 'Aluno');
     }
+  }, []);
 
-    const unsubscribe = onSnapshot(collection(db, "chamados"), (querySnapshot) => {
-      const problemasList = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        let horario = data.horario;
-        if (horario instanceof Timestamp) {
-          horario = horario.toDate();
-        } else if (typeof horario === 'string') {
-          horario = new Date(horario);
-        } else {
-          horario = new Date();
-        }
+  useEffect(() => {
+    // AC-PERF-03: a fila cresce o ano letivo inteiro, e sem teto cada abertura
+    // do app pagaria por novembro inteiro. O corte cobre o alvo declarado do
+    // projeto (200 chamados por sala).
+    const consulta = query(colecaoDeChamados(salaId), limit(LIMITE_DE_CHAMADOS));
 
-        return { id: doc.id, ...data, horario };
-      });
+    setCarregando(true);
+    setErroDaFila(null);
 
-      problemasList.sort((a, b) => a.horario - b.horario); // Ordenando os problemas pela data
-      setProblemas(problemasList);
-    });
+    const unsubscribe = onSnapshot(
+      consulta,
+      (querySnapshot) => {
+        // `horario` fica cru: quem entende os formatos que convivem no banco é
+        // `services/tempo.js`, na hora de ordenar e na hora de exibir. A lista
+        // também fica crua — ordená-la aqui, sem os perks, faria os cards
+        // trocarem de lugar sozinhos assim que a consulta de perks respondesse.
+        setProblemas(
+          querySnapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }))
+        );
+
+        setCarregando(false);
+
+        // Depois de publicar a lista, para que a reemissão provocada pela
+        // escrita chegue por último e a tela fique com os dados mais novos.
+        completarHorariosIso(querySnapshot.docs, auth.currentUser?.email);
+      },
+      () => {
+        // A recusa do servidor não pode virar fila vazia: "não deu para ler" e
+        // "não há dúvida nenhuma" são coisas diferentes, e o aluno precisa de
+        // um caminho de volta (AC-ANIM-04).
+        setCarregando(false);
+        setErroDaFila(ERRO_AO_CARREGAR);
+      }
+    );
 
     return () => unsubscribe(); // Limpar o listener quando o componente for desmontado
-  }, []);
+  }, [salaId, tentativa]);
+
+  const tentarNovamente = useCallback(() => setTentativa((atual) => atual + 1), []);
+
+  // `useCallback` porque o card é `React.memo`: uma seta nova a cada render
+  // faria os 30 cards reconciliarem a cada mensagem de qualquer colega no
+  // chat, que é exatamente o que o memo existe para evitar (AC-CHAMADO-09).
+  const renderizarCard = useCallback(
+    (problema, indice) => (
+      <CardDoChamado
+        key={problema.id}
+        chamado={problema}
+        salaId={salaId}
+        indice={indice}
+        saindo={estaSaindo(problema.id)}
+        perksPorUid={perksPorUid}
+        agoraServidor={agoraServidor}
+        acoes={
+          !somenteLeitura && problema.email === auth.currentUser?.email ? (
+            <div className="card-acoes">
+              <button className="delete-button" onClick={() => pedirExclusao(problema)}>
+                Excluir
+              </button>
+            </div>
+          ) : null
+        }
+      />
+    ),
+    [estaSaindo, perksPorUid, agoraServidor, somenteLeitura, pedirExclusao, salaId]
+  );
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 
-  const addProblema = async (descricao, imagem) => {
-    if (!descricao) return;
+  const addProblema = async (descricao, anexo, chamadoId, cor = null) => {
+    // O modal já recusou o que estava fora da faixa e já entregou o texto
+    // aparado (AC-CHAMADO-01). Reconferir aqui não é desconfiança dele: é que
+    // esta função é o último ponto antes do `setDoc`, e era `if (!descricao)`
+    // — que deixava passar 4000 caracteres — que estava aqui antes. A mesma
+    // função nos dois lugares é o que impede os dois de divergirem de novo.
+    const { valida, texto } = validarDescricao(descricao);
+    if (!valida) return;
 
     const user = auth.currentUser;
     if (!user) return;
 
-    const novaCor = `hsl(${Math.random() * 360}, 70%, 80%)`;
-    const horario = new Date().toISOString();
+    // A cor escolhida no painel avançado substitui o sorteio; sem escolha, o
+    // sorteio continua sendo o que sempre foi (AC-COR-05). O `||` é o ponto
+    // inteiro do critério: quem não abre o painel não muda de comportamento.
+    const novaCor = cor || corAutomatica();
 
     const novoProblema = {
+      // Escrita dupla do autor, exigida pela seção 4 do protocolo: `autorNome`
+      // é o nome novo, `nome` é o que o leitor da v0.4.0 procura. Os dois
+      // carregam o mesmo conteúdo até a 1.0.0, quando `nome` sai — uma aba
+      // aberta desde antes do deploy continua exibindo quem abriu o chamado.
+      autorUid: user.uid,
+      autorNome: usuarioNome,
       nome: usuarioNome,
       email: user.email,
-      descricao,
-      horario,
+      descricao: texto,
+      // AC-TEMPO-01: quem decide a posição na fila é o servidor, não o relógio
+      // desta máquina. Ver services/tempo.js.
+      horario: carimboServidor(),
       cor: novaCor,
-      imagem: imagem || null, // Salva a imagem (se houver)
+      // Campo aditivo: diz como `descricao` deve ser lida. Ausente significa
+      // texto puro, e é por isso que nenhum chamado gravado até a v0.6.0
+      // precisa ser migrado para continuar aparecendo como apareceu
+      // (AC-COR-07). Um cliente antigo que ignore o campo mostra o markdown
+      // como texto cru — degradação prevista e testada.
+      formato: FORMATO_MARKDOWN,
+      // Escrita dupla do anexo, pela mesma regra do autor: `imagem` continua
+      // sendo a string de URL que todo cliente já aberto no laboratório
+      // procura, e `anexo` é o objeto com o caminho no Storage e as dimensões.
+      // `imagem` só sai na 1.0.0 (AC-IMG-13).
+      ...camposDoAnexo(anexo),
+      atendido: false,
     };
 
     try {
-      await addDoc(collection(db, "chamados"), novoProblema);
+      // `setDoc` no id que o modal reservou, e não `addDoc`: o anexo já subiu
+      // para `salas/{salaId}/chamados/{chamadoId}/` antes de o documento
+      // existir, e deixar o servidor sortear outro id separaria os dois.
+      await setDoc(doc(colecaoDeChamados(salaId), chamadoId), novoProblema);
       closeModal();
     } catch (error) {
-      console.error("Erro ao adicionar problema:", error);
+      console.error('Erro ao adicionar problema:', error);
     }
-  };
-
-  const removerProblema = async (id) => {
-    try {
-      await deleteDoc(doc(db, "chamados", id));
-    } catch (error) {
-      console.error("Erro ao excluir chamado:", error);
-    }
-  };
-
-  // Função para abrir a imagem
-  const visualizarImagem = (imagemUrl) => {
-    window.open(imagemUrl, '_blank');
   };
 
   return (
     <div className="tela-aluno">
+      <BotaoSair />
       <h1>Bem-vindo, {usuarioNome}!</h1>
-      <p>Aqui estão os problemas registrados.</p>
-      <button className="add-button" onClick={openModal}>+</button>
-      <div className="problemas-list">
-        {problemas.map((problema) => (
-          <div
-            key={problema.id}
-            className="problema-card"
-            style={{ backgroundColor: problema.cor }}
-          >
-            <div className="card-header">
-              <p className="user-name"><strong>{problema.nome}</strong></p>
-              {/* Exibir ícone para visualizar a imagem no canto superior direito do card, caso haja imagem */}
-              {problema.imagem && (
-                <div 
-                  className="view-image-icon" 
-                  onClick={() => visualizarImagem(problema.imagem)}
-                  title="Ver imagem"
-                >
-                  👁️
-                </div>
-              )}
-            </div>
-            
-            <p>{problema.descricao}</p>
-            <p><em>{new Date(problema.horario).toLocaleString()}</em></p>
-            
-            {problema.email === auth.currentUser?.email && (
-              <button className="delete-button" onClick={() => removerProblema(problema.id)}>
-                Excluir
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      {isModalOpen && <Modal onClose={closeModal} onSubmit={addProblema} />}
+      {/* A fila é a primeira aba e a que abre sempre. As conquistas ficam
+          numa aba própria: na tela inicial elas empurravam a fila para baixo
+          e faziam a tela de cada aluno ter uma forma diferente, conforme ele
+          tivesse conquista ou não (AC-PERK-06). */}
+      <AbasDaSala
+        rotulo="Seções da sala"
+        abas={[
+          {
+            id: 'chamados',
+            titulo: 'Chamados',
+            conteudo: (
+              <>
+                <p>Aqui estão os problemas registrados.</p>
+                <FilaDeChamados
+                  chamados={visiveis}
+                  carregando={carregando}
+                  erro={erroDaFila}
+                  tentarNovamente={tentarNovamente}
+                  renderizarCard={renderizarCard}
+                />
+              </>
+            ),
+          },
+          {
+            id: 'conquistas',
+            titulo: 'Minhas conquistas',
+            conteudo: (
+              <>
+                <VitrineDeConquistas
+                  perks={perks}
+                  uid={auth.currentUser?.uid}
+                  agoraServidor={agoraServidor}
+                />
 
-      <Chat />
+                {/* As preferências ficam ao lado da vitrine: é aqui que o aluno
+                    está quando decide que não quer mais a animação em tela
+                    cheia (AC-PERK-08). */}
+                <PreferenciasDePremiacao />
+              </>
+            ),
+          },
+        ]}
+      />
+
+      {/* Sala arquivada não aceita chamado novo (AC-SALA-10). O botão some em
+          vez de dar erro no clique: o aluno não tem o que fazer com um erro
+          que não é dele. Quem recusa de verdade continua sendo a rule. Ele
+          flutua no canto, fora das abas, como o botão do chat. */}
+      {!somenteLeitura && (
+        <button
+          type="button"
+          className="add-button"
+          onClick={openModal}
+          aria-label={ROTULO_DO_NOVO_CHAMADO}
+        >
+          +
+        </button>
+      )}
+
+      {/* A premiação em tela cheia, quando existe uma que o aluno ainda não
+          viu. Fica por último no JSX de propósito: ela é um diálogo modal, e
+          o último elemento da árvore é o que recebe o foco sem disputar com a
+          fila (AC-PERK-04). */}
+      <PremiacaoDaSala salaId={salaId} perks={perks} uid={auth.currentUser?.uid} />
+
+      {/* A confirmação que o AC-CHAMADO-04 exige desde a v0.2.0. Até a v0.9.0
+          um clique só apagava a dúvida e o print junto, sem volta. */}
+      {emConfirmacao && (
+        <ConfirmarAcao
+          titulo={TITULO_DA_CONFIRMACAO}
+          descricao={DESCRICAO_DA_CONFIRMACAO}
+          rotuloConfirmar="Excluir"
+          destrutiva
+          aoConfirmar={confirmar}
+          aoCancelar={cancelar}
+        />
+      )}
+
+      {isModalOpen && (
+        <Modal
+          salaId={salaId}
+          autor={usuarioNome}
+          onClose={closeModal}
+          onSubmit={addProblema}
+        />
+      )}
+
+      {/* O papel vai explícito: é ele que decide o selo do balão e quem pode
+          usar o `!clear` (AC-CHAT-04, AC-CHAT-08). Quem abre esta tela é aluno
+          na sala — a decisão de qual tela abrir é de `Sala.jsx`, pelo vínculo.
+          Sem `insigniasDe` desde a v1.1.0: as premiações saíram do chat a
+          pedido do cliente, para a conversa não ficar poluída. */}
+      <Chat salaId={salaId} papelNaSala={PAPEL_DE_ALUNO} somenteLeitura={somenteLeitura} />
     </div>
   );
 }

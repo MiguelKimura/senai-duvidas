@@ -1,0 +1,394 @@
+/*
+ * As telas de sala — lista, criação, entrada por PIN.
+ *
+ * Nasceram depois de `styles/tokens.css`, então já usam `var(--token)` em vez
+ * dos literais que os CSS da v0.1.0 ainda repetem. É o formato para onde os
+ * antigos vão migrar; aqui ele já é o ponto de partida.
+ */
+
+.tela-salas {
+  font-family: var(--fonte-base);
+  background-color: var(--cor-fundo-tela);
+  min-height: 100vh;
+  padding: var(--espaco-4);
+  box-sizing: border-box;
+}
+
+.tela-salas h1 {
+  color: var(--cor-texto-titulo);
+  margin-bottom: var(--espaco-3);
+}
+
+.salas-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  max-width: 420px;
+  background-color: var(--cor-superficie);
+  padding: var(--espaco-4);
+  border-radius: var(--raio-2);
+  box-shadow: var(--sombra-caixa);
+}
+
+.salas-formulario label {
+  color: var(--cor-texto-rotulo);
+  margin-top: var(--espaco-2);
+}
+
+.salas-formulario input {
+  padding: var(--espaco-campo);
+  border: 1px solid var(--cor-borda-campo);
+  border-radius: var(--raio-1);
+  font-family: var(--fonte-base);
+}
+
+.salas-acao {
+  margin-top: var(--espaco-3);
+  padding: var(--espaco-campo);
+  background-color: var(--cor-primaria);
+  color: var(--cor-texto-invertido);
+  border: none;
+  border-radius: var(--raio-1);
+  cursor: pointer;
+  transition: background-color var(--duracao-transicao) var(--aceleracao-padrao);
+}
+
+.salas-acao:hover {
+  background-color: var(--cor-primaria-hover);
+}
+
+.salas-acao:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.salas-acao-discreta {
+  background-color: var(--cor-fundo-caixa);
+  color: var(--cor-texto-titulo);
+  border: 1px solid var(--cor-borda);
+}
+
+.salas-acao-discreta:hover {
+  background-color: var(--cor-fundo-chat);
+}
+
+.salas-erro {
+  color: var(--cor-erro);
+  margin-top: var(--espaco-2);
+}
+
+.salas-vazio {
+  color: var(--cor-texto-discreto);
+}
+
+/* ---- Lista de salas ---------------------------------------------------- */
+
+.salas-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espaco-3);
+  margin-top: var(--espaco-4);
+  padding: 0;
+  list-style: none;
+}
+
+.sala-cartao {
+  background-color: var(--cor-superficie);
+  border-radius: var(--raio-2);
+  box-shadow: var(--sombra-caixa);
+  padding: var(--espaco-4);
+  min-width: 260px;
+}
+
+.sala-cartao h2 {
+  color: var(--cor-texto-titulo);
+  margin: 0 0 var(--espaco-1);
+}
+
+.sala-cartao-dados {
+  color: var(--cor-texto-rotulo);
+  margin: var(--espaco-minimo) 0;
+}
+
+.sala-cartao-arquivada {
+  color: var(--cor-texto-discreto);
+}
+
+/* ---- PIN em destaque --------------------------------------------------- */
+
+.painel-do-pin {
+  /* Centralizado: é o número que o professor projeta para a turma. */
+  margin: 0 auto var(--espaco-3);
+  box-sizing: border-box;
+  background-color: var(--cor-superficie);
+  border-radius: var(--raio-2);
+  box-shadow: var(--sombra-elevada);
+  padding: var(--espaco-4);
+  max-width: 420px;
+}
+
+.painel-do-pin-numero {
+  font-size: 3rem;
+  letter-spacing: var(--espaco-2);
+  color: var(--cor-primaria);
+  margin: var(--espaco-2) 0;
+  user-select: all;
+}
+
+.painel-do-pin-copiado {
+  margin-left: var(--espaco-2);
+  color: var(--cor-mensagem-recebida);
+}
+
+.painel-do-pin-aviso {
+  color: var(--cor-texto-rotulo);
+  margin-top: var(--espaco-3);
+}
+
+.salas-barra {
+  display: flex;
+  gap: var(--espaco-2);
+  flex-wrap: wrap;
+}
+
+/* ---- Dentro da sala ---------------------------------------------------- */
+
+/* O nome da sala e, ao lado, o caminho para as outras (v1.1.0). O espaço à
+   direita é do botão Sair, que é fixo no canto. */
+.sala-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espaco-2) var(--espaco-4);
+  font-family: var(--fonte-base);
+  background-color: var(--cor-superficie);
+  padding: var(--espaco-3) 110px var(--espaco-3) var(--espaco-4);
+  box-shadow: var(--sombra-caixa);
+}
+
+.sala-cabecalho h2 {
+  color: var(--cor-texto-titulo);
+  margin: 0;
+  text-align: left;
+}
+
+.sala-navegacao {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+}
+
+.sala-navegacao .sala-navegacao-voltar {
+  flex: none;
+  width: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-fundo-caixa);
+  color: var(--cor-texto-titulo);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.sala-navegacao .sala-navegacao-voltar:hover {
+  background-color: var(--cor-fundo-chat);
+}
+
+.sala-navegacao-seletor {
+  padding: 6px 10px;
+  border: 1px solid var(--cor-borda-campo);
+  border-radius: var(--raio-1);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto-forte);
+  font-family: inherit;
+  font-size: 0.9rem;
+  max-width: 320px;
+}
+
+/* O PIN da sala num canto, a aula inteira (v1.1.0). Embaixo à direita: na
+   tela do professor não há o botão "+" do aluno ali, e o chat fica no canto
+   oposto. */
+.selo-do-pin {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--espaco-2) var(--espaco-3);
+  border-radius: var(--raio-2);
+  background-color: var(--cor-superficie);
+  box-shadow: var(--sombra-elevada);
+  font-family: var(--fonte-base);
+}
+
+.selo-do-pin-rotulo {
+  color: var(--cor-texto-rotulo);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.selo-do-pin-numero {
+  color: var(--cor-primaria);
+  font-size: 1.8rem;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+  user-select: all;
+}
+
+.selo-do-pin-ausente {
+  color: var(--cor-texto-discreto);
+  font-size: 0.85rem;
+}
+
+.selo-do-pin .selo-do-pin-gerar {
+  flex: none;
+  width: auto;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border: none;
+  background: none;
+  color: var(--cor-texto-rotulo);
+  font-size: 0.75rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.selo-do-pin .selo-do-pin-gerar:hover {
+  background: none;
+  color: var(--cor-texto-titulo);
+}
+
+.selo-do-pin-erro {
+  max-width: 180px;
+  color: var(--cor-erro);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.painel-da-turma {
+  font-family: var(--fonte-base);
+  background-color: var(--cor-fundo-caixa);
+  padding: var(--espaco-3) var(--espaco-4);
+}
+
+/* Uma linha por pessoa, com o nome à esquerda e o botão à direita, no mesmo
+   tamanho em todas as linhas. Até a v1.1.0 eram pílulas que quebravam linha
+   conforme o tamanho do nome, e o botão "Remover Fulano" herdava a margem de
+   cima e o preenchimento dos botões grandes das telas de sala. */
+.painel-da-turma h2 {
+  margin: 0 0 var(--espaco-2);
+  font-size: 1.2rem;
+  color: var(--cor-texto-titulo);
+  text-align: left;
+}
+
+.painel-da-turma-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-1);
+  list-style: none;
+  padding: 0;
+  max-width: 640px;
+}
+
+.painel-da-turma-lista li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espaco-2);
+  background-color: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-1);
+  padding: var(--espaco-1) var(--espaco-2);
+  color: var(--cor-texto-rotulo);
+  text-align: left;
+}
+
+.painel-da-turma-lista li .salas-acao {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+/* ---- O carregamento inicial (AC-ANIM-04) ------------------------------- */
+
+/* O esqueleto imita a forma do cartão de sala — nome, curso, ano —, e não uma
+   barra genérica: a silhueta certa é o que faz a espera parecer curta. O
+   brilho que atravessa as barras vem de `.esqueleto`, em animacoes.css, onde
+   o `prefers-reduced-motion` global o desliga de uma vez (AC-ANIM-05). */
+.salas-aviso {
+  margin: var(--espaco-4) 0 var(--espaco-2);
+  color: var(--cor-texto-rotulo);
+}
+
+.salas-esqueleto-nome {
+  width: 60%;
+  height: var(--espaco-4);
+  margin-bottom: var(--espaco-2);
+}
+
+.salas-esqueleto-linha {
+  width: 40%;
+  height: var(--espaco-3);
+  margin-bottom: var(--espaco-1);
+}
+
+/* O aviso de confirmação do e-mail de professor e o primeiro acesso do aluno. */
+.aviso-verificacao,
+.salas-primeiro-acesso {
+  max-width: 420px;
+  margin: 0 auto var(--espaco-4);
+  padding: var(--espaco-3);
+  border-radius: var(--raio-2);
+  background-color: var(--cor-superficie);
+  border-left: 4px solid var(--cor-primaria);
+}
+
+.aviso-verificacao p,
+.salas-primeiro-acesso p {
+  margin: 0 0 var(--espaco-2);
+}
+
+.salas-primeiro-acesso h2 {
+  margin: 0 0 var(--espaco-2);
+  font-size: 1.2rem;
+}
+
+.aviso-verificacao-acoes {
+  display: flex;
+  gap: var(--espaco-2);
+}
+
+/* Uma coluna estreita no centro da tela: a entrada por PIN e o primeiro
+   acesso do aluno. O conteúdo fica alinhado entre si, e não colado no canto
+   esquerdo de um monitor de 1920px. */
+.salas-centralizada {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 420px;
+  margin: 8vh auto 0;
+  text-align: center;
+}
+
+.salas-centralizada .salas-formulario {
+  text-align: left;
+}
+
+.salas-acao-larga {
+  width: 100%;
+}
+
+/* No primeiro acesso a caixa já é a seção inteira: o formulário dentro dela
+   não ganha sombra nem fundo próprios, senão viram duas caixas encaixadas. */
+.salas-primeiro-acesso .salas-formulario {
+  max-width: none;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}

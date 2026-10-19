@@ -1,0 +1,49 @@
+/* As abas da sala. Os valores de botão sobrescrevem o `button` global de
+ * Modal.css, que pinta todo botão de vermelho e o estica com `flex: 1`. */
+
+.abas-da-sala {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.abas-lista {
+  display: flex;
+  gap: var(--espaco-1);
+  border-bottom: 1px solid var(--cor-borda);
+  overflow-x: auto;
+}
+
+.abas-lista .abas-botao {
+  flex: 0 0 auto;
+  padding: var(--espaco-2) var(--espaco-3);
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--cor-texto-rotulo);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.abas-lista .abas-botao:hover {
+  background-color: var(--cor-fundo-caixa);
+}
+
+.abas-lista .abas-botao[aria-selected='true'] {
+  border-bottom-color: var(--cor-primaria);
+  color: var(--cor-texto-titulo);
+  font-weight: bold;
+}
+
+/* O painel ocupa o resto da altura e é quem rola: o título da sala e as abas
+   ficam sempre à vista. */
+.abas-painel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: var(--espaco-2);
+}

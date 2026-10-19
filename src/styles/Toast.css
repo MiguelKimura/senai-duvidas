@@ -1,0 +1,115 @@
+/* A pilha de avisos — AC-ANIM-07, AC-ANIM-08, AC-ANIM-10. */
+
+.toasts {
+  position: fixed;
+  /* Em cima, e não embaixo: embaixo à direita fica o botão flutuante do chat e
+     o "+" de novo chamado, que são os dois lugares onde o dedo está quando o
+     aviso aparece. */
+  top: var(--espaco-4);
+  right: var(--espaco-4);
+  z-index: var(--camada-topo);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--espaco-2);
+
+  /* O contêiner é só posicionamento: sem `pointer-events: none` ele cobriria
+     a faixa inteira do topo e engoliria cliques mesmo estando vazio. Cada
+     aviso reativa o ponteiro para si. */
+  pointer-events: none;
+  max-width: min(360px, calc(100vw - var(--espaco-5)));
+}
+
+.toast {
+  pointer-events: auto;
+
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-2);
+
+  padding: var(--espaco-campo);
+  border-radius: var(--raio-2);
+  border-left: 4px solid var(--cor-borda);
+  background-color: var(--cor-superficie);
+  box-shadow: var(--sombra-elevada);
+  color: var(--cor-texto-titulo);
+  font-family: var(--fonte-base);
+  font-size: 14px;
+}
+
+.toast-simbolo {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--raio-circulo);
+  background-color: var(--cor-fundo-caixa);
+  font-weight: bold;
+}
+
+.toast-texto {
+  flex: 1;
+  margin: 0;
+}
+
+/* Os dois botões são de texto: um aviso com dois botões vermelhos disputaria
+   atenção com o próprio aviso. */
+.toast-acao,
+.toast-fechar {
+  flex: 0 0 auto;
+  width: auto;
+  padding: var(--espaco-1) var(--espaco-2);
+  border: none;
+  border-radius: var(--raio-1);
+  background: none;
+  color: var(--cor-texto-titulo);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.toast-acao {
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+.toast-acao:hover,
+.toast-fechar:hover {
+  background-color: var(--cor-fundo-caixa);
+}
+
+.toast-fechar {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* A variante tem cor E símbolo E `data-tipo`. Cor sozinha não informa quem
+   não a distingue, e não informa leitor de tela nenhum. */
+.toast[data-tipo='sucesso'] {
+  border-left-color: var(--cor-sucesso);
+}
+
+.toast[data-tipo='erro'] {
+  border-left-color: var(--cor-erro);
+}
+
+.toast[data-tipo='aviso'] {
+  border-left-color: var(--cor-aviso);
+}
+
+.toast[data-tipo='informacao'] {
+  border-left-color: var(--cor-informacao);
+}
+
+/* No celular o aviso ocupa a largura da tela: 360px de viewport não comportam
+   uma caixa de 360px encostada na direita com margem dos dois lados. */
+@media (max-width: 480px) {
+  .toasts {
+    top: var(--espaco-2);
+    right: var(--espaco-2);
+    left: var(--espaco-2);
+    max-width: none;
+  }
+}
