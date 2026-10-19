@@ -86,6 +86,7 @@ jobs:
         with:
           name: tempos-unit
           path: .tempos/
+          include-hidden-files: true
 
   test-rules:
     name: test-rules
@@ -116,6 +117,7 @@ jobs:
         with:
           name: tempos-rules
           path: .tempos/
+          include-hidden-files: true
 
   # A suíte end-to-end (AC-TEST-06). Roda headless, contra o Emulator Suite, e
   # é ela que fecha o orçamento de tempo da suíte completa (AC-TEST-08): o job
