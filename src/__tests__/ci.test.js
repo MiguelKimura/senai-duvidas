@@ -65,7 +65,7 @@ describe('.github/workflows/ci.yml', () => {
     expect([].concat(jobs.build.needs)).toContain('test-rules');
   });
 
-  it('roda cada job em Node 20 com instalação reprodutível', () => {
+  it('roda cada job em Node 22 com instalação reprodutível', () => {
     const { jobs } = lerCi();
 
     for (const [nome, job] of Object.entries(jobs)) {
@@ -77,7 +77,7 @@ describe('.github/workflows/ci.yml', () => {
       // O job de commits só lê o histórico do git: não instala nada.
       if (nome === 'commits') continue;
 
-      expect(String(node.with['node-version'])).toBe('20');
+      expect(String(node.with['node-version'])).toBe('22');
       expect(node.with.cache).toBe('npm');
       expect(passos.some((passo) => passo.run === 'npm ci')).toBe(true);
     }
@@ -109,6 +109,23 @@ describe('.github/workflows/ci.yml', () => {
     expect(upload.with.path).toMatch(/coverage/);
     // `always()`: cobertura de uma suíte que falhou é justamente a que se quer ler.
     expect(upload.if).toMatch(/always\(\)/);
+  });
+
+  it('publica os tempos de unit e rules mesmo morando na pasta oculta .tempos', () => {
+    const { jobs } = lerCi();
+
+    // O upload-artifact@v4 ignora pastas que começam com ponto, a menos que
+    // `include-hidden-files` diga o contrário. Sem isso o artefato sai vazio e
+    // a soma do orçamento, no fim do e2e, acusa as etapas como não medidas.
+    for (const nome of ['test', 'test-rules']) {
+      const upload = jobs[nome].steps.find((passo) =>
+        String((passo.with || {}).name || '').startsWith('tempos-')
+      );
+
+      expect(upload).toBeDefined();
+      expect(upload.with.path).toMatch(/\.tempos/);
+      expect(upload.with['include-hidden-files']).toBe(true);
+    }
   });
 
   it('limita cada job a 5 minutos, que é o teto do AC-TEST-08', () => {
