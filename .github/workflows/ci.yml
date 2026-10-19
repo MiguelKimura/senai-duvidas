@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
       - name: Instalar
         run: npm ci
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
       - name: Instalar
         run: npm ci
@@ -96,7 +96,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
       # Os emuladores de Firestore e Storage são aplicações Java. Sem isto o
       # `firebase emulators:exec` falha antes de rodar um único teste.
@@ -129,7 +129,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
       # O mesmo Java do job de rules, pela mesma razão: o `webServer` do
       # Playwright sobe o Emulator Suite, que é uma aplicação Java.
@@ -177,7 +177,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
       # `npm ci` e não `npm install`: é o comando que prova que o projeto
       # levanta em máquina limpa, a partir do package-lock.json.
@@ -221,5 +221,11 @@ jobs:
       # o ciclo comprovado no histórico, e o histórico completo só existe neste
       # job — é o único com `fetch-depth: 0`. Rodar isto num clone raso passaria
       # por falta de dado, que é o pior jeito de um check ficar verde.
+      #
+      # Fica de fora só o PR de release (`dev` → `main`): os commits dele já
+      # passaram por esta checagem ao entrar em `dev`, e o intervalo
+      # `main..dev` alcança o histórico de antes da regra existir, que não dá
+      # para corrigir sem reescrever a `dev`.
       - name: Verificar o ciclo red-green-refactor
+        if: github.head_ref != 'dev'
         run: node scripts/verificarCicloTdd.js "origin/$GITHUB_BASE_REF..HEAD"
