@@ -65,7 +65,7 @@ describe('.github/workflows/ci.yml', () => {
     expect([].concat(jobs.build.needs)).toContain('test-rules');
   });
 
-  it('roda cada job em Node 20 com instalação reprodutível', () => {
+  it('roda cada job em Node 22 com instalação reprodutível', () => {
     const { jobs } = lerCi();
 
     for (const [nome, job] of Object.entries(jobs)) {
@@ -77,7 +77,7 @@ describe('.github/workflows/ci.yml', () => {
       // O job de commits só lê o histórico do git: não instala nada.
       if (nome === 'commits') continue;
 
-      expect(String(node.with['node-version'])).toBe('20');
+      expect(String(node.with['node-version'])).toBe('22');
       expect(node.with.cache).toBe('npm');
       expect(passos.some((passo) => passo.run === 'npm ci')).toBe(true);
     }
